@@ -1,8 +1,12 @@
 package responses
 
-import "github.com/mbpolan/openmcs/internal/network"
+import (
+	"github.com/mbpolan/openmcs/internal/game"
+	"github.com/mbpolan/openmcs/internal/network"
+)
 
 const initAccepted byte = 0x00
+const initLoggedIn byte = 0x02
 const initSuccessReset byte = 0x0F
 
 // InitFailureCode enumerates various error conditions that result in a failed initialization.
@@ -29,8 +33,10 @@ const (
 
 // InitResponse is sent by the responses in response to a client's initialization request.
 type InitResponse struct {
-	code       byte
-	sessionKey uint64
+	code          byte
+	playerType    byte
+	playerFlagged byte
+	sessionKey    uint64
 }
 
 // NewAcceptedInitResponse creates a response confirming a player's connection was accepted.
@@ -38,6 +44,31 @@ func NewAcceptedInitResponse(sessionKey uint64) *InitResponse {
 	return &InitResponse{
 		code:       initAccepted,
 		sessionKey: sessionKey,
+	}
+}
+
+// NewLoggedInInitResponse creates a response confirming that a player's has been authenticated.
+func NewLoggedInInitResponse(playerType game.PlayerType, playerFlagged bool) *InitResponse {
+	var flagged byte = 0x00
+	if playerFlagged {
+		flagged = 0x01
+	}
+
+	var pType byte
+	switch playerType {
+	case game.PlayerNormal:
+		pType = 0x00
+	case game.PlayerModerator:
+		pType = 0x01
+	case game.PlayerAdmin:
+		pType = 0x02
+	}
+
+	return &InitResponse{
+		code:          initLoggedIn,
+		playerType:    pType,
+		playerFlagged: flagged,
+		sessionKey:    0,
 	}
 }
 
@@ -56,10 +87,20 @@ func (p *InitResponse) Write(w *network.ProtocolWriter) error {
 		return err
 	}
 
-	// response code 0 contains additional data
+	// certain response codes contain additional data
 	if p.code == initAccepted {
 		// write the session key
 		err = w.WriteUint64(p.sessionKey)
+		if err != nil {
+			return err
+		}
+	} else if p.code == initLoggedIn {
+		err = w.WriteByte(p.playerType)
+		if err != nil {
+			return err
+		}
+
+		err = w.WriteByte(p.playerFlagged)
 		if err != nil {
 			return err
 		}

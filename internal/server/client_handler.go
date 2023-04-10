@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"github.com/mbpolan/openmcs/internal/game"
 	"github.com/mbpolan/openmcs/internal/logger"
 	"github.com/mbpolan/openmcs/internal/network"
 	"github.com/mbpolan/openmcs/internal/network/requests"
@@ -15,13 +16,14 @@ type clientState int
 const (
 	initializing clientState = iota
 	loggingIn
+	active
 	failed
 )
 
 // ClientHandler is responsible for managing the state and communications for a single client.
 type ClientHandler struct {
 	conn       net.Conn
-	db         *Database
+	db         *game.Database
 	reader     *network.ProtocolReader
 	writer     *network.ProtocolWriter
 	closeChan  chan *ClientHandler
@@ -31,7 +33,7 @@ type ClientHandler struct {
 
 // NewClientHandler returns a new handler for a client connection. When the handler terminates, it will write to the
 // provided closeChan to indicate its work is complete.
-func NewClientHandler(conn net.Conn, closeChan chan *ClientHandler, db *Database, sessionKey uint64) *ClientHandler {
+func NewClientHandler(conn net.Conn, closeChan chan *ClientHandler, db *game.Database, sessionKey uint64) *ClientHandler {
 	return &ClientHandler{
 		conn:       conn,
 		db:         db,
@@ -49,25 +51,25 @@ func (c *ClientHandler) Handle() {
 
 	// continually process requests from the client until we reach either a graceful close or error state
 	for run {
+		var nextState clientState
+		var err error
+
 		switch c.state {
 		case initializing:
-			nextState, err := c.handleInitialization()
-			if err != nil {
-				logger.Errorf("error during client initialization: %s", err)
-				run = false
-			}
-
-			c.state = nextState
+			nextState, err = c.handleInitialization()
 		case loggingIn:
-			nextState, err := c.handleLogin()
-			if err != nil {
-				logger.Errorf("error during client authentication: %s", err)
-				run = false
-			}
-
-			c.state = nextState
+			nextState, err = c.handleLogin()
+		case active:
+			nextState, err = c.handleLoop()
 		case failed:
 			run = false
+		}
+
+		if err != nil {
+			logger.Errorf("disconnecting player due to error: %s", err)
+			c.state = failed
+		} else {
+			c.state = nextState
 		}
 	}
 
@@ -133,10 +135,34 @@ func (c *ClientHandler) handleLogin() (clientState, error) {
 	if player == nil || player.Password != req.Password {
 		resp := responses.NewFailedInitResponse(responses.InitInvalidUsername)
 		err := resp.Write(c.writer)
-		if err != nil {
-			return failed, err
-		}
+		return failed, err
+	}
+
+	// TODO: add the player to the game world
+
+	// send a confirmation to the client
+	resp := responses.NewLoggedInInitResponse(player.Type, player.Flagged)
+	err = resp.Write(c.writer)
+	if err != nil {
+		return failed, errors.Wrap(err, "failed to send logged in response")
 	}
 
 	return failed, nil
+}
+
+func (c *ClientHandler) handleLoop() (clientState, error) {
+	b, err := c.reader.Byte()
+	if err != nil {
+		return failed, errors.Wrap(err, "unexpected error while waiting for packet header")
+	}
+
+	var nextState clientState
+
+	switch b {
+	default:
+		logger.Errorf("unexpected packet header: %2x", b)
+		nextState = failed
+	}
+
+	return nextState, err
 }

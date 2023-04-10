@@ -1,4 +1,4 @@
-package server
+package game
 
 // Game is the game engine and representation of the game world.
 type Game struct {

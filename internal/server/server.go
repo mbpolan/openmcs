@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/mbpolan/openmcs/internal/game"
 	"github.com/mbpolan/openmcs/internal/logger"
 	"github.com/mbpolan/openmcs/internal/utils"
 	"github.com/pkg/errors"
@@ -15,7 +16,7 @@ type Server struct {
 	bindAddress string
 	clients     []*ClientHandler
 	closeChan   chan *ClientHandler
-	db          *Database
+	db          *game.Database
 	doneChan    chan bool
 	listener    net.Listener
 	mu          sync.Mutex
@@ -34,7 +35,7 @@ func New(opts Options) (*Server, error) {
 		bindAddress: fmt.Sprintf("%s:%d", opts.Address, opts.Port),
 		clients:     nil,
 		closeChan:   make(chan *ClientHandler),
-		db:          NewDatabase(),
+		db:          game.NewDatabase(),
 		doneChan:    make(chan bool, 1),
 		mu:          sync.Mutex{},
 		sessionKey:  0,

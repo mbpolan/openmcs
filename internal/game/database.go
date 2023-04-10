@@ -1,4 +1,4 @@
-package server
+package game
 
 // Database provides access to the server's persistent data storage.
 type Database struct {
@@ -16,5 +16,5 @@ func (d *Database) LoadPlayer(username string) (*Player, error) {
 		return nil, nil
 	}
 
-	return NewPlayer(username, "foo"), nil
+	return NewPlayer(username, "foo", PlayerNormal, false), nil
 }
