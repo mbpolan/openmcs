@@ -172,6 +172,10 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 		// client window focus has changed
 		_, err = requests.ReadFocusRequest(c.reader)
 
+	case requests.ClientClickRequestHeader:
+		// the player clicked somewhere on the client window
+		_, err = requests.ReadClientClickRequest(c.reader)
+
 	default:
 		// unknown packet
 		err = fmt.Errorf("unexpected packet header: %2x", b)
