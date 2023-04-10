@@ -19,6 +19,7 @@ type Server struct {
 	db          *game.Database
 	doneChan    chan bool
 	listener    net.Listener
+	game        *game.Game
 	mu          sync.Mutex
 	sessionKey  uint64
 }
@@ -56,9 +57,12 @@ func (s *Server) Run() error {
 	}
 
 	s.listener = listener
+	s.game = game.NewGame()
+	s.game.Run()
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer listener.Close()
+	defer s.game.Stop()
 	defer cancelFunc()
 
 	go s.cleanUpHandler(ctx)
@@ -91,6 +95,8 @@ func (s *Server) cleanUpHandler(ctx context.Context) {
 	for {
 		select {
 		case h := <-s.closeChan:
+			logger.Infof("disconnecting player")
+			
 			s.mu.Lock()
 			s.clients = utils.Remove(s.clients, h)
 			s.mu.Unlock()

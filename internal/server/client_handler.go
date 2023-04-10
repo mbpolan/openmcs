@@ -9,6 +9,7 @@ import (
 	"github.com/mbpolan/openmcs/internal/network/responses"
 	"github.com/pkg/errors"
 	"net"
+	"time"
 )
 
 type clientState int
@@ -22,13 +23,14 @@ const (
 
 // ClientHandler is responsible for managing the state and communications for a single client.
 type ClientHandler struct {
-	conn       net.Conn
-	db         *game.Database
-	reader     *network.ProtocolReader
-	writer     *network.ProtocolWriter
-	closeChan  chan *ClientHandler
-	sessionKey uint64
-	state      clientState
+	conn          net.Conn
+	db            *game.Database
+	reader        *network.ProtocolReader
+	writer        *network.ProtocolWriter
+	closeChan     chan *ClientHandler
+	lastHeartbeat time.Time
+	sessionKey    uint64
+	state         clientState
 }
 
 // NewClientHandler returns a new handler for a client connection. When the handler terminates, it will write to the
@@ -48,6 +50,7 @@ func NewClientHandler(conn net.Conn, closeChan chan *ClientHandler, db *game.Dat
 // Handle processes requests for the client connection.
 func (c *ClientHandler) Handle() {
 	run := true
+	defer c.conn.Close()
 
 	// continually process requests from the client until we reach either a graceful close or error state
 	for run {
@@ -139,6 +142,7 @@ func (c *ClientHandler) handleLogin() (clientState, error) {
 	}
 
 	// TODO: add the player to the game world
+	logger.Infof("connected new player: %s", player.Username)
 
 	// send a confirmation to the client
 	resp := responses.NewLoggedInInitResponse(player.Type, player.Flagged)
@@ -147,7 +151,7 @@ func (c *ClientHandler) handleLogin() (clientState, error) {
 		return failed, errors.Wrap(err, "failed to send logged in response")
 	}
 
-	return failed, nil
+	return active, nil
 }
 
 func (c *ClientHandler) handleLoop() (clientState, error) {
@@ -156,13 +160,26 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 		return failed, errors.Wrap(err, "unexpected error while waiting for packet header")
 	}
 
-	var nextState clientState
+	// maintain current state
+	var nextState = c.state
 
 	switch b {
+	case requests.IdleRequestHeader:
+		// idle/keep-alive
+		c.lastHeartbeat = time.Now()
+
+	case requests.FocusRequestHeader:
+		// client window focus has changed
+		_, err = requests.ReadFocusRequest(c.reader)
+
 	default:
-		logger.Errorf("unexpected packet header: %2x", b)
-		nextState = failed
+		// unknown packet
+		err = fmt.Errorf("unexpected packet header: %2x", b)
 	}
 
-	return nextState, err
+	if err != nil {
+		return failed, err
+	}
+
+	return nextState, nil
 }
