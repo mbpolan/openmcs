@@ -15,9 +15,11 @@ type Server struct {
 	bindAddress string
 	clients     []*ClientHandler
 	closeChan   chan *ClientHandler
+	db          *Database
 	doneChan    chan bool
 	listener    net.Listener
 	mu          sync.Mutex
+	sessionKey  uint64
 }
 
 // Options are configuration parameters that can be used to customize a server.
@@ -32,8 +34,10 @@ func New(opts Options) (*Server, error) {
 		bindAddress: fmt.Sprintf("%s:%d", opts.Address, opts.Port),
 		clients:     nil,
 		closeChan:   make(chan *ClientHandler),
+		db:          NewDatabase(),
 		doneChan:    make(chan bool, 1),
 		mu:          sync.Mutex{},
+		sessionKey:  0,
 	}, nil
 }
 
@@ -72,7 +76,7 @@ func (s *Server) Run() error {
 			}
 		}
 
-		client := NewClientHandler(conn, s.closeChan)
+		client := NewClientHandler(conn, s.closeChan, s.db, s.sessionKey)
 
 		s.mu.Lock()
 		s.clients = append(s.clients, client)

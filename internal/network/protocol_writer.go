@@ -16,3 +16,48 @@ func NewWriter(conn net.Conn) *ProtocolWriter {
 		Writer: bufio.NewWriter(conn),
 	}
 }
+
+// WriteUint64 writes an unsigned, 64-bit (long) integer.
+func (w *ProtocolWriter) WriteUint64(n uint64) error {
+	err := w.WriteByte(byte(n >> 56))
+	if err != nil {
+		return err
+	}
+
+	err = w.WriteByte(byte(n >> 48))
+	if err != nil {
+		return err
+	}
+
+	err = w.WriteByte(byte(n >> 40))
+	if err != nil {
+		return err
+	}
+
+	err = w.WriteByte(byte(n >> 32))
+	if err != nil {
+		return err
+	}
+
+	err = w.WriteByte(byte(n >> 24))
+	if err != nil {
+		return err
+	}
+
+	err = w.WriteByte(byte(n >> 16))
+	if err != nil {
+		return err
+	}
+
+	err = w.WriteByte(byte(n >> 8))
+	if err != nil {
+		return err
+	}
+
+	err = w.WriteByte(byte(n))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
