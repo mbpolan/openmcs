@@ -1,61 +1,61 @@
-package loaders
+package loader
 
 import (
-	"github.com/mbpolan/openmcs/internal/assets"
-	"github.com/mbpolan/openmcs/internal/models"
+	"github.com/mbpolan/openmcs/internal/asset"
+	"github.com/mbpolan/openmcs/internal/model"
 	"io"
 )
 
 const (
-	opEndDefinition    byte = 0x00
-	opModelIDsTypes         = 0x01
-	opName                  = 0x02
-	opDescription           = 0x03
-	opModelIDs              = 0x05
-	opSizeX                 = 0x0E
-	opSizeY                 = 0x0F
-	opNotSolidFlag          = 0x11
-	opNotWalkableFlag       = 0x12
-	opActions               = 0x13
-	opTerrainFlag           = 0x15
-	opShadingFlag           = 0x16
-	opWallFlag              = 0x17
-	opAnimationID           = 0x18
-	opOffsetAmpFlag         = 0x1C
-	opAmbientFlag           = 0x1D
-	opActionListStart       = 0x1E
-	opActionListEnd         = 0x26
-	opDiffuseFlag           = 0x27
-	opColorCount            = 0x28
-	opIcon                  = 0x3C
-	opRotatedFlag           = 0x3E
-	opShadowFlag            = 0x40
-	opScaleX                = 0x41
-	opScaleY                = 0x42
-	opScaleZ                = 0x43
-	opMapScene              = 0x44
-	opFace                  = 0x45
-	opTranslateX            = 0x46
-	opTranslateY            = 0x47
-	opTranslateZ            = 0x48
-	opUnknown1              = 0x49
-	opUnwalkableFlag        = 0x4A
-	opStaticFlag            = 0x4B
-	opEndAttributeList      = 0x4D
+	opObjectEndDefinition    byte = 0x00
+	opObjectModelIDsTypes         = 0x01
+	opObjectName                  = 0x02
+	opObjectDescription           = 0x03
+	opObjectModelIDs              = 0x05
+	opObjectSizeX                 = 0x0E
+	opObjectSizeY                 = 0x0F
+	opObjectNotSolidFlag          = 0x11
+	opObjectNotWalkableFlag       = 0x12
+	opObjectActions               = 0x13
+	opObjectTerrainFlag           = 0x15
+	opObjectShadingFlag           = 0x16
+	opObjectWallFlag              = 0x17
+	opObjectAnimationID           = 0x18
+	opObjectOffsetAmpFlag         = 0x1C
+	opObjectAmbientFlag           = 0x1D
+	opObjectActionListStart       = 0x1E
+	opObjectActionListEnd         = 0x26
+	opObjectDiffuseFlag           = 0x27
+	opObjectColorCount            = 0x28
+	opObjectIcon                  = 0x3C
+	opObjectRotatedFlag           = 0x3E
+	opObjectShadowFlag            = 0x40
+	opObjectScaleX                = 0x41
+	opObjectScaleY                = 0x42
+	opObjectScaleZ                = 0x43
+	opObjectMapScene              = 0x44
+	opObjectFace                  = 0x45
+	opObjectTranslateX            = 0x46
+	opObjectTranslateY            = 0x47
+	opObjectTranslateZ            = 0x48
+	opObjectUnknown1              = 0x49
+	opObjectUnwalkableFlag        = 0x4A
+	opObjectStaticFlag            = 0x4B
+	opObjectEndAttributeList      = 0x4D
 )
 
 // WorldObjectLoader loads world object data from game asset files.
 type WorldObjectLoader struct {
-	archive *assets.Archive
+	archive *asset.Archive
 }
 
-func NewWorldObjectLoader(archive *assets.Archive) *WorldObjectLoader {
+func NewWorldObjectLoader(archive *asset.Archive) *WorldObjectLoader {
 	return &WorldObjectLoader{
 		archive: archive,
 	}
 }
 
-func (l *WorldObjectLoader) Load() ([]*models.WorldObject, error) {
+func (l *WorldObjectLoader) Load() ([]*model.WorldObject, error) {
 	// extract the files containing object data
 	dataFile, err := l.archive.File("loc.dat")
 	if err != nil {
@@ -67,8 +67,8 @@ func (l *WorldObjectLoader) Load() ([]*models.WorldObject, error) {
 		return nil, err
 	}
 
-	dataReader := assets.NewDataReader(dataFile)
-	idxReader := assets.NewDataReader(idxFile)
+	dataReader := asset.NewDataReader(dataFile)
+	idxReader := asset.NewDataReader(idxFile)
 
 	// read the number of objects in the file
 	numObjects, err := idxReader.Uint16()
@@ -76,7 +76,7 @@ func (l *WorldObjectLoader) Load() ([]*models.WorldObject, error) {
 		return nil, err
 	}
 
-	objects := make([]*models.WorldObject, numObjects)
+	objects := make([]*model.WorldObject, numObjects)
 
 	// read each object definition from the data file
 	offset := 2
@@ -105,8 +105,8 @@ func (l *WorldObjectLoader) Load() ([]*models.WorldObject, error) {
 	return objects, nil
 }
 
-func (l *WorldObjectLoader) readObject(id int, r *assets.DataReader) (*models.WorldObject, error) {
-	object := &models.WorldObject{
+func (l *WorldObjectLoader) readObject(id int, r *asset.DataReader) (*model.WorldObject, error) {
+	object := &model.WorldObject{
 		ID: id,
 	}
 
@@ -119,12 +119,12 @@ func (l *WorldObjectLoader) readObject(id int, r *assets.DataReader) (*models.Wo
 		}
 
 		switch op {
-		case opEndDefinition:
+		case opObjectEndDefinition:
 			// finished reading object definition
 			hasMoreAttributes = false
 
-		case opModelIDsTypes:
-			// read number of models
+		case opObjectModelIDsTypes:
+			// read number of model
 			numModels, err := r.Byte()
 			if err != nil {
 				return nil, err
@@ -135,7 +135,7 @@ func (l *WorldObjectLoader) readObject(id int, r *assets.DataReader) (*models.Wo
 				return nil, err
 			}
 
-		case opName:
+		case opObjectName:
 			// read the object's name
 			name, err := r.String()
 			if err != nil {
@@ -144,7 +144,7 @@ func (l *WorldObjectLoader) readObject(id int, r *assets.DataReader) (*models.Wo
 
 			object.Name = name
 
-		case opDescription:
+		case opObjectDescription:
 			// read the object's description
 			desc, err := r.String()
 			if err != nil {
@@ -153,7 +153,7 @@ func (l *WorldObjectLoader) readObject(id int, r *assets.DataReader) (*models.Wo
 
 			object.Description = desc
 
-		case opModelIDs:
+		case opObjectModelIDs:
 			// read number of model ids
 			numModelIDs, err := r.Byte()
 			if err != nil {
@@ -165,7 +165,7 @@ func (l *WorldObjectLoader) readObject(id int, r *assets.DataReader) (*models.Wo
 				return nil, err
 			}
 
-		case opSizeX:
+		case opObjectSizeX:
 			// read the object's size along the x-axis
 			b, err := r.Byte()
 			if err != nil {
@@ -174,7 +174,7 @@ func (l *WorldObjectLoader) readObject(id int, r *assets.DataReader) (*models.Wo
 
 			object.Size.X = int(b)
 
-		case opSizeY:
+		case opObjectSizeY:
 			// read the object's size along the y-axis
 			b, err := r.Byte()
 			if err != nil {
@@ -183,15 +183,15 @@ func (l *WorldObjectLoader) readObject(id int, r *assets.DataReader) (*models.Wo
 
 			object.Size.Y = int(b)
 
-		case opNotSolidFlag:
+		case opObjectNotSolidFlag:
 			// flag the object as solid
 			object.Solid = false
 
-		case opNotWalkableFlag:
+		case opObjectNotWalkableFlag:
 			// flag that the object cannot be walked on
 			object.Walkable = false
 
-		case opActions:
+		case opObjectActions:
 			// read flag indicating if object has actions
 			b, err := r.Byte()
 			if err != nil {
@@ -200,23 +200,23 @@ func (l *WorldObjectLoader) readObject(id int, r *assets.DataReader) (*models.Wo
 
 			object.HasActions = b == 0x01
 
-		case opTerrainFlag:
+		case opObjectTerrainFlag:
 			object.AdjustToTerrain = true
 
-		case opShadingFlag:
+		case opObjectShadingFlag:
 			object.DelayedShading = true
 
-		case opWallFlag:
+		case opObjectWallFlag:
 			object.Wall = true
 
-		case opAnimationID:
+		case opObjectAnimationID:
 			// skip 2 bytes containing animation id
 			_, err := r.Uint16()
 			if err != nil {
 				return nil, err
 			}
 
-		case opOffsetAmpFlag:
+		case opObjectOffsetAmpFlag:
 			// read flag indicating if object has its offset amplified
 			b, err := r.Byte()
 			if err != nil {
@@ -225,21 +225,21 @@ func (l *WorldObjectLoader) readObject(id int, r *assets.DataReader) (*models.Wo
 
 			object.OffsetAmplified = b == 0x01
 
-		case opAmbientFlag:
+		case opObjectAmbientFlag:
 			// skip byte indicating if object has ambience
 			_, err := r.Byte()
 			if err != nil {
 				return nil, err
 			}
 
-		case opDiffuseFlag:
+		case opObjectDiffuseFlag:
 			// skip byte indicating if object has diffuse properties
 			_, err := r.Byte()
 			if err != nil {
 				return nil, err
 			}
 
-		case opColorCount:
+		case opObjectColorCount:
 			// read byte containing number of colors
 			b, err := r.Byte()
 			if err != nil {
@@ -252,20 +252,20 @@ func (l *WorldObjectLoader) readObject(id int, r *assets.DataReader) (*models.Wo
 				return nil, err
 			}
 
-		case opIcon:
+		case opObjectIcon:
 			// skip 2 bytes containing object icon
 			_, err := r.Uint16()
 			if err != nil {
 				return nil, err
 			}
 
-		case opRotatedFlag:
+		case opObjectRotatedFlag:
 			object.Rotated = true
 
-		case opShadowFlag:
+		case opObjectShadowFlag:
 			object.Shadowless = true
 
-		case opScaleX:
+		case opObjectScaleX:
 			// read object's scale along x-axis
 			scaleX, err := r.Uint16()
 			if err != nil {
@@ -274,7 +274,7 @@ func (l *WorldObjectLoader) readObject(id int, r *assets.DataReader) (*models.Wo
 
 			object.Scale.X = int(scaleX)
 
-		case opScaleY:
+		case opObjectScaleY:
 			// read object's scale along y-axis
 			scaleY, err := r.Uint16()
 			if err != nil {
@@ -283,7 +283,7 @@ func (l *WorldObjectLoader) readObject(id int, r *assets.DataReader) (*models.Wo
 
 			object.Scale.Y = int(scaleY)
 
-		case opScaleZ:
+		case opObjectScaleZ:
 			// read object's scale along z-axis
 			scaleZ, err := r.Uint16()
 			if err != nil {
@@ -292,7 +292,7 @@ func (l *WorldObjectLoader) readObject(id int, r *assets.DataReader) (*models.Wo
 
 			object.Scale.Z = int(scaleZ)
 
-		case opMapScene:
+		case opObjectMapScene:
 			// read object's map scene id
 			mapSceneID, err := r.Uint16()
 			if err != nil {
@@ -301,7 +301,7 @@ func (l *WorldObjectLoader) readObject(id int, r *assets.DataReader) (*models.Wo
 
 			object.MapSceneID = int(mapSceneID)
 
-		case opFace:
+		case opObjectFace:
 			// read object's face id
 			b, err := r.Byte()
 			if err != nil {
@@ -310,7 +310,7 @@ func (l *WorldObjectLoader) readObject(id int, r *assets.DataReader) (*models.Wo
 
 			object.FaceID = int(b)
 
-		case opTranslateX:
+		case opObjectTranslateX:
 			// read object's translation along x-axis
 			translateX, err := r.Uint16()
 			if err != nil {
@@ -319,7 +319,7 @@ func (l *WorldObjectLoader) readObject(id int, r *assets.DataReader) (*models.Wo
 
 			object.Translation.X = int(translateX)
 
-		case opTranslateY:
+		case opObjectTranslateY:
 			// read object's translation along y-axis
 			translateY, err := r.Uint16()
 			if err != nil {
@@ -328,7 +328,7 @@ func (l *WorldObjectLoader) readObject(id int, r *assets.DataReader) (*models.Wo
 
 			object.Translation.Y = int(translateY)
 
-		case opTranslateZ:
+		case opObjectTranslateZ:
 			// read object's translation along z-axis
 			translateZ, err := r.Uint16()
 			if err != nil {
@@ -337,14 +337,14 @@ func (l *WorldObjectLoader) readObject(id int, r *assets.DataReader) (*models.Wo
 
 			object.Translation.Z = int(translateZ)
 
-		case opUnknown1:
+		case opObjectUnknown1:
 			// unknown attribute
 			break
 
-		case opUnwalkableFlag:
+		case opObjectUnwalkableFlag:
 			object.UnwalkableSolid = true
 
-		case opStaticFlag:
+		case opObjectStaticFlag:
 			// read flag indicating if object is static
 			b, err := r.Byte()
 			if err != nil {
@@ -353,7 +353,7 @@ func (l *WorldObjectLoader) readObject(id int, r *assets.DataReader) (*models.Wo
 
 			object.Static = b == 0x01
 
-		case opEndAttributeList:
+		case opObjectEndAttributeList:
 			// end of attribute list, continue reading additional object data
 			hasMoreAttributes = false
 
@@ -394,7 +394,7 @@ func (l *WorldObjectLoader) readObject(id int, r *assets.DataReader) (*models.Wo
 			}
 
 		default:
-			if op >= opActionListStart && op <= opActionListEnd {
+			if op >= opObjectActionListStart && op <= opObjectActionListEnd {
 				// read actions for this object
 				if len(object.Actions) == 0 {
 					object.Actions = make([]string, 5)
@@ -408,7 +408,7 @@ func (l *WorldObjectLoader) readObject(id int, r *assets.DataReader) (*models.Wo
 
 				// ignore special/hidden actions
 				if action != "hidden" {
-					idx := int(op - opActionListStart)
+					idx := int(op - opObjectActionListStart)
 					object.Actions[idx] = action
 				}
 			}

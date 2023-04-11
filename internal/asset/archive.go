@@ -1,4 +1,4 @@
-package assets
+package asset
 
 import (
 	"bytes"
@@ -16,10 +16,10 @@ type archiveFile struct {
 	offset           int
 }
 
-// Archive is a collection of related assets.
+// Archive is a collection of related asset.
 type Archive struct {
 	data  []byte
-	files map[int]archiveFile
+	files map[int32]archiveFile
 }
 
 // NewArchive returns a new handle for an archive with data.
@@ -60,7 +60,7 @@ func NewArchive(data []byte) (*Archive, error) {
 	}
 
 	offset := int(int(cur) + int(numFiles)*10)
-	files := map[int]archiveFile{}
+	files := map[int32]archiveFile{}
 
 	// read information for all files in the archive
 	for i := 0; i < int(numFiles); i++ {
@@ -79,7 +79,7 @@ func NewArchive(data []byte) (*Archive, error) {
 			return nil, err
 		}
 
-		files[int(hash)] = archiveFile{
+		files[int32(hash)] = archiveFile{
 			compressedSize:   int(compressedSize),
 			decompressedSize: int(decompressedSize),
 			compressed:       compressedSize < decompressedSize,
@@ -106,7 +106,7 @@ func (a *Archive) File(name string) ([]byte, error) {
 	}
 
 	// find the data for this file in the archive
-	f, ok := a.files[int(hash)]
+	f, ok := a.files[hash]
 	if !ok {
 		return nil, fmt.Errorf("no such file %s with hash %d in archive", name, hash)
 	}

@@ -1,4 +1,4 @@
-package models
+package model
 
 // Vector2D is a vector in two-dimensional space.
 type Vector2D struct {

@@ -1,4 +1,4 @@
-package models
+package model
 
 // WorldObject is an entity that can appear on the game world.
 type WorldObject struct {

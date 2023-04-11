@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/mbpolan/openmcs/internal/game"
 	"github.com/mbpolan/openmcs/internal/logger"
-	"github.com/mbpolan/openmcs/internal/utils"
+	"github.com/mbpolan/openmcs/internal/util"
 	"github.com/pkg/errors"
 	"net"
 	"sync"
@@ -51,17 +51,25 @@ func (s *Server) Stop() {
 
 // Run begins listening for connections and spawning requests handlers.
 func (s *Server) Run() error {
-	listener, err := net.Listen("tcp", s.bindAddress)
+	var err error
+
+	// create a new game engine instance
+	s.game, err = game.NewGame()
 	if err != nil {
 		return err
 	}
 
-	s.listener = listener
-	s.game, err = game.NewGame()
+	// start listening for connections
+	s.listener, err = net.Listen("tcp", s.bindAddress)
+	if err != nil {
+		return err
+	}
+
+	// start the game engine loop
 	s.game.Run()
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
-	defer listener.Close()
+	defer s.listener.Close()
 	defer s.game.Stop()
 	defer cancelFunc()
 
@@ -71,7 +79,7 @@ func (s *Server) Run() error {
 
 	for {
 		// listen for incoming connections, and gracefully exit if the listener has stopped
-		conn, err := listener.Accept()
+		conn, err := s.listener.Accept()
 		if err != nil {
 			select {
 			case <-s.doneChan:
@@ -98,7 +106,7 @@ func (s *Server) cleanUpHandler(ctx context.Context) {
 			logger.Infof("disconnecting player")
 
 			s.mu.Lock()
-			s.clients = utils.Remove(s.clients, h)
+			s.clients = util.Remove(s.clients, h)
 			s.mu.Unlock()
 
 		case <-ctx.Done():

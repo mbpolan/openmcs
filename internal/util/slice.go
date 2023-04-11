@@ -1,4 +1,4 @@
-package utils
+package util
 
 // Remove drops an element from a slice and returns a new slice.
 func Remove[T comparable](s []T, t T) []T {
