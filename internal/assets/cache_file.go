@@ -118,5 +118,5 @@ func (c *CacheFile) Archive(index int) (*Archive, error) {
 		sector = nextSector
 	}
 
-	return NewArchive(data), nil
+	return NewArchive(data)
 }
