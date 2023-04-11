@@ -78,7 +78,7 @@ func (c *CacheFile) Archive(index int) (*Archive, error) {
 
 	for part := 0; read < size; part++ {
 		// seek to the current sector location in the data file
-		_, err = dataFile.Seek(int64(sector*sectorSize), 0)
+		_, err = dataFile.Seek(int64(sector*sectorSize), io.SeekStart)
 		if err != nil {
 			return nil, err
 		}
@@ -98,24 +98,40 @@ func (c *CacheFile) Archive(index int) (*Archive, error) {
 		}
 
 		// compute indexes, sector and store identifiers from the header
-		realIdx := int((uint16(chunk[0]) << 8) | uint16(chunk[1]))
-		realPart := int((uint16(chunk[2]) << 8) | uint16(chunk[3]))
-		nextSector := int((uint32(chunk[4]) << 16) | (uint32(chunk[5]) << 8) | uint32(chunk[6]))
-		realStoreId := int(chunk[7])
+		r := NewDataReader(chunk)
+		realIdx, err := r.Uint16()
+		if err != nil {
+			return nil, err
+		}
+
+		realPart, err := r.Uint16()
+		if err != nil {
+			return nil, err
+		}
+
+		nextSector, err := r.Uint24()
+		if err != nil {
+			return nil, err
+		}
+
+		realStoreID, err := r.Byte()
+		if err != nil {
+			return nil, err
+		}
 
 		// validate the header
-		if realIdx != index || realPart != part || realStoreId != c.storeID {
+		if int(realIdx) != index || int(realPart) != part || int(realStoreID) != c.storeID {
 			return nil, fmt.Errorf("invalid chunk found: %d != %d, %d != %d, %d != %d", realIdx, index, realPart, part, nextSector, c.storeID)
 		} else if nextSector < 0 || int64(nextSector) > dataFileInfo.Size()/sectorSize {
 			return nil, fmt.Errorf("invalid sector found: %d", nextSector)
 		}
 
 		for i := 0; i < remaining; i++ {
-			data[read+i] = chunk[i+8]
+			data[read+i] = chunk[i+sectorHeaderSize]
 		}
 
 		read += remaining
-		sector = nextSector
+		sector = int(nextSector)
 	}
 
 	return NewArchive(data)
