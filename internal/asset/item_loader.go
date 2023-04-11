@@ -1,7 +1,6 @@
-package loader
+package asset
 
 import (
-	"github.com/mbpolan/openmcs/internal/asset"
 	"github.com/mbpolan/openmcs/internal/model"
 	"io"
 )
@@ -50,10 +49,10 @@ const (
 
 // ItemLoader loads item data from game asset files.
 type ItemLoader struct {
-	archive *asset.Archive
+	archive *Archive
 }
 
-func NewItemLoader(archive *asset.Archive) *ItemLoader {
+func NewItemLoader(archive *Archive) *ItemLoader {
 	return &ItemLoader{
 		archive: archive,
 	}
@@ -71,8 +70,8 @@ func (l *ItemLoader) Load() ([]*model.Item, error) {
 		return nil, err
 	}
 
-	dataReader := asset.NewDataReader(dataFile)
-	idxReader := asset.NewDataReader(idxFile)
+	dataReader := NewDataReader(dataFile)
+	idxReader := NewDataReader(idxFile)
 
 	// read the number of items in the file
 	numItems, err := idxReader.Uint16()
@@ -108,7 +107,7 @@ func (l *ItemLoader) Load() ([]*model.Item, error) {
 	return items, nil
 }
 
-func (l *ItemLoader) readItem(id int, r *asset.DataReader) (*model.Item, error) {
+func (l *ItemLoader) readItem(id int, r *DataReader) (*model.Item, error) {
 	item := &model.Item{
 		ID: id,
 	}

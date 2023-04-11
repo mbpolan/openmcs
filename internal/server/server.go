@@ -13,6 +13,7 @@ import (
 
 // Server provides the network infrastructure for a game and login server.
 type Server struct {
+	assetDir    string
 	bindAddress string
 	clients     []*ClientHandler
 	closeChan   chan *ClientHandler
@@ -26,8 +27,9 @@ type Server struct {
 
 // Options are configuration parameters that can be used to customize a server.
 type Options struct {
-	Address string
-	Port    int
+	AssetDir string
+	Address  string
+	Port     int
 }
 
 // New creates a server instance with options..
@@ -54,7 +56,7 @@ func (s *Server) Run() error {
 	var err error
 
 	// create a new game engine instance
-	s.game, err = game.NewGame()
+	s.game, err = game.NewGame(s.assetDir)
 	if err != nil {
 		return err
 	}

@@ -2,7 +2,6 @@ package game
 
 import (
 	"github.com/mbpolan/openmcs/internal/asset"
-	"github.com/mbpolan/openmcs/internal/asset/loader"
 	"github.com/mbpolan/openmcs/internal/logger"
 	"github.com/mbpolan/openmcs/internal/model"
 	"github.com/pkg/errors"
@@ -17,14 +16,14 @@ type Game struct {
 	objects  []*model.WorldObject
 }
 
-// NewGame creates a new game engine.
-func NewGame() (*Game, error) {
+// NewGame creates a new game engine using game assets located at the given assetDir.
+func NewGame(assetDir string) (*Game, error) {
 	g := &Game{
 		doneChan: make(chan bool, 1),
 	}
 
 	// load game asset
-	err := g.loadAssets()
+	err := g.loadAssets(assetDir)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load game asset")
 	}
@@ -54,23 +53,18 @@ func (g *Game) loop() {
 }
 
 // loadAssets reads and parses all game asset.
-func (g *Game) loadAssets() error {
-	c := asset.NewCacheFile("./data", 0)
-	a, err := c.Archive(2)
-	if err != nil {
-		return err
-	}
+func (g *Game) loadAssets(assetDir string) error {
+	var err error
+	manager := asset.NewManager(assetDir)
 
 	// load world objects
-	woLoader := loader.NewWorldObjectLoader(a)
-	g.objects, err = woLoader.Load()
+	g.objects, err = manager.WorldObjects()
 	if err != nil {
 		return err
 	}
 
 	// load items
-	itemLoader := loader.NewItemLoader(a)
-	g.items, err = itemLoader.Load()
+	g.items, err = manager.Items()
 	if err != nil {
 		return err
 	}

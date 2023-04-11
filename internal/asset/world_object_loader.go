@@ -1,7 +1,6 @@
-package loader
+package asset
 
 import (
-	"github.com/mbpolan/openmcs/internal/asset"
 	"github.com/mbpolan/openmcs/internal/model"
 	"io"
 )
@@ -46,10 +45,10 @@ const (
 
 // WorldObjectLoader loads world object data from game asset files.
 type WorldObjectLoader struct {
-	archive *asset.Archive
+	archive *Archive
 }
 
-func NewWorldObjectLoader(archive *asset.Archive) *WorldObjectLoader {
+func NewWorldObjectLoader(archive *Archive) *WorldObjectLoader {
 	return &WorldObjectLoader{
 		archive: archive,
 	}
@@ -67,8 +66,8 @@ func (l *WorldObjectLoader) Load() ([]*model.WorldObject, error) {
 		return nil, err
 	}
 
-	dataReader := asset.NewDataReader(dataFile)
-	idxReader := asset.NewDataReader(idxFile)
+	dataReader := NewDataReader(dataFile)
+	idxReader := NewDataReader(idxFile)
 
 	// read the number of objects in the file
 	numObjects, err := idxReader.Uint16()
@@ -105,7 +104,7 @@ func (l *WorldObjectLoader) Load() ([]*model.WorldObject, error) {
 	return objects, nil
 }
 
-func (l *WorldObjectLoader) readObject(id int, r *asset.DataReader) (*model.WorldObject, error) {
+func (l *WorldObjectLoader) readObject(id int, r *DataReader) (*model.WorldObject, error) {
 	object := &model.WorldObject{
 		ID: id,
 	}

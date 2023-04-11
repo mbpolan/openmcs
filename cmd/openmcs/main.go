@@ -17,8 +17,9 @@ func main() {
 
 	// TODO: provide these parameters via flags
 	srv, err := server.New(server.Options{
-		Address: "127.0.0.1",
-		Port:    43594,
+		AssetDir: "data",
+		Address:  "127.0.0.1",
+		Port:     43594,
 	})
 	if err != nil {
 		logger.Fatalf("failed to prepare server: %s", err)
