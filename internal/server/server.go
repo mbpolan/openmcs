@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/mbpolan/openmcs/internal/assets"
 	"github.com/mbpolan/openmcs/internal/game"
 	"github.com/mbpolan/openmcs/internal/logger"
 	"github.com/mbpolan/openmcs/internal/utils"
@@ -51,6 +52,11 @@ func (s *Server) Stop() {
 
 // Run begins listening for connections and spawning requests handlers.
 func (s *Server) Run() error {
+	err := s.loadAssets()
+	if err != nil {
+		return errors.Wrap(err, "failed to load assets")
+	}
+
 	listener, err := net.Listen("tcp", s.bindAddress)
 	if err != nil {
 		return err
@@ -96,7 +102,7 @@ func (s *Server) cleanUpHandler(ctx context.Context) {
 		select {
 		case h := <-s.closeChan:
 			logger.Infof("disconnecting player")
-			
+
 			s.mu.Lock()
 			s.clients = utils.Remove(s.clients, h)
 			s.mu.Unlock()
@@ -105,4 +111,14 @@ func (s *Server) cleanUpHandler(ctx context.Context) {
 			return
 		}
 	}
+}
+
+func (s *Server) loadAssets() error {
+	c := assets.NewCacheFile("./data", 0)
+	a, err := c.Archive(2)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
