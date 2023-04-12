@@ -14,6 +14,7 @@ type Game struct {
 	doneChan chan bool
 	ticker   *time.Ticker
 	objects  []*model.WorldObject
+	worldMap *model.Map
 }
 
 // NewGame creates a new game engine using game assets located at the given assetDir.
@@ -56,6 +57,12 @@ func (g *Game) loop() {
 func (g *Game) loadAssets(assetDir string) error {
 	var err error
 	manager := asset.NewManager(assetDir)
+
+	// load map data
+	g.worldMap, err = manager.Map()
+	if err != nil {
+		return err
+	}
 
 	// load world objects
 	g.objects, err = manager.WorldObjects()

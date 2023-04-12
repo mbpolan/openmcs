@@ -38,7 +38,11 @@ func NewArchive(data []byte) (*Archive, error) {
 
 	// is this archive compressed? if so, we need to decompress the data first
 	if compressedSize != decompressedSize {
-		data, err = decompress(data)
+		// skip the first 6 bytes since we just read the (de)compressed sizes
+		compressedData := data[6:]
+
+		// decompress the archive data
+		data, err = decompress(compressedData)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to decompress file")
 		}
@@ -126,8 +130,10 @@ func (a *Archive) File(name string) ([]byte, error) {
 
 	// since it's not compressed we can just copy the slice starting from the offset
 	data := make([]byte, f.decompressedSize)
-	for i := f.offset; i < f.decompressedSize; i++ {
-		data[i] = a.data[i]
+	start := 0
+	for i := f.offset; i < f.offset+f.decompressedSize; i++ {
+		data[start] = a.data[i]
+		start++
 	}
 
 	return data, nil

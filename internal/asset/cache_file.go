@@ -29,6 +29,16 @@ func NewCacheFile(path string, index int) *CacheFile {
 
 // Archive returns a handle to an archive located within the game server cache.
 func (c *CacheFile) Archive(index int) (*Archive, error) {
+	data, err := c.Data(index)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewArchive(data)
+}
+
+// Data returns a slice of bytes representing a blob of data located at an index in the game server cache.
+func (c *CacheFile) Data(index int) ([]byte, error) {
 	// open the data file
 	dataFile, err := os.Open(path.Join(c.path, fmt.Sprintf("%s.dat", filePrefix)))
 	if err != nil {
@@ -134,5 +144,5 @@ func (c *CacheFile) Archive(index int) (*Archive, error) {
 		sector = int(nextSector)
 	}
 
-	return NewArchive(data)
+	return data, nil
 }

@@ -17,6 +17,26 @@ func (r *DataReader) Byte() (byte, error) {
 	return r.Reader.ReadByte()
 }
 
+// VarByte reads a variable-length value, either a byte or 2-bytes, depending on the most significant byte.
+func (r *DataReader) VarByte() (uint16, error) {
+	msb, err := r.Byte()
+	if err != nil {
+		return 0, err
+	}
+
+	if msb < 0x80 {
+		return uint16(msb), nil
+	}
+
+	lsb, err := r.Byte()
+	if err != nil {
+		return 0, err
+	}
+
+	v := (uint16(msb)<<8 | uint16(lsb)) - 0x8000
+	return v, nil
+}
+
 // String reads a variable-length string.
 func (r *DataReader) String() (string, error) {
 	var str []byte
