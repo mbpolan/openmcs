@@ -17,6 +17,21 @@ func NewWriter(conn net.Conn) *ProtocolWriter {
 	}
 }
 
+// WriteUint16 writes an unsigned, 16-bit (short) integer.
+func (w *ProtocolWriter) WriteUint16(n uint16) error {
+	err := w.WriteByte(byte(n >> 8))
+	if err != nil {
+		return err
+	}
+
+	err = w.WriteByte(byte(n))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // WriteUint64 writes an unsigned, 64-bit (long) integer.
 func (w *ProtocolWriter) WriteUint64(n uint64) error {
 	err := w.WriteByte(byte(n >> 56))

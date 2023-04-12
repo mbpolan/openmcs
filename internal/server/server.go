@@ -91,7 +91,7 @@ func (s *Server) Run() error {
 			}
 		}
 
-		client := NewClientHandler(conn, s.closeChan, s.db, s.sessionKey)
+		client := NewClientHandler(conn, s.closeChan, s.db, s.game, s.sessionKey)
 
 		s.mu.Lock()
 		s.clients = append(s.clients, client)

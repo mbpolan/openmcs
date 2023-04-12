@@ -25,6 +25,7 @@ const (
 type ClientHandler struct {
 	conn          net.Conn
 	db            *game.Database
+	game          *game.Game
 	reader        *network.ProtocolReader
 	writer        *network.ProtocolWriter
 	closeChan     chan *ClientHandler
@@ -35,10 +36,11 @@ type ClientHandler struct {
 
 // NewClientHandler returns a new handler for a client connection. When the handler terminates, it will write to the
 // provided closeChan to indicate its work is complete.
-func NewClientHandler(conn net.Conn, closeChan chan *ClientHandler, db *game.Database, sessionKey uint64) *ClientHandler {
+func NewClientHandler(conn net.Conn, closeChan chan *ClientHandler, db *game.Database, game *game.Game, sessionKey uint64) *ClientHandler {
 	return &ClientHandler{
 		conn:       conn,
 		db:         db,
+		game:       game,
 		reader:     network.NewReader(conn),
 		writer:     network.NewWriter(conn),
 		closeChan:  closeChan,
@@ -141,7 +143,8 @@ func (c *ClientHandler) handleLogin() (clientState, error) {
 		return failed, err
 	}
 
-	// TODO: add the player to the game world
+	// add the player to the game world
+	c.game.AddPlayer(player, c.writer)
 	logger.Infof("connected new player: %s", player.Username)
 
 	// send a confirmation to the client

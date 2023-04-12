@@ -4,9 +4,18 @@ import (
 	"github.com/mbpolan/openmcs/internal/asset"
 	"github.com/mbpolan/openmcs/internal/logger"
 	"github.com/mbpolan/openmcs/internal/model"
+	"github.com/mbpolan/openmcs/internal/network"
+	"github.com/mbpolan/openmcs/internal/network/responses"
 	"github.com/pkg/errors"
 	"time"
 )
+
+type playerEntity struct {
+	player   *model.Player
+	doneChan chan bool
+	ticker   *time.Ticker
+	writer   *network.ProtocolWriter
+}
 
 // Game is the game engine and representation of the game world.
 type Game struct {
@@ -14,6 +23,7 @@ type Game struct {
 	doneChan chan bool
 	ticker   *time.Ticker
 	objects  []*model.WorldObject
+	players  []*playerEntity
 	worldMap *model.Map
 }
 
@@ -42,6 +52,29 @@ func (g *Game) Run() {
 	go g.loop()
 }
 
+func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
+	pe := &playerEntity{
+		player:   p,
+		doneChan: make(chan bool, 1),
+		ticker:   time.NewTicker(200 * time.Millisecond),
+		writer:   writer,
+	}
+
+	g.players = append(g.players, pe)
+	go g.playerLoop(pe)
+}
+
+func (g *Game) RemovePlayer(p *model.Player) {
+	for i, pe := range g.players {
+		if pe.player == p {
+			pe.doneChan <- true
+			g.players = append(g.players[:i], g.players[i+1:]...)
+			break
+		}
+	}
+}
+
+// loop continuously runs the main game server update cycle.
 func (g *Game) loop() {
 	for {
 		select {
@@ -49,6 +82,23 @@ func (g *Game) loop() {
 			logger.Infof("stopping game engine")
 			return
 		case <-g.ticker.C:
+
+		}
+	}
+}
+
+// playerLoop continuously runs a game update cycle for a single player.
+func (g *Game) playerLoop(pe *playerEntity) {
+	for {
+		select {
+		case <-pe.doneChan:
+			return
+		case <-pe.ticker.C:
+			err := g.sendPlayerUpdate(pe)
+			if err != nil {
+				logger.Errorf("ending player loop due to error: %s", err)
+				return
+			}
 		}
 	}
 }
@@ -72,6 +122,17 @@ func (g *Game) loadAssets(assetDir string) error {
 
 	// load items
 	g.items, err = manager.Items()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (g *Game) sendPlayerUpdate(pe *playerEntity) error {
+	resp := responses.NewPlayerUpdateResponse()
+
+	err := resp.Write(pe.writer)
 	if err != nil {
 		return err
 	}

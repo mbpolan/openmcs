@@ -1,7 +1,7 @@
 package responses
 
 import (
-	"github.com/mbpolan/openmcs/internal/game"
+	"github.com/mbpolan/openmcs/internal/model"
 	"github.com/mbpolan/openmcs/internal/network"
 )
 
@@ -48,7 +48,7 @@ func NewAcceptedInitResponse(sessionKey uint64) *InitResponse {
 }
 
 // NewLoggedInInitResponse creates a response confirming that a player's has been authenticated.
-func NewLoggedInInitResponse(playerType game.PlayerType, playerFlagged bool) *InitResponse {
+func NewLoggedInInitResponse(playerType model.PlayerType, playerFlagged bool) *InitResponse {
 	var flagged byte = 0x00
 	if playerFlagged {
 		flagged = 0x01
@@ -56,11 +56,11 @@ func NewLoggedInInitResponse(playerType game.PlayerType, playerFlagged bool) *In
 
 	var pType byte
 	switch playerType {
-	case game.PlayerNormal:
+	case model.PlayerNormal:
 		pType = 0x00
-	case game.PlayerModerator:
+	case model.PlayerModerator:
 		pType = 0x01
-	case game.PlayerAdmin:
+	case model.PlayerAdmin:
 		pType = 0x02
 	}
 
