@@ -33,7 +33,7 @@ func Test_BitSet_SetBits(t *testing.T) {
 func Test_BitSet_Skip(t *testing.T) {
 	b := NewBitSet()
 
-	b.Skip()
+	b.Clear()
 
 	assert.Equal(t, 1, len(b.bytes))
 	assert.Equal(t, uint8(0x00), b.bytes[0])

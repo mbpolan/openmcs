@@ -143,16 +143,16 @@ func (c *ClientHandler) handleLogin() (clientState, error) {
 		return failed, err
 	}
 
-	// add the player to the game world
-	c.game.AddPlayer(player, c.writer)
-	logger.Infof("connected new player: %s", player.Username)
-
 	// send a confirmation to the client
 	resp := responses.NewLoggedInInitResponse(player.Type, player.Flagged)
 	err = resp.Write(c.writer)
 	if err != nil {
 		return failed, errors.Wrap(err, "failed to send logged in response")
 	}
+
+	// add the player to the game world
+	c.game.AddPlayer(player, c.writer)
+	logger.Infof("connected new player: %s", player.Username)
 
 	return active, nil
 }

@@ -27,12 +27,20 @@ func (b *BitSet) Write(w *ProtocolWriter) error {
 	return nil
 }
 
+func (b *BitSet) SetOrClear(v bool) {
+	if v {
+		b.Set()
+	} else {
+		b.Clear()
+	}
+}
+
 func (b *BitSet) SetBits(v uint32, n int) {
 	for i := n - 1; i >= 0; i-- {
 		if (v & (1 << i)) != 0 {
 			b.Set()
 		} else {
-			b.Skip()
+			b.Clear()
 		}
 	}
 }
@@ -41,7 +49,7 @@ func (b *BitSet) Set() {
 	b.set(true)
 }
 
-func (b *BitSet) Skip() {
+func (b *BitSet) Clear() {
 	b.set(false)
 }
 

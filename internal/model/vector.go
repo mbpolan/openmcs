@@ -12,3 +12,18 @@ type Vector3D struct {
 	Y int
 	Z int
 }
+
+func (v Vector3D) Divide(w Vector3D) Vector3D {
+	return Vector3D{
+		X: v.X / w.X,
+		Y: v.Y / w.Y,
+		Z: v.Z / w.Z,
+	}
+}
+
+func (v Vector3D) To2D() Vector2D {
+	return Vector2D{
+		X: v.X,
+		Y: v.Y,
+	}
+}

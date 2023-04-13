@@ -6,6 +6,7 @@ import (
 	"github.com/mbpolan/openmcs/internal/model"
 	"github.com/mbpolan/openmcs/internal/network"
 	"github.com/mbpolan/openmcs/internal/network/responses"
+	"github.com/mbpolan/openmcs/internal/util"
 	"github.com/pkg/errors"
 	"time"
 )
@@ -60,6 +61,17 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 		writer:   writer,
 	}
 
+	// send an initial map load
+	// TODO: schedule this instead
+	region := responses.NewLoadRegionResponse(util.GlobalToRegionOrigin(p.GlobalPos).To2D())
+	_ = region.Write(writer)
+
+	// send an initial player update
+	// TODO: schedule this instead
+	update := responses.NewPlayerUpdateResponse()
+	update.SetLocalPlayerPosition(util.GlobalToRegionLocal(p.GlobalPos), true, true)
+	_ = update.Write(writer)
+
 	g.players = append(g.players, pe)
 	go g.playerLoop(pe)
 }
@@ -82,7 +94,7 @@ func (g *Game) loop() {
 			logger.Infof("stopping game engine")
 			return
 		case <-g.ticker.C:
-
+			// TODO: update game state
 		}
 	}
 }
@@ -131,6 +143,9 @@ func (g *Game) loadAssets(assetDir string) error {
 
 func (g *Game) sendPlayerUpdate(pe *playerEntity) error {
 	resp := responses.NewPlayerUpdateResponse()
+
+	// TODO: update player's actual current state
+	resp.SetLocalPlayerNoMovement()
 
 	err := resp.Write(pe.writer)
 	if err != nil {
