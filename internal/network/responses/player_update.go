@@ -209,9 +209,9 @@ func (p *PlayerUpdateResponse) writeLocalPlayer(bs *network.BitSet) {
 		bs.SetOrClear(p.localClearWaypoints)
 		bs.SetOrClear(p.localNeedsUpdate)
 
-		// write 7 bits each for the x and y coordinates
-		bs.SetBits(uint32(p.localPosition.X), 7)
+		// write 7 bits each for the y and x coordinates
 		bs.SetBits(uint32(p.localPosition.Y), 7)
+		bs.SetBits(uint32(p.localPosition.X), 7)
 	}
 }
 
