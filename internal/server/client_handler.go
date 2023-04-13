@@ -179,6 +179,14 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 		// the player clicked somewhere on the client window
 		_, err = requests.ReadClientClickRequest(c.reader)
 
+	case requests.RegionChangeRequestHeader:
+		// the player entered a new map region
+		_, err = requests.ReadRegionChangeRequest(c.reader)
+
+	case requests.RegionLoadedRequestHeader:
+		// the player's client finished loading a new map region
+		_, err = requests.ReadRegionLoadedRequest(c.reader)
+
 	default:
 		// unknown packet
 		err = fmt.Errorf("unexpected packet header: %2x", b)
