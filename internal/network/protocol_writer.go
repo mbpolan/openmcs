@@ -1,20 +1,59 @@
 package network
 
 import (
-	"bufio"
+	"bytes"
+	"fmt"
+	"io"
 	"net"
 )
 
 // ProtocolWriter serializes and writes responses from the server to the client.
 type ProtocolWriter struct {
-	*bufio.Writer
+	buffer *bytes.Buffer
+	writer io.Writer
 }
 
 // NewWriter returns a new ProtocolWriter for a network connection.
 func NewWriter(conn net.Conn) *ProtocolWriter {
 	return &ProtocolWriter{
-		Writer: bufio.NewWriter(conn),
+		writer: conn,
 	}
+}
+
+// NewBufferedWriter returns a new ProtocolWriter that writes to an internal buffer instead of to a network connection.
+func NewBufferedWriter() *ProtocolWriter {
+	buffer := &bytes.Buffer{}
+
+	return &ProtocolWriter{
+		buffer: buffer,
+		writer: buffer,
+	}
+}
+
+// Buffer returns the buffer representing the backing storage for a buffered ProtocolWriter. If the writer is not
+// buffered, an error will be returned instead.
+func (w *ProtocolWriter) Buffer() (*bytes.Buffer, error) {
+	if w.buffer == nil {
+		return nil, fmt.Errorf("not a buffered writer")
+	}
+
+	return w.buffer, nil
+}
+
+// Write attempts to write the slice of bytes, returning how many bytes were written and an error if the entire slice
+// could not be written.
+func (w *ProtocolWriter) Write(b []byte) (int, error) {
+	return w.writer.Write(b)
+}
+
+// WriteByte writes a single, unsigned byte.
+func (w *ProtocolWriter) WriteByte(n byte) error {
+	_, err := w.writer.Write([]byte{n})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // WriteUint16Alt writes an unsigned, 16-bit (short) integer using the alternative format.
@@ -47,29 +86,9 @@ func (w *ProtocolWriter) WriteUint16(n uint16) error {
 	return nil
 }
 
-// WriteUint64 writes an unsigned, 64-bit (long) integer.
-func (w *ProtocolWriter) WriteUint64(n uint64) error {
-	err := w.WriteByte(byte(n >> 56))
-	if err != nil {
-		return err
-	}
-
-	err = w.WriteByte(byte(n >> 48))
-	if err != nil {
-		return err
-	}
-
-	err = w.WriteByte(byte(n >> 40))
-	if err != nil {
-		return err
-	}
-
-	err = w.WriteByte(byte(n >> 32))
-	if err != nil {
-		return err
-	}
-
-	err = w.WriteByte(byte(n >> 24))
+// WriteUint32 writes an unsigned, 32-bit integer.
+func (w *ProtocolWriter) WriteUint32(n uint32) error {
+	err := w.WriteByte(byte(n >> 24))
 	if err != nil {
 		return err
 	}
@@ -85,6 +104,21 @@ func (w *ProtocolWriter) WriteUint64(n uint64) error {
 	}
 
 	err = w.WriteByte(byte(n))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// WriteUint64 writes an unsigned, 64-bit (long) integer.
+func (w *ProtocolWriter) WriteUint64(n uint64) error {
+	err := w.WriteUint32(uint32(n >> 32))
+	if err != nil {
+		return err
+	}
+
+	err = w.WriteUint32(uint32(n))
 	if err != nil {
 		return err
 	}

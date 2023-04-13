@@ -106,5 +106,5 @@ func (p *InitResponse) Write(w *network.ProtocolWriter) error {
 		}
 	}
 
-	return w.Flush()
+	return nil
 }

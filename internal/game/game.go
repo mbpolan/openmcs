@@ -70,6 +70,7 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	// TODO: schedule this instead
 	update := responses.NewPlayerUpdateResponse()
 	update.SetLocalPlayerPosition(util.GlobalToRegionLocal(p.GlobalPos), true, true)
+	update.AddAppearanceUpdate(p.ID, p.Username, p.Appearance)
 	_ = update.Write(writer)
 
 	g.players = append(g.players, pe)
@@ -145,8 +146,6 @@ func (g *Game) sendPlayerUpdate(pe *playerEntity) error {
 	resp := responses.NewPlayerUpdateResponse()
 
 	// TODO: update player's actual current state
-	resp.SetLocalPlayerNoMovement()
-
 	err := resp.Write(pe.writer)
 	if err != nil {
 		return err

@@ -39,5 +39,5 @@ func (p *LoadRegionResponse) Write(w *network.ProtocolWriter) error {
 		return err
 	}
 
-	return w.Flush()
+	return nil
 }

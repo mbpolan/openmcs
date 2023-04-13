@@ -25,5 +25,5 @@ func (d *Database) LoadPlayer(username string) (*model.Player, error) {
 		Z: 0,
 	}
 
-	return model.NewPlayer(username, "foo", model.PlayerNormal, false, globalPos), nil
+	return model.NewPlayer(42, username, "foo", model.PlayerNormal, false, globalPos), nil
 }
