@@ -51,6 +51,21 @@ func (r *ProtocolReader) Uint16() (uint16, error) {
 	return (uint16(i1) << 8) | uint16(i2), nil
 }
 
+// Uint16Alt reads an unsigned, 16-bit integer in alternate format.
+func (r *ProtocolReader) Uint16Alt() (uint16, error) {
+	i1, err := r.Byte()
+	if err != nil {
+		return 0, err
+	}
+
+	i2, err := r.Byte()
+	if err != nil {
+		return 0, err
+	}
+
+	return (uint16(i1) << 8) | uint16(i2+0x80), nil
+}
+
 // Uint32 reads an unsigned, 32-bit integer in big-endian format.
 func (r *ProtocolReader) Uint32() (uint32, error) {
 	i1, err := r.Byte()

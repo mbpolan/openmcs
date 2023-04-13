@@ -183,6 +183,10 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 		// the player entered a new map region
 		_, err = requests.ReadRegionChangeRequest(c.reader)
 
+	case requests.CameraModeRequestHeader:
+		// the player moved their client's camera
+		_, err = requests.ReadCameraModeRequest(c.reader)
+
 	case requests.RegionLoadedRequestHeader:
 		// the player's client finished loading a new map region
 		_, err = requests.ReadRegionLoadedRequest(c.reader)
