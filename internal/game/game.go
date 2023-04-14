@@ -11,11 +11,21 @@ import (
 	"time"
 )
 
+// playerUpdateInterval defines how often player updates are sent.
+const playerUpdateInterval = 600 * time.Millisecond
+
 type playerEntity struct {
-	player   *model.Player
-	doneChan chan bool
-	ticker   *time.Ticker
-	writer   *network.ProtocolWriter
+	player    *model.Player
+	resetChan chan bool
+	doneChan  chan bool
+	scheduler *Scheduler
+	writer    *network.ProtocolWriter
+}
+
+// PlanEvent adds a scheduled event to this player's queue and resets the event timer.
+func (pe *playerEntity) PlanEvent(e *Event) {
+	pe.scheduler.Plan(e)
+	pe.resetChan <- true
 }
 
 // Game is the game engine and representation of the game world.
@@ -53,30 +63,35 @@ func (g *Game) Run() {
 	go g.loop()
 }
 
+// AddPlayer joins a player to the world and handles ongoing game events and network interactions.
 func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	pe := &playerEntity{
-		player:   p,
-		doneChan: make(chan bool, 1),
-		ticker:   time.NewTicker(200 * time.Millisecond),
-		writer:   writer,
+		player:    p,
+		resetChan: make(chan bool),
+		doneChan:  make(chan bool, 1),
+		scheduler: NewScheduler(),
+		writer:    writer,
 	}
 
-	// send an initial map load
-	// TODO: schedule this instead
-	region := responses.NewLoadRegionResponse(util.GlobalToRegionOrigin(p.GlobalPos).To2D())
-	_ = region.Write(writer)
+	go g.playerLoop(pe)
 
-	// send an initial player update
-	// TODO: schedule this instead
+	// plan an initial map region load
+	region := responses.NewLoadRegionResponse(util.GlobalToRegionOrigin(p.GlobalPos).To2D())
+	pe.PlanEvent(NewSendResponseEvent(region, time.Now()))
+
+	// plan an initial player update
 	update := responses.NewPlayerUpdateResponse()
 	update.SetLocalPlayerPosition(util.GlobalToRegionLocal(p.GlobalPos), true, true)
 	update.AddAppearanceUpdate(p.ID, p.Username, p.Appearance)
-	_ = update.Write(writer)
+	pe.PlanEvent(NewSendResponseEvent(update, time.Now()))
+
+	// plan the first continuous player update after the initial one is done
+	pe.PlanEvent(NewEventWithType(EventPlayerUpdate, time.Now().Add(playerUpdateInterval)))
 
 	g.players = append(g.players, pe)
-	go g.playerLoop(pe)
 }
 
+// RemovePlayer removes a previously joined player from the world.
 func (g *Game) RemovePlayer(p *model.Player) {
 	for i, pe := range g.players {
 		if pe.player == p {
@@ -105,13 +120,21 @@ func (g *Game) playerLoop(pe *playerEntity) {
 	for {
 		select {
 		case <-pe.doneChan:
+			// terminate this player's loop
 			return
-		case <-pe.ticker.C:
-			err := g.sendPlayerUpdate(pe)
+
+		case <-pe.resetChan:
+			// a new event was planned; rerun the loop and let the scheduler report the next process time
+
+		case <-time.After(pe.scheduler.TimeUntil()):
+			// handle an event that is now ready for processing
+			err := g.handlePlayerEvent(pe)
 			if err != nil {
 				logger.Errorf("ending player loop due to error: %s", err)
 				return
 			}
+
+		default:
 		}
 	}
 }
@@ -142,6 +165,40 @@ func (g *Game) loadAssets(assetDir string) error {
 	return nil
 }
 
+// handlePlayerEvent processes the next scheduled event for a player.
+func (g *Game) handlePlayerEvent(pe *playerEntity) error {
+	// get the next scheduled event, if any
+	event := pe.scheduler.Next()
+	if event == nil {
+		return nil
+	}
+
+	switch event.Type {
+	case EventPlayerUpdate:
+		// send a player update
+		err := g.sendPlayerUpdate(pe)
+		if err != nil {
+			return err
+		}
+
+		// plan the next update
+		pe.scheduler.Plan(&Event{
+			Type:     EventPlayerUpdate,
+			Schedule: time.Now().Add(playerUpdateInterval),
+		})
+
+	case EventSendResponse:
+		// send a generic response to the client
+		err := event.Response.Write(pe.writer)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// sendPlayerUpdate sends a game state update to the player.
 func (g *Game) sendPlayerUpdate(pe *playerEntity) error {
 	resp := responses.NewPlayerUpdateResponse()
 
