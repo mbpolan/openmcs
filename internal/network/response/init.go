@@ -1,4 +1,4 @@
-package responses
+package response
 
 import (
 	"github.com/mbpolan/openmcs/internal/model"
@@ -31,7 +31,7 @@ const (
 	InitCountDown                       = 0x15
 )
 
-// InitResponse is sent by the responses in response to a client's initialization request.
+// InitResponse is sent by the response in response to a client's initialization request.
 type InitResponse struct {
 	code          byte
 	playerType    byte

@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"github.com/mbpolan/openmcs/internal/game"
 	"github.com/mbpolan/openmcs/internal/logger"
+	"github.com/mbpolan/openmcs/internal/model"
 	"github.com/mbpolan/openmcs/internal/network"
-	"github.com/mbpolan/openmcs/internal/network/requests"
-	"github.com/mbpolan/openmcs/internal/network/responses"
+	"github.com/mbpolan/openmcs/internal/network/request"
+	"github.com/mbpolan/openmcs/internal/network/response"
 	"github.com/pkg/errors"
 	"net"
 	"time"
@@ -30,6 +31,7 @@ type ClientHandler struct {
 	writer        *network.ProtocolWriter
 	closeChan     chan *ClientHandler
 	lastHeartbeat time.Time
+	player        *model.Player
 	sessionKey    uint64
 	state         clientState
 }
@@ -49,12 +51,12 @@ func NewClientHandler(conn net.Conn, closeChan chan *ClientHandler, db *game.Dat
 	}
 }
 
-// Handle processes requests for the client connection.
+// Handle processes request for the client connection.
 func (c *ClientHandler) Handle() {
 	run := true
 	defer c.conn.Close()
 
-	// continually process requests from the client until we reach either a graceful close or error state
+	// continually process request from the client until we reach either a graceful close or error state
 	for run {
 		var nextState clientState
 		var err error
@@ -89,25 +91,25 @@ func (c *ClientHandler) handleInitialization() (clientState, error) {
 	}
 
 	// expect an init request first
-	if b != requests.InitRequestHeader {
+	if b != request.InitRequestHeader {
 		return failed, fmt.Errorf("unexpected init packet header: %2x", b)
 	}
 
 	// read the contents of the init request
-	_, err = requests.ReadInitRequest(c.reader)
+	_, err = request.ReadInitRequest(c.reader)
 	if err != nil {
 		return failed, errors.Wrap(err, "unexpected login packet contents")
 	}
 
 	// write some padding bytes (ignored by client)
-	padding := responses.NewBlankResponse(8)
+	padding := response.NewBlankResponse(8)
 	err = padding.Write(c.writer)
 	if err != nil {
 		return failed, errors.Wrap(err, "failed to send padding")
 	}
 
 	// accept the session
-	resp := responses.NewAcceptedInitResponse(c.sessionKey)
+	resp := response.NewAcceptedInitResponse(c.sessionKey)
 	err = resp.Write(c.writer)
 	if err != nil {
 		return failed, errors.Wrap(err, "failed to send init response")
@@ -123,36 +125,36 @@ func (c *ClientHandler) handleLogin() (clientState, error) {
 	}
 
 	// expect a login request (either a reconnect attempt or a new connection)
-	if b != requests.ReconnectLoginRequestHeader && b != requests.NewLoginRequestHeader {
+	if b != request.ReconnectLoginRequestHeader && b != request.NewLoginRequestHeader {
 		return failed, fmt.Errorf("unexpected login packet header: %2x", b)
 	}
 
 	// read the contents of the login request
-	req, err := requests.ReadLoginRequest(c.reader)
+	req, err := request.ReadLoginRequest(c.reader)
 	if err != nil {
 		return failed, errors.Wrap(err, "unexpected login request contents")
 	}
 
 	// load the player's data, if it exists
-	player, err := c.db.LoadPlayer(req.Username)
+	c.player, err = c.db.LoadPlayer(req.Username)
 
 	// authenticate the player
-	if player == nil || player.Password != req.Password {
-		resp := responses.NewFailedInitResponse(responses.InitInvalidUsername)
+	if c.player == nil || c.player.Password != req.Password {
+		resp := response.NewFailedInitResponse(response.InitInvalidUsername)
 		err := resp.Write(c.writer)
 		return failed, err
 	}
 
 	// send a confirmation to the client
-	resp := responses.NewLoggedInInitResponse(player.Type, player.Flagged)
+	resp := response.NewLoggedInInitResponse(c.player.Type, c.player.Flagged)
 	err = resp.Write(c.writer)
 	if err != nil {
 		return failed, errors.Wrap(err, "failed to send logged in response")
 	}
 
 	// add the player to the game world
-	c.game.AddPlayer(player, c.writer)
-	logger.Infof("connected new player: %s", player.Username)
+	c.game.AddPlayer(c.player, c.writer)
+	logger.Infof("connected new player: %s", c.player.Username)
 
 	return active, nil
 }
@@ -167,29 +169,34 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 	var nextState = c.state
 
 	switch b {
-	case requests.IdleRequestHeader:
+	case request.KeepAliveRequestHeader:
 		// idle/keep-alive
 		c.lastHeartbeat = time.Now()
 
-	case requests.FocusRequestHeader:
+	case request.FocusRequestHeader:
 		// client window focus has changed
-		_, err = requests.ReadFocusRequest(c.reader)
+		_, err = request.ReadFocusRequest(c.reader)
 
-	case requests.ClientClickRequestHeader:
+	case request.ClientClickRequestHeader:
 		// the player clicked somewhere on the client window
-		_, err = requests.ReadClientClickRequest(c.reader)
+		_, err = request.ReadClientClickRequest(c.reader)
+		c.game.MarkPlayerActive(c.player)
 
-	case requests.RegionChangeRequestHeader:
+	case request.RegionChangeRequestHeader:
 		// the player entered a new map region
-		_, err = requests.ReadRegionChangeRequest(c.reader)
+		_, err = request.ReadRegionChangeRequest(c.reader)
 
-	case requests.CameraModeRequestHeader:
+	case request.CameraModeRequestHeader:
 		// the player moved their client's camera
-		_, err = requests.ReadCameraModeRequest(c.reader)
+		_, err = request.ReadCameraModeRequest(c.reader)
+		c.game.MarkPlayerActive(c.player)
 
-	case requests.RegionLoadedRequestHeader:
+	case request.RegionLoadedRequestHeader:
 		// the player's client finished loading a new map region
-		_, err = requests.ReadRegionLoadedRequest(c.reader)
+
+	case request.PlayerIdleRequestHeader:
+		// the player has become idle
+		c.game.MarkPlayerInactive(c.player)
 
 	default:
 		// unknown packet

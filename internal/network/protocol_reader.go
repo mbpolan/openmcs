@@ -5,7 +5,7 @@ import (
 	"net"
 )
 
-// ProtocolReader parses requests sent by the client.
+// ProtocolReader parses request sent by the client.
 type ProtocolReader struct {
 	*bufio.Reader
 	buffer []byte

@@ -7,7 +7,7 @@ import (
 	"net"
 )
 
-// ProtocolWriter serializes and writes responses from the server to the client.
+// ProtocolWriter serializes and writes response from the server to the client.
 type ProtocolWriter struct {
 	buffer *bytes.Buffer
 	writer io.Writer

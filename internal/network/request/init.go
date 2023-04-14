@@ -1,4 +1,4 @@
-package requests
+package request
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 
 const InitRequestHeader = 0x0E
 
-// InitRequest is sent by the requests when a new connection is first established.
+// InitRequest is sent by the request when a new connection is first established.
 type InitRequest struct {
 	// NameHash contains a hashed value representing the player's username.
 	NameHash byte

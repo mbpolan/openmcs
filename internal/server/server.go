@@ -51,7 +51,7 @@ func (s *Server) Stop() {
 	s.listener.Close()
 }
 
-// Run begins listening for connections and spawning requests handlers.
+// Run begins listening for connections and spawning request handlers.
 func (s *Server) Run() error {
 	var err error
 
