@@ -80,6 +80,9 @@ func (c *ClientHandler) Handle() {
 		}
 	}
 
+	// remove the player from the game world
+	c.game.RemovePlayer(c.player)
+
 	// indicate this client handler can be cleaned up
 	c.closeChan <- c
 }
