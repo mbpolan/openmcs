@@ -23,6 +23,7 @@ type playerEntity struct {
 	player          *model.Player
 	resetChan       chan bool
 	doneChan        chan bool
+	path            []model.Vector2D
 	scheduler       *Scheduler
 	writer          *network.ProtocolWriter
 }
@@ -88,6 +89,66 @@ func (g *Game) MarkPlayerInactive(p *model.Player) {
 	}
 }
 
+// WalkPlayer starts moving the player to a specific destination via waypoints.
+func (g *Game) WalkPlayer(p *model.Player, waypoints []model.Vector2D) {
+	if len(waypoints) == 0 {
+		return
+	}
+
+	pe := g.findPlayerByID(p)
+	if pe == nil {
+		return
+	}
+
+	// the first waypoint coordinate is offset by 6 tiles from the region origin
+	waypoints[0].X = (waypoints[0].X + (util.MapScale3D.X)*6) - p.GlobalPos.X
+	waypoints[0].Y = (waypoints[0].Y + (util.MapScale3D.Y)*6) - p.GlobalPos.Y
+
+	// start traversing from the player's current position
+	from := p.GlobalPos.To2D()
+	var path []model.Vector2D
+
+	// plan a direct path to each waypoint
+	for _, w := range waypoints {
+		dx := w.X
+		dy := w.Y
+
+		// waypoints may be many tiles away, so we need to plan each segment in the path individually
+		for dx != 0 || dy != 0 {
+			// prefer movement along the x-axis, followed by the y-axis and lastly diagonal movements
+			if dx != 0 {
+				path = append(path, model.Vector2D{
+					X: from.X + util.Unit(dx),
+					Y: from.Y,
+				})
+
+				dx -= util.Unit(dx)
+			} else if dy != 0 {
+				path = append(path, model.Vector2D{
+					X: from.X,
+					Y: from.Y + util.Unit(dy),
+				})
+
+				dy -= util.Unit(dy)
+			} else if dx != 0 && dy != 0 {
+				path = append(path, model.Vector2D{
+					X: from.X + util.Unit(dx),
+					Y: from.Y + util.Unit(dy),
+				})
+
+				dx -= util.Unit(dx)
+				dy -= util.Unit(dy)
+			}
+
+			// mark this position as the starting point for the next segment
+			from = path[len(path)-1]
+		}
+	}
+
+	logger.Debugf("path player %s via %+v", p.Username, path)
+	pe.path = path
+}
+
 // AddPlayer joins a player to the world and handles ongoing game events and network interactions.
 func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	pe := &playerEntity{
@@ -130,6 +191,18 @@ func (g *Game) RemovePlayer(p *model.Player) {
 			break
 		}
 	}
+}
+
+func (g *Game) findPlayerByID(p *model.Player) *playerEntity {
+	var tpe *playerEntity
+	for _, pe := range g.players {
+		if pe.player.ID == p.ID {
+			tpe = pe
+			break
+		}
+	}
+
+	return tpe
 }
 
 // loop continuously runs the main game server update cycle.
@@ -244,10 +317,27 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 
 // sendPlayerUpdate sends a game state update to the player.
 func (g *Game) sendPlayerUpdate(pe *playerEntity) error {
-	resp := response.NewPlayerUpdateResponse()
+	update := response.NewPlayerUpdateResponse()
 
-	// TODO: update player's actual current state
-	err := resp.Write(pe.writer)
+	// update player's complete current state
+	// TODO: handle remaining possibilities
+	if len(pe.path) != 0 {
+		// the player is walking
+		next := pe.path[0]
+
+		// find the next direction to walk towards
+		dir := model.DirectionFromDelta(next.Sub(pe.player.GlobalPos.To2D()))
+		if dir != model.DirectionNone {
+			update.SetLocalPlayerWalk(dir, false)
+		}
+
+		// remove this waypoint from the path and update the player's position
+		pe.path = pe.path[1:]
+		pe.player.GlobalPos.X = next.X
+		pe.player.GlobalPos.Y = next.Y
+	}
+
+	err := update.Write(pe.writer)
 	if err != nil {
 		return err
 	}

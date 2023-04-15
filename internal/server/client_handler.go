@@ -85,7 +85,7 @@ func (c *ClientHandler) Handle() {
 }
 
 func (c *ClientHandler) handleInitialization() (clientState, error) {
-	b, err := c.reader.Byte()
+	b, err := c.reader.Uint8()
 	if err != nil {
 		return failed, errors.Wrap(err, "failed to read init packet header")
 	}
@@ -119,7 +119,7 @@ func (c *ClientHandler) handleInitialization() (clientState, error) {
 }
 
 func (c *ClientHandler) handleLogin() (clientState, error) {
-	b, err := c.reader.Byte()
+	b, err := c.reader.Uint8()
 	if err != nil {
 		return failed, errors.Wrap(err, "failed to read login packet header")
 	}
@@ -160,7 +160,7 @@ func (c *ClientHandler) handleLogin() (clientState, error) {
 }
 
 func (c *ClientHandler) handleLoop() (clientState, error) {
-	b, err := c.reader.Byte()
+	b, err := c.reader.Uint8()
 	if err != nil {
 		return failed, errors.Wrap(err, "unexpected error while waiting for packet header")
 	}
@@ -197,6 +197,13 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 	case request.PlayerIdleRequestHeader:
 		// the player has become idle
 		c.game.MarkPlayerInactive(c.player)
+
+	case request.WalkRequestHeader, request.WalkOnCommandRequestHeader:
+		// the player started walking to a destination on the map
+		req, err := request.ReadWalkRequest(c.reader)
+		if err == nil {
+			c.game.WalkPlayer(c.player, append([]model.Vector2D{req.Start}, req.Waypoints...))
+		}
 
 	default:
 		// unknown packet

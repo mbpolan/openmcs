@@ -12,7 +12,7 @@ type FocusChangeRequest struct {
 // ReadFocusRequest parses the packet from the connection stream.
 func ReadFocusRequest(r *network.ProtocolReader) (*FocusChangeRequest, error) {
 	// read a single byte, indicating if the client window is current focused or not
-	b, err := r.Byte()
+	b, err := r.Uint8()
 	if err != nil {
 		return nil, err
 	}

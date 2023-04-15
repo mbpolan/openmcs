@@ -13,6 +13,13 @@ type Vector3D struct {
 	Z int
 }
 
+func (v Vector2D) Sub(w Vector2D) Vector2D {
+	return Vector2D{
+		X: v.X - w.X,
+		Y: v.Y - w.Y,
+	}
+}
+
 func (v Vector3D) Multiply(w Vector3D) Vector3D {
 	return Vector3D{
 		X: v.X * w.X,

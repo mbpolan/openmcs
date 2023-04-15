@@ -22,7 +22,7 @@ func NewReader(conn net.Conn) *ProtocolReader {
 // Skip reads exactly n bytes and discards them.
 func (r *ProtocolReader) Skip(n int) error {
 	for i := 0; i < n; i++ {
-		_, err := r.Byte()
+		_, err := r.Uint8()
 		if err != nil {
 			return err
 		}
@@ -31,19 +31,29 @@ func (r *ProtocolReader) Skip(n int) error {
 	return nil
 }
 
-// Byte reads a single byte from the connection.
-func (r *ProtocolReader) Byte() (byte, error) {
+// Uint8 reads a single, unsigned byte from the connection.
+func (r *ProtocolReader) Uint8() (byte, error) {
 	return r.Reader.ReadByte()
 }
 
-// Uint16 reads an unsigned, 16-bit integer in big-endian format.
-func (r *ProtocolReader) Uint16() (uint16, error) {
-	i1, err := r.Byte()
+// Int8 reads a single, signed byte from the connection.
+func (r *ProtocolReader) Int8() (int8, error) {
+	b, err := r.Reader.ReadByte()
 	if err != nil {
 		return 0, err
 	}
 
-	i2, err := r.Byte()
+	return int8(b), nil
+}
+
+// Uint16 reads an unsigned, 16-bit integer in big-endian format.
+func (r *ProtocolReader) Uint16() (uint16, error) {
+	i1, err := r.Uint8()
+	if err != nil {
+		return 0, err
+	}
+
+	i2, err := r.Uint8()
 	if err != nil {
 		return 0, err
 	}
@@ -53,12 +63,12 @@ func (r *ProtocolReader) Uint16() (uint16, error) {
 
 // Uint16Alt reads an unsigned, 16-bit integer in alternate format.
 func (r *ProtocolReader) Uint16Alt() (uint16, error) {
-	i1, err := r.Byte()
+	i1, err := r.Uint8()
 	if err != nil {
 		return 0, err
 	}
 
-	i2, err := r.Byte()
+	i2, err := r.Uint8()
 	if err != nil {
 		return 0, err
 	}
@@ -66,24 +76,54 @@ func (r *ProtocolReader) Uint16Alt() (uint16, error) {
 	return (uint16(i1) << 8) | uint16(i2+0x80), nil
 }
 
+// Uint16LE reads an unsigned, 16-bit integer in little-endian format.
+func (r *ProtocolReader) Uint16LE() (uint16, error) {
+	i1, err := r.Uint8()
+	if err != nil {
+		return 0, err
+	}
+
+	i2, err := r.Uint8()
+	if err != nil {
+		return 0, err
+	}
+
+	return uint16(i1) | (uint16(i2) << 8), nil
+}
+
+// Uint16LEAlt reads an unsigned, 16-bit integer in little-endian, alternate format.
+func (r *ProtocolReader) Uint16LEAlt() (uint16, error) {
+	i1, err := r.Uint8()
+	if err != nil {
+		return 0, err
+	}
+
+	i2, err := r.Uint8()
+	if err != nil {
+		return 0, err
+	}
+
+	return uint16(i1-0x80) | uint16(i2)<<8, nil
+}
+
 // Uint32 reads an unsigned, 32-bit integer in big-endian format.
 func (r *ProtocolReader) Uint32() (uint32, error) {
-	i1, err := r.Byte()
+	i1, err := r.Uint8()
 	if err != nil {
 		return 0, err
 	}
 
-	i2, err := r.Byte()
+	i2, err := r.Uint8()
 	if err != nil {
 		return 0, err
 	}
 
-	i3, err := r.Byte()
+	i3, err := r.Uint8()
 	if err != nil {
 		return 0, err
 	}
 
-	i4, err := r.Byte()
+	i4, err := r.Uint8()
 	if err != nil {
 		return 0, err
 	}
@@ -96,7 +136,7 @@ func (r *ProtocolReader) String() (string, error) {
 	var str []byte
 
 	for {
-		ch, err := r.Byte()
+		ch, err := r.Uint8()
 		if err != nil {
 			return "", err
 		}

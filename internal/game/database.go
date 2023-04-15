@@ -20,8 +20,8 @@ func (d *Database) LoadPlayer(username string) (*model.Player, error) {
 
 	// TODO: maintain player position
 	globalPos := model.Vector3D{
-		X: 3115,
-		Y: 3115,
+		X: 3116,
+		Y: 3116,
 		Z: 0,
 	}
 

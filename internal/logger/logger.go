@@ -1,12 +1,17 @@
 package logger
 
-import "go.uber.org/zap"
+import (
+	"go.uber.org/zap"
+)
 
 var log *zap.SugaredLogger
 
 // Setup prepares the logging infrastructure for the server.
 func Setup() error {
+	level, _ := zap.ParseAtomicLevel("debug")
+
 	cfg := zap.NewProductionConfig()
+	cfg.Level = level
 	cfg.Encoding = "console"
 
 	logger, err := cfg.Build()
@@ -16,6 +21,11 @@ func Setup() error {
 
 	log = logger.Sugar()
 	return nil
+}
+
+// Debugf logs a debug message.
+func Debugf(fmt string, args ...any) {
+	log.Debugf(fmt, args)
 }
 
 // Infof logs an informational message.

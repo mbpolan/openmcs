@@ -16,7 +16,7 @@ type InitRequest struct {
 // ReadInitRequest parses the packet from the connection stream.
 func ReadInitRequest(r *network.ProtocolReader) (*InitRequest, error) {
 	// first and only byte is the hash of the player's name
-	hash, err := r.Byte()
+	hash, err := r.Uint8()
 	if err != nil {
 		return nil, fmt.Errorf("expected name hash packet: %s", err)
 	}

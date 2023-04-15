@@ -9,11 +9,10 @@ var region3D = model.Vector3D{
 	Z: 1,
 }
 
-// mapScale3D represents the scale factor in which map region origins are stored.
-var mapScale3D = model.Vector3D{
+// MapScale3D represents the scale factor in which map region origins are stored.
+var MapScale3D = model.Vector2D{
 	X: 8,
 	Y: 8,
-	Z: 1,
 }
 
 // GlobalToRegionLocal scales a position in global coordinates to region local coordinates.
@@ -24,8 +23,8 @@ func GlobalToRegionLocal(v model.Vector3D) model.Vector3D {
 // GlobalToRegionOrigin scales a position in global coordinates to region origin coordinates.
 func GlobalToRegionOrigin(v model.Vector3D) model.Vector3D {
 	return model.Vector3D{
-		X: ((v.X / region3D.X) * region3D.X) / mapScale3D.X,
-		Y: ((v.Y / region3D.Y) * region3D.Y) / mapScale3D.Y,
+		X: ((v.X / region3D.X) * region3D.X) / MapScale3D.X,
+		Y: ((v.Y / region3D.Y) * region3D.Y) / MapScale3D.Y,
 		Z: v.Z,
 	}
 }

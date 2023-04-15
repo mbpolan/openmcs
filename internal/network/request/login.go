@@ -32,7 +32,7 @@ func ReadLoginRequest(r *network.ProtocolReader) (*LoginRequest, error) {
 	}
 
 	// read low memory indicator
-	lowMemory, err := r.Byte()
+	lowMemory, err := r.Uint8()
 	if err != nil {
 		return nil, err
 	}
@@ -49,13 +49,13 @@ func ReadLoginRequest(r *network.ProtocolReader) (*LoginRequest, error) {
 	}
 
 	// read length of remaining buffer
-	_, err = r.Byte()
+	_, err = r.Uint8()
 	if err != nil {
 		return nil, err
 	}
 
 	// read next segment byte
-	b, err := r.Byte()
+	b, err := r.Uint8()
 	if err != nil {
 		return nil, err
 	}

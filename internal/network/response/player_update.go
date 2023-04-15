@@ -40,6 +40,17 @@ var entityAnimationIDs = []model.AnimationID{
 	model.AnimationRun,
 }
 
+var directionCodes = map[model.Direction]byte{
+	model.DirectionNorth:     0x01,
+	model.DirectionNorthWest: 0x00,
+	model.DirectionWest:      0x03,
+	model.DirectionSouthWest: 0x05,
+	model.DirectionSouth:     0x06,
+	model.DirectionSouthEast: 0x07,
+	model.DirectionEast:      0x04,
+	model.DirectionNorthEast: 0x02,
+}
+
 type playerUpdate struct {
 	id         int
 	mask       uint16
@@ -56,6 +67,7 @@ type PlayerUpdateResponse struct {
 	localMoveType       byte
 	localPosition       model.Vector3D
 	localClearWaypoints bool
+	localWalkDirection  model.Direction
 	localNeedsUpdate    bool
 	updates             []*playerUpdate
 }
@@ -70,6 +82,14 @@ func NewPlayerUpdateResponse() *PlayerUpdateResponse {
 // SetLocalPlayerNoMovement reports that the local player's state has not changed.
 func (p *PlayerUpdateResponse) SetLocalPlayerNoMovement() {
 	p.localMoveType = localMoveUnchanged
+	p.localNeedsUpdate = true
+}
+
+// SetLocalPlayerWalk reports that the local player is walking in a particular direction.
+func (p *PlayerUpdateResponse) SetLocalPlayerWalk(dir model.Direction, needsUpdate bool) {
+	p.localMoveType = localMoveWalk
+	p.localWalkDirection = dir
+	p.localNeedsUpdate = needsUpdate
 }
 
 // SetLocalPlayerPosition reports the local player's position in region local coordinates and update status. The
@@ -155,8 +175,8 @@ func (p *PlayerUpdateResponse) writePayload(w *network.ProtocolWriter) error {
 
 	// TODO: updates for player list
 
-	// add local player as the last one in the update list
-	if p.localMoveType != localMoveNoUpdate {
+	// add local player as the last one in the update list if an update is requested
+	if p.localNeedsUpdate {
 		bs.SetBits(0x7FF, 11)
 	}
 
@@ -194,8 +214,12 @@ func (p *PlayerUpdateResponse) writeLocalPlayer(bs *network.BitSet) {
 		// nothing to do
 
 	case localMoveWalk:
-		// TODO
-		panic("not implemented")
+		// write 2 bits for the direction
+		code := directionCodes[p.localWalkDirection]
+		bs.SetBits(uint32(code), 3)
+
+		// write 1 bit if a further update is required
+		bs.SetOrClear(p.localNeedsUpdate)
 
 	case localMoveRun:
 		// TODO
