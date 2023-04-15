@@ -89,6 +89,16 @@ func (g *Game) MarkPlayerInactive(p *model.Player) {
 	pe.scheduler.Plan(NewEventWithType(EventCheckIdleImmediate, time.Now()))
 }
 
+func (g *Game) RequestLogout(p *model.Player, action int) {
+	pe := g.findPlayerByID(p)
+	if pe == nil {
+		return
+	}
+
+	// TODO: check if player can be logged out (ie: are they in combat, etc.)
+	_ = g.disconnect(pe)
+}
+
 // WalkPlayer starts moving the player to a specific destination via waypoints.
 func (g *Game) WalkPlayer(p *model.Player, waypoints []model.Vector2D) {
 	if len(waypoints) == 0 {
@@ -209,6 +219,14 @@ func (g *Game) findPlayerByID(p *model.Player) *playerEntity {
 	return tpe
 }
 
+// disconnect tells a player's client to disconnect from the server and terminates their connection.
+func (g *Game) disconnect(pe *playerEntity) error {
+	err := pe.writer.WriteUint8(response.DisconnectResponseHeader)
+	pe.doneChan <- true
+
+	return err
+}
+
 // loop continuously runs the main game server update cycle.
 func (g *Game) loop() {
 	for {
@@ -284,9 +302,7 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 	case EventCheckIdle, EventCheckIdleImmediate:
 		// determine if the player has been idle for too long, and if so disconnect them
 		if time.Now().Sub(pe.lastInteraction) >= playerMaxIdleInterval {
-			_ = pe.writer.WriteUint8(response.DisconnectResponseHeader)
-			pe.doneChan <- true
-
+			_ = g.disconnect(pe)
 			return nil
 		}
 

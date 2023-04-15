@@ -205,6 +205,13 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 			c.game.WalkPlayer(c.player, append([]model.Vector2D{req.Start}, req.Waypoints...))
 		}
 
+	case request.LogoutRequestHeader:
+		// the player has requested to log out
+		req, err := request.ReadLogoutRequest(c.reader)
+		if err == nil {
+			c.game.RequestLogout(c.player, req.Action)
+		}
+
 	default:
 		// unknown packet
 		err = fmt.Errorf("unexpected packet header: %2x", b)
