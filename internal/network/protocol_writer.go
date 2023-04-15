@@ -46,8 +46,8 @@ func (w *ProtocolWriter) Write(b []byte) (int, error) {
 	return w.writer.Write(b)
 }
 
-// WriteByte writes a single, unsigned byte.
-func (w *ProtocolWriter) WriteByte(n byte) error {
+// WriteUint8 writes a single, unsigned byte.
+func (w *ProtocolWriter) WriteUint8(n uint8) error {
 	_, err := w.writer.Write([]byte{n})
 	if err != nil {
 		return err
@@ -58,12 +58,12 @@ func (w *ProtocolWriter) WriteByte(n byte) error {
 
 // WriteUint16Alt writes an unsigned, 16-bit (short) integer using the alternative format.
 func (w *ProtocolWriter) WriteUint16Alt(n uint16) error {
-	err := w.WriteByte(byte(n >> 8))
+	err := w.WriteUint8(byte(n >> 8))
 	if err != nil {
 		return err
 	}
 
-	err = w.WriteByte(byte(n - 128))
+	err = w.WriteUint8(byte(n - 128))
 	if err != nil {
 		return err
 	}
@@ -73,12 +73,12 @@ func (w *ProtocolWriter) WriteUint16Alt(n uint16) error {
 
 // WriteUint16 writes an unsigned, 16-bit (short) integer.
 func (w *ProtocolWriter) WriteUint16(n uint16) error {
-	err := w.WriteByte(byte(n >> 8))
+	err := w.WriteUint8(byte(n >> 8))
 	if err != nil {
 		return err
 	}
 
-	err = w.WriteByte(byte(n))
+	err = w.WriteUint8(byte(n))
 	if err != nil {
 		return err
 	}
@@ -88,22 +88,22 @@ func (w *ProtocolWriter) WriteUint16(n uint16) error {
 
 // WriteUint32 writes an unsigned, 32-bit integer.
 func (w *ProtocolWriter) WriteUint32(n uint32) error {
-	err := w.WriteByte(byte(n >> 24))
+	err := w.WriteUint8(byte(n >> 24))
 	if err != nil {
 		return err
 	}
 
-	err = w.WriteByte(byte(n >> 16))
+	err = w.WriteUint8(byte(n >> 16))
 	if err != nil {
 		return err
 	}
 
-	err = w.WriteByte(byte(n >> 8))
+	err = w.WriteUint8(byte(n >> 8))
 	if err != nil {
 		return err
 	}
 
-	err = w.WriteByte(byte(n))
+	err = w.WriteUint8(byte(n))
 	if err != nil {
 		return err
 	}

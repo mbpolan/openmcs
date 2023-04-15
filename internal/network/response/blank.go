@@ -15,7 +15,7 @@ func NewBlankResponse(padding int) *BlankResponse {
 // Write writes the contents of the message to a stream.
 func (p *BlankResponse) Write(w *network.ProtocolWriter) error {
 	for i := 0; i < p.padding; i++ {
-		err := w.WriteByte(0x00)
+		err := w.WriteUint8(0x00)
 		if err != nil {
 			return err
 		}

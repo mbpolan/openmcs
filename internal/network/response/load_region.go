@@ -23,7 +23,7 @@ func NewLoadRegionResponse(region model.Vector2D) *LoadRegionResponse {
 // Write writes the contents of the message to a stream.
 func (p *LoadRegionResponse) Write(w *network.ProtocolWriter) error {
 	// write packet header
-	err := w.WriteByte(LoadRegionResponseHeader)
+	err := w.WriteUint8(LoadRegionResponseHeader)
 	if err != nil {
 		return err
 	}

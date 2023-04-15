@@ -162,6 +162,7 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	}
 
 	// start the player's processing loop
+	g.players = append(g.players, pe)
 	go g.playerLoop(pe)
 
 	// plan an initial map region load
@@ -174,26 +175,28 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	update.AddAppearanceUpdate(p.ID, p.Username, p.Appearance)
 	pe.PlanEvent(NewSendResponseEvent(update, time.Now()))
 
+	// plan an update to the client sidebar interfaces
+	g.planClientTabInterfaces(pe)
+
 	// plan the first continuous player update after the initial one is done
 	pe.PlanEvent(NewEventWithType(EventPlayerUpdate, time.Now().Add(playerUpdateInterval)))
 
 	// plan the first continuous idle check event
 	pe.PlanEvent(NewEventWithType(EventCheckIdle, time.Now().Add(playerMaxIdleInterval)))
-
-	g.players = append(g.players, pe)
 }
 
 // RemovePlayer removes a previously joined player from the world.
 func (g *Game) RemovePlayer(p *model.Player) {
 	for i, pe := range g.players {
 		if pe.player == p {
-			pe.doneChan <- true
 			g.players = append(g.players[:i], g.players[i+1:]...)
+			pe.doneChan <- true
 			break
 		}
 	}
 }
 
+// findPlayerByID returns the playerEntity for the corresponding player.
 func (g *Game) findPlayerByID(p *model.Player) *playerEntity {
 	var tpe *playerEntity
 	for _, pe := range g.players {
@@ -281,7 +284,7 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 	case EventCheckIdle, EventCheckIdleImmediate:
 		// determine if the player has been idle for too long, and if so disconnect them
 		if time.Now().Sub(pe.lastInteraction) >= playerMaxIdleInterval {
-			_ = pe.writer.WriteByte(response.DisconnectResponseHeader)
+			_ = pe.writer.WriteUint8(response.DisconnectResponseHeader)
 			pe.doneChan <- true
 
 			return nil
@@ -314,6 +317,13 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 	}
 
 	return nil
+}
+
+// planClientTabInterfaces schedules an update for the player's client to refresh its tab interfaces.
+func (g *Game) planClientTabInterfaces(pe *playerEntity) {
+	// TODO: these ids should not be hardcoded
+	r := response.NewSidebarInterfaceResponse(model.ClientTabLogout, 2449)
+	pe.scheduler.Plan(NewSendResponseEvent(r, time.Now()))
 }
 
 // sendPlayerUpdate sends a game state update to the player.

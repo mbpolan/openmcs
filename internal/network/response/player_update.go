@@ -141,7 +141,7 @@ func (p *PlayerUpdateResponse) Write(w *network.ProtocolWriter) error {
 	}
 
 	// write packet header
-	err = w.WriteByte(PlayerUpdateResponseHeader)
+	err = w.WriteUint8(PlayerUpdateResponseHeader)
 	if err != nil {
 		return err
 	}
@@ -248,7 +248,7 @@ func (p *PlayerUpdateResponse) writePlayerUpdates(w *network.ProtocolWriter) err
 				return err
 			}
 		} else {
-			err := w.WriteByte(byte(u.mask))
+			err := w.WriteUint8(byte(u.mask))
 			if err != nil {
 				return err
 			}
@@ -278,13 +278,13 @@ func (p *PlayerUpdateResponse) writeAppearance(ea *entityAppearance, w *network.
 	}
 
 	// write 1 byte for the gender
-	err := bw.WriteByte(gender)
+	err := bw.WriteUint8(gender)
 	if err != nil {
 		return err
 	}
 
 	// write 1 byte for overhead icon
-	err = bw.WriteByte(byte(a.OverheadIconID))
+	err = bw.WriteUint8(byte(a.OverheadIconID))
 	if err != nil {
 		return err
 	}
@@ -293,7 +293,7 @@ func (p *PlayerUpdateResponse) writeAppearance(ea *entityAppearance, w *network.
 	for _, id := range a.Equipment {
 		// if nothing is equipped at this slot, write one byte only
 		if id == 0 {
-			err = bw.WriteByte(0)
+			err = bw.WriteUint8(0)
 			if err != nil {
 				return err
 			}
@@ -321,7 +321,7 @@ func (p *PlayerUpdateResponse) writeAppearance(ea *entityAppearance, w *network.
 
 	// write each body part color
 	for _, color := range a.Body {
-		err = bw.WriteByte(byte(color))
+		err = bw.WriteUint8(byte(color))
 		if err != nil {
 			return err
 		}
@@ -366,7 +366,7 @@ func (p *PlayerUpdateResponse) writeAppearance(ea *entityAppearance, w *network.
 	}
 
 	// write a byte the combat level
-	err = bw.WriteByte(byte(a.CombatLevel))
+	err = bw.WriteUint8(byte(a.CombatLevel))
 	if err != nil {
 		return err
 	}
@@ -383,7 +383,7 @@ func (p *PlayerUpdateResponse) writeAppearance(ea *entityAppearance, w *network.
 	}
 
 	// write a byte for the appearance buffer size. the client expects this to be a negative value.
-	err = w.WriteByte(byte(buffer.Len() * -1))
+	err = w.WriteUint8(byte(buffer.Len() * -1))
 	if err != nil {
 		return err
 	}

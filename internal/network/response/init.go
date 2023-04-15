@@ -82,7 +82,7 @@ func NewFailedInitResponse(code InitFailureCode) *InitResponse {
 // Write writes the contents of the message to a stream.
 func (p *InitResponse) Write(w *network.ProtocolWriter) error {
 	// write the result code first
-	err := w.WriteByte(p.code)
+	err := w.WriteUint8(p.code)
 	if err != nil {
 		return err
 	}
@@ -95,12 +95,12 @@ func (p *InitResponse) Write(w *network.ProtocolWriter) error {
 			return err
 		}
 	} else if p.code == initLoggedIn {
-		err = w.WriteByte(p.playerType)
+		err = w.WriteUint8(p.playerType)
 		if err != nil {
 			return err
 		}
 
-		err = w.WriteByte(p.playerFlagged)
+		err = w.WriteUint8(p.playerFlagged)
 		if err != nil {
 			return err
 		}
