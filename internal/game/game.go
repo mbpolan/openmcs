@@ -16,7 +16,7 @@ import (
 const playerMaxIdleInterval = 3 * time.Minute
 
 // playerUpdateInterval defines how often player updates are sent.
-const playerUpdateInterval = 600 * time.Millisecond
+const playerUpdateInterval = 200 * time.Millisecond
 
 type playerEntity struct {
 	lastInteraction time.Time
@@ -71,22 +71,22 @@ func (g *Game) Run() {
 
 // MarkPlayerActive updates a player's last activity tracker and prevents them from becoming idle.
 func (g *Game) MarkPlayerActive(p *model.Player) {
-	for _, pe := range g.players {
-		if pe.player.ID == p.ID {
-			pe.lastInteraction = time.Now()
-			break
-		}
+	pe := g.findPlayerByID(p)
+	if pe == nil {
+		return
 	}
+
+	pe.lastInteraction = time.Now()
 }
 
 // MarkPlayerInactive flags that a player's client reported them as being idle.
 func (g *Game) MarkPlayerInactive(p *model.Player) {
-	for _, pe := range g.players {
-		if pe.player.ID == p.ID {
-			pe.scheduler.Plan(NewEventWithType(EventCheckIdleImmediate, time.Now()))
-			break
-		}
+	pe := g.findPlayerByID(p)
+	if pe == nil {
+		return
 	}
+
+	pe.scheduler.Plan(NewEventWithType(EventCheckIdleImmediate, time.Now()))
 }
 
 // WalkPlayer starts moving the player to a specific destination via waypoints.
@@ -115,8 +115,17 @@ func (g *Game) WalkPlayer(p *model.Player, waypoints []model.Vector2D) {
 
 		// waypoints may be many tiles away, so we need to plan each segment in the path individually
 		for dx != 0 || dy != 0 {
-			// prefer movement along the x-axis, followed by the y-axis and lastly diagonal movements
-			if dx != 0 {
+			// prefer diagonal movement if the delta is only one tile away, followed by movement along the x-axis
+			// anf lastly movement along the y-axis
+			if dx != 0 && dy != 0 && util.Abs(dx) == util.Abs(dy) {
+				path = append(path, model.Vector2D{
+					X: from.X + util.Unit(dx),
+					Y: from.Y + util.Unit(dy),
+				})
+
+				dx -= util.Unit(dx)
+				dy -= util.Unit(dy)
+			} else if dx != 0 {
 				path = append(path, model.Vector2D{
 					X: from.X + util.Unit(dx),
 					Y: from.Y,
@@ -129,14 +138,6 @@ func (g *Game) WalkPlayer(p *model.Player, waypoints []model.Vector2D) {
 					Y: from.Y + util.Unit(dy),
 				})
 
-				dy -= util.Unit(dy)
-			} else if dx != 0 && dy != 0 {
-				path = append(path, model.Vector2D{
-					X: from.X + util.Unit(dx),
-					Y: from.Y + util.Unit(dy),
-				})
-
-				dx -= util.Unit(dx)
 				dy -= util.Unit(dy)
 			}
 
