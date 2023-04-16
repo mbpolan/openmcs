@@ -210,8 +210,8 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	pe.PlanEvent(NewSendResponseEvent(region, time.Now()))
 
 	// plan an initial player update
-	update := response.NewPlayerUpdateResponse()
-	update.SetLocalPlayerPosition(util.GlobalToRegionLocal(p.GlobalPos), true, true)
+	update := response.NewPlayerUpdateResponse(p.ID)
+	update.SetLocalPlayerPosition(util.GlobalToRegionLocal(p.GlobalPos), true)
 	update.AddAppearanceUpdate(p.ID, p.Username, p.Appearance)
 	pe.PlanEvent(NewSendResponseEvent(update, time.Now()))
 
@@ -455,7 +455,7 @@ func (g *Game) planClientTabInterfaces(pe *playerEntity) {
 
 // sendPlayerUpdate sends a game state update to the player.
 func (g *Game) sendPlayerUpdate(pe *playerEntity) error {
-	update := response.NewPlayerUpdateResponse()
+	update := response.NewPlayerUpdateResponse(pe.player.ID)
 
 	// update player's complete current state
 	// TODO: handle remaining possibilities
@@ -466,7 +466,7 @@ func (g *Game) sendPlayerUpdate(pe *playerEntity) error {
 		// find the next direction to walk towards
 		dir := model.DirectionFromDelta(next.Sub(pe.player.GlobalPos.To2D()))
 		if dir != model.DirectionNone {
-			update.SetLocalPlayerWalk(dir, false)
+			update.SetLocalPlayerWalk(dir)
 		}
 
 		// remove this waypoint from the path and update the player's position

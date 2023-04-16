@@ -4,9 +4,13 @@ import (
 	"github.com/mbpolan/openmcs/internal/model"
 	"github.com/mbpolan/openmcs/internal/network"
 	"github.com/mbpolan/openmcs/internal/util"
+	"sort"
 )
 
 const PlayerUpdateResponseHeader byte = 0x51
+
+// localPlayerID identifies the local player.
+const localPlayerID = 0x7FF
 
 const (
 	playerMoveNoUpdate  byte = 0xFF
@@ -52,7 +56,6 @@ var directionCodes = map[model.Direction]byte{
 }
 
 type playerUpdate struct {
-	id         int
 	mask       uint16
 	appearance *entityAppearance
 }
@@ -63,10 +66,10 @@ type entityAppearance struct {
 }
 
 type trackedPlayer struct {
-	id             int
 	observed       bool
 	clearWaypoints bool
 	pos            model.Vector2D
+	update         *playerUpdate
 }
 
 type playerMovement struct {
@@ -74,80 +77,73 @@ type playerMovement struct {
 	position       model.Vector3D
 	clearWaypoints bool
 	walkDirection  model.Direction
-	needsUpdate    bool
 }
 
 // PlayerUpdateResponse contains a game state update.
 type PlayerUpdateResponse struct {
-	local   *playerMovement
-	list    []*trackedPlayer
-	updates []*playerUpdate
+	localPlayerID int
+	local         *playerMovement
+	list          map[int]*trackedPlayer
 }
 
-// NewPlayerUpdateResponse creates a new game state update response.
-func NewPlayerUpdateResponse() *PlayerUpdateResponse {
+// NewPlayerUpdateResponse creates a new game state update response for a player.
+func NewPlayerUpdateResponse(localPlayerID int) *PlayerUpdateResponse {
 	return &PlayerUpdateResponse{
+		localPlayerID: localPlayerID,
 		local: &playerMovement{
 			moveType: playerMoveNoUpdate,
 		},
+		list: map[int]*trackedPlayer{},
 	}
 }
 
 // SetLocalPlayerNoMovement reports that the local player's state has not changed.
 func (p *PlayerUpdateResponse) SetLocalPlayerNoMovement() {
 	p.local.moveType = playerMoveUnchanged
-	p.local.needsUpdate = true
+
+	// this requires an update to be included
+	p.list[localPlayerID] = &trackedPlayer{
+		update: &playerUpdate{},
+	}
 }
 
 // SetLocalPlayerWalk reports that the local player is walking in a particular direction.
-func (p *PlayerUpdateResponse) SetLocalPlayerWalk(dir model.Direction, needsUpdate bool) {
+func (p *PlayerUpdateResponse) SetLocalPlayerWalk(dir model.Direction) {
 	p.local.moveType = playerMoveWalk
 	p.local.walkDirection = dir
-	p.local.needsUpdate = needsUpdate
+	p.list[localPlayerID] = &trackedPlayer{}
 }
 
-// SetLocalPlayerPosition reports the local player's position in region local coordinates and update status. The
-// clearWaypoints flag indicates if the player's current path should be cancelled, such as in the case of the player
-// being teleported to a location.
-func (p *PlayerUpdateResponse) SetLocalPlayerPosition(pos model.Vector3D, clearWaypoints, needsUpdate bool) {
+// SetLocalPlayerPosition reports the local player's position in region local coordinates. The clearWaypoints flag
+// indicates if the player's current path should be cancelled, such as in the case of the player being teleported to
+// a location.
+func (p *PlayerUpdateResponse) SetLocalPlayerPosition(pos model.Vector3D, clearWaypoints bool) {
 	p.local.moveType = playerMovePosition
 	p.local.position = pos
 	p.local.clearWaypoints = clearWaypoints
-	p.local.needsUpdate = needsUpdate
+	p.list[localPlayerID] = &trackedPlayer{}
 }
 
 // AddToPlayerList adds a tracked player to the local player list. The position should be relative to the local player.
 func (p *PlayerUpdateResponse) AddToPlayerList(playerID int, posOffset model.Vector2D, clearWaypoints, observed bool) {
-	p.list = append(p.list, &trackedPlayer{
-		id:             playerID,
+	p.list[playerID] = &trackedPlayer{
 		observed:       observed,
 		clearWaypoints: clearWaypoints,
 		pos:            posOffset,
-	})
+		// this requires an update to be included
+		update: &playerUpdate{},
+	}
 }
 
 // AddAppearanceUpdate adds a player or NPC appearance update to send to the client.
 func (p *PlayerUpdateResponse) AddAppearanceUpdate(playerID int, name string, a *model.EntityAppearance) {
-	// is there an existing player update already pending?
-	var update *playerUpdate
-	for _, u := range p.updates {
-		if u.id == playerID {
-			update = u
-			break
-		}
+	// if this appearance is for the local player, use the well-known id instead
+	id := playerID
+	if id == p.localPlayerID {
+		id = localPlayerID
 	}
 
-	// first update for this player
-	if update == nil {
-		update = &playerUpdate{
-			id:   playerID,
-			mask: 0x00,
-		}
-
-		// TODO: maintain ordering consistent with player list indexes
-		p.updates = append([]*playerUpdate{update}, p.updates...)
-	}
-
+	update := p.ensureUpdate(id)
 	update.mask |= updateAppearance
 	update.appearance = &entityAppearance{
 		name:       name,
@@ -187,7 +183,27 @@ func (p *PlayerUpdateResponse) Write(w *network.ProtocolWriter) error {
 	return nil
 }
 
+// ensureUpdate returns a pointer to a player's pending updates, or creates an empty update if none were prepared.
+func (p *PlayerUpdateResponse) ensureUpdate(playerID int) *playerUpdate {
+	pl := p.list[playerID]
+	if pl.update == nil {
+		pl.update = &playerUpdate{}
+	}
+
+	return pl.update
+}
+
 func (p *PlayerUpdateResponse) writePayload(w *network.ProtocolWriter) error {
+	// collect all players and updates and order them by the player id
+	var playerIDs []int
+	for k, _ := range p.list {
+		playerIDs = append(playerIDs, k)
+	}
+
+	sort.Slice(playerIDs, func(i, j int) bool {
+		return playerIDs[i] < playerIDs[j]
+	})
+
 	// prepare a bitset for writing bit-level data
 	bs := network.NewBitSet()
 
@@ -198,7 +214,7 @@ func (p *PlayerUpdateResponse) writePayload(w *network.ProtocolWriter) error {
 	bs.SetBits(0, 8)
 
 	// write the local player list
-	p.writePlayerList(bs)
+	p.writePlayerList(playerIDs, bs)
 
 	// write bits section first representing local, other and player list updates
 	err := bs.Write(w)
@@ -207,7 +223,7 @@ func (p *PlayerUpdateResponse) writePayload(w *network.ProtocolWriter) error {
 	}
 
 	// write each player update block itself
-	err = p.writePlayerUpdates(w)
+	err = p.writePlayerUpdates(playerIDs, w)
 	if err != nil {
 		return err
 	}
@@ -239,7 +255,8 @@ func (p *PlayerUpdateResponse) writeLocalPlayer(bs *network.BitSet) {
 		bs.SetBits(uint32(code), 3)
 
 		// write 1 bit if a further update is required
-		bs.SetOrClear(p.local.needsUpdate)
+		needsUpdate := p.list[localPlayerID].update != nil
+		bs.SetOrClear(needsUpdate)
 
 	case playerMoveRun:
 		// TODO
@@ -250,8 +267,9 @@ func (p *PlayerUpdateResponse) writeLocalPlayer(bs *network.BitSet) {
 		bs.SetBits(uint32(p.local.position.Z), 2)
 
 		// write 1 bit each for the clear waypoints and update needed flags
+		needsUpdate := p.list[localPlayerID].update != nil
 		bs.SetOrClear(p.local.clearWaypoints)
-		bs.SetOrClear(p.local.needsUpdate)
+		bs.SetOrClear(needsUpdate)
 
 		// write 7 bits each for the y and x coordinates
 		bs.SetBits(uint32(p.local.position.Y), 7)
@@ -259,10 +277,17 @@ func (p *PlayerUpdateResponse) writeLocalPlayer(bs *network.BitSet) {
 	}
 }
 
-func (p *PlayerUpdateResponse) writePlayerList(bs *network.BitSet) {
-	for _, pl := range p.list {
+func (p *PlayerUpdateResponse) writePlayerList(playerIDs []int, bs *network.BitSet) {
+	for _, playerID := range playerIDs {
+		// don't include the local player here
+		if playerID == localPlayerID {
+			continue
+		}
+
+		pl := p.list[playerID]
+
 		// write 11 bits for the player id
-		bs.SetBits(uint32(pl.id), 11)
+		bs.SetBits(uint32(playerID), 11)
 
 		// write 1 bit if the player is observed
 		bs.SetOrClear(pl.observed)
@@ -275,31 +300,47 @@ func (p *PlayerUpdateResponse) writePlayerList(bs *network.BitSet) {
 		bs.SetBits(uint32(pl.pos.X), 5)
 	}
 
-	// add local player as the last one in the list
+	// mark the end of the player list
 	bs.SetBits(0x7FF, 11)
 }
 
-func (p *PlayerUpdateResponse) writePlayerUpdates(w *network.ProtocolWriter) error {
-	for _, u := range p.updates {
-		// if the mask cannot fit into a single byte, split it into two
-		if u.mask > 0xFF {
-			err := w.WriteUint16(u.mask)
-			if err != nil {
-				return err
-			}
-		} else {
-			err := w.WriteUint8(byte(u.mask))
-			if err != nil {
-				return err
-			}
+func (p *PlayerUpdateResponse) writePlayerUpdates(playerIDs []int, w *network.ProtocolWriter) error {
+	for _, playerID := range playerIDs {
+		pl := p.list[playerID]
+
+		// skip players with no pending updates
+		if pl.update == nil {
+			continue
 		}
 
-		// write appearance update
-		if u.mask&updateAppearance != 0 {
-			err := p.writeAppearance(u.appearance, w)
-			if err != nil {
-				return err
-			}
+		err := p.writePlayerUpdate(pl.update, w)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (p *PlayerUpdateResponse) writePlayerUpdate(update *playerUpdate, w *network.ProtocolWriter) error {
+	// if the mask cannot fit into a single byte, split it into two
+	if update.mask > 0xFF {
+		err := w.WriteUint16(update.mask)
+		if err != nil {
+			return err
+		}
+	} else {
+		err := w.WriteUint8(byte(update.mask))
+		if err != nil {
+			return err
+		}
+	}
+
+	// write appearance update
+	if update.mask&updateAppearance != 0 {
+		err := p.writeAppearance(update.appearance, w)
+		if err != nil {
+			return err
 		}
 	}
 
