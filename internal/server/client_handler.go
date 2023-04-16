@@ -205,7 +205,7 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 		// the player started walking to a destination on the map
 		req, err := request.ReadWalkRequest(c.reader)
 		if err == nil {
-			c.game.WalkPlayer(c.player, append([]model.Vector2D{req.Start}, req.Waypoints...))
+			c.game.WalkPlayer(c.player, req.Start, req.Waypoints)
 		}
 
 	case request.LogoutRequestHeader:

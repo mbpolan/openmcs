@@ -99,29 +99,38 @@ func (g *Game) RequestLogout(p *model.Player, action int) {
 	_ = g.disconnect(pe)
 }
 
-// WalkPlayer starts moving the player to a specific destination via waypoints.
-func (g *Game) WalkPlayer(p *model.Player, waypoints []model.Vector2D) {
-	if len(waypoints) == 0 {
-		return
-	}
-
+// WalkPlayer starts moving the player to a destination from a start position then following a set of waypoints. The
+// slice of waypoints are deltas relative to start.
+func (g *Game) WalkPlayer(p *model.Player, start model.Vector2D, waypoints []model.Vector2D) {
 	pe := g.findPlayerByID(p)
 	if pe == nil {
 		return
 	}
 
-	// the first waypoint coordinate is offset by 6 tiles from the region origin
-	waypoints[0].X = (waypoints[0].X + (util.MapScale3D.X)*6) - p.GlobalPos.X
-	waypoints[0].Y = (waypoints[0].Y + (util.MapScale3D.Y)*6) - p.GlobalPos.Y
+	// the starting position is offset by 6 tiles from the region origin, and serves as the basis for waypoints
+	initial := model.Vector2D{
+		X: start.X + (util.MapScale3D.X * 6),
+		Y: start.Y + (util.MapScale3D.Y * 6),
+	}
+
+	// convert each waypoint into global coordinates
+	actuals := []model.Vector2D{initial}
+	for _, w := range waypoints {
+		actuals = append(actuals, model.Vector2D{
+			X: initial.X + w.X,
+			Y: initial.Y + w.Y,
+		})
+	}
 
 	// start traversing from the player's current position
-	from := p.GlobalPos.To2D()
+	from := pe.player.GlobalPos.To2D()
 	var path []model.Vector2D
 
 	// plan a direct path to each waypoint
-	for _, w := range waypoints {
-		dx := w.X
-		dy := w.Y
+	for _, w := range actuals {
+		// find the distance from the previous position
+		dx := w.X - from.X
+		dy := w.Y - from.Y
 
 		// waypoints may be many tiles away, so we need to plan each segment in the path individually
 		for dx != 0 || dy != 0 {
