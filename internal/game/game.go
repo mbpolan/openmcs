@@ -8,6 +8,7 @@ import (
 	"github.com/mbpolan/openmcs/internal/network/response"
 	"github.com/mbpolan/openmcs/internal/util"
 	"github.com/pkg/errors"
+	"sync"
 	"time"
 )
 
@@ -18,9 +19,16 @@ const playerMaxIdleInterval = 3 * time.Minute
 // playerUpdateInterval defines how often player updates are sent.
 const playerUpdateInterval = 200 * time.Millisecond
 
+type trackedPlayerEntity struct {
+	pe           *playerEntity
+	needsUpdate  bool
+	lastPosition model.Vector3D
+}
+
 type playerEntity struct {
 	lastInteraction time.Time
 	player          *model.Player
+	tracking        []*trackedPlayerEntity
 	resetChan       chan bool
 	doneChan        chan bool
 	path            []model.Vector2D
@@ -42,6 +50,7 @@ type Game struct {
 	objects  []*model.WorldObject
 	players  []*playerEntity
 	worldMap *model.Map
+	mu       sync.RWMutex
 }
 
 // NewGame creates a new game engine using game assets located at the given assetDir.
@@ -181,7 +190,10 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	}
 
 	// start the player's processing loop
+	g.mu.Lock()
 	g.players = append(g.players, pe)
+	g.mu.Unlock()
+
 	go g.playerLoop(pe)
 
 	// plan an initial map region load
@@ -206,6 +218,11 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 
 // RemovePlayer removes a previously joined player from the world.
 func (g *Game) RemovePlayer(p *model.Player) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	// remove the player from the game. other players who were tracking this player will have their spectators list
+	// refreshed the next time the game state update runs.
 	for i, pe := range g.players {
 		if pe.player == p {
 			g.players = append(g.players[:i], g.players[i+1:]...)
@@ -215,8 +232,33 @@ func (g *Game) RemovePlayer(p *model.Player) {
 	}
 }
 
+// findSpectators returns a slice of players that are within visual distance of a given player. This method does not
+// lock the game mutex.
+func (g *Game) findSpectators(pe *playerEntity) []*playerEntity {
+	var others []*playerEntity
+	for _, tpe := range g.players {
+		// ignore our own player and others players on different z coordinates
+		if tpe.player.ID == pe.player.ID || tpe.player.GlobalPos.Z != pe.player.GlobalPos.Z {
+			continue
+		}
+
+		// compute their distance to the player and add them as a spectator if they are within range
+		// TODO: make this configurable?
+		dx := util.Abs(tpe.player.GlobalPos.X - pe.player.GlobalPos.X)
+		dy := util.Abs(tpe.player.GlobalPos.Y - pe.player.GlobalPos.Y)
+		if dx <= 14 && dy <= 14 {
+			others = append(others, tpe)
+		}
+	}
+
+	return others
+}
+
 // findPlayerByID returns the playerEntity for the corresponding player.
 func (g *Game) findPlayerByID(p *model.Player) *playerEntity {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
 	var tpe *playerEntity
 	for _, pe := range g.players {
 		if pe.player.ID == p.ID {
@@ -244,7 +286,11 @@ func (g *Game) loop() {
 			logger.Infof("stopping game engine")
 			return
 		case <-g.ticker.C:
-			// TODO: update game state
+			err := g.handleGameUpdate()
+			if err != nil {
+				logger.Errorf("ending game state update due to error: %s", err)
+				return
+			}
 		}
 	}
 }
@@ -296,6 +342,48 @@ func (g *Game) loadAssets(assetDir string) error {
 		return err
 	}
 
+	return nil
+}
+
+// handleGameUpdate performs a game state update.
+func (g *Game) handleGameUpdate() error {
+	g.mu.Lock()
+
+	// check each player in the world
+	for _, pe := range g.players {
+		// find players within visual distance of this player
+		others := g.findSpectators(pe)
+
+		// has this set of tracked players changed?
+		trackingChanged := false
+		if len(pe.tracking) == len(others) {
+			for i, other := range others {
+				if pe.tracking[i].pe.player.ID != other.player.ID {
+					trackingChanged = true
+					break
+				}
+			}
+		} else {
+			trackingChanged = true
+		}
+
+		// update this player's slice of tracked players
+		if trackingChanged {
+			// TODO: can we reduce the amount of allocations here?
+			pe.tracking = make([]*trackedPlayerEntity, len(others))
+			for i, other := range others {
+				pe.tracking[i] = &trackedPlayerEntity{
+					pe:           other,
+					needsUpdate:  true,
+					lastPosition: other.player.GlobalPos,
+				}
+			}
+		}
+
+		logger.Debugf("%s has tracking: %+v", pe.player.Username, pe.tracking)
+	}
+
+	g.mu.Unlock()
 	return nil
 }
 

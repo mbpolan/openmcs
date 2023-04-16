@@ -14,7 +14,7 @@ func NewDatabase() *Database {
 // LoadPlayer returns a player's data based on their username. If the player does not exist, nil is returned.
 func (d *Database) LoadPlayer(username string) (*model.Player, error) {
 	// TODO: use a real database
-	if username != "mike" {
+	if username != "mike" && username != "hurz" {
 		return nil, nil
 	}
 
@@ -25,5 +25,5 @@ func (d *Database) LoadPlayer(username string) (*model.Player, error) {
 		Z: 0,
 	}
 
-	return model.NewPlayer(42, username, "foo", model.PlayerNormal, false, globalPos), nil
+	return model.NewPlayer(int(username[0]), username, "foo", model.PlayerNormal, false, globalPos), nil
 }
