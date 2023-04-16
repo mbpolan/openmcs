@@ -18,12 +18,19 @@ func (d *Database) LoadPlayer(username string) (*model.Player, error) {
 		return nil, nil
 	}
 
+	x := 0
+	y := 0
+	if username == "hurz" {
+		x = 2
+		y = -2
+	}
+
 	// TODO: maintain player position
 	globalPos := model.Vector3D{
-		X: 3116,
-		Y: 3116,
+		X: 3116 + x,
+		Y: 3116 + y,
 		Z: 0,
 	}
 
-	return model.NewPlayer(int(username[0]), username, "foo", model.PlayerNormal, false, globalPos), nil
+	return model.NewPlayer(int(username[0]), username, "", model.PlayerNormal, false, globalPos), nil
 }

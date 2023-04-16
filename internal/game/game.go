@@ -59,6 +59,15 @@ func NewGame(assetDir string) (*Game, error) {
 		doneChan: make(chan bool, 1),
 	}
 
+	g.players = []*playerEntity{{
+		lastInteraction: time.Now(),
+		player: model.NewPlayer(99, "bozo", "", model.PlayerNormal, false, model.Vector3D{
+			X: 3118,
+			Y: 3114,
+			Z: 0,
+		}),
+	}}
+
 	// load game asset
 	err := g.loadAssets(assetDir)
 	if err != nil {
@@ -235,6 +244,11 @@ func (g *Game) RemovePlayer(p *model.Player) {
 // findSpectators returns a slice of players that are within visual distance of a given player. This method does not
 // lock the game mutex.
 func (g *Game) findSpectators(pe *playerEntity) []*playerEntity {
+	// TODO: remove the hardcoded dummy player
+	if pe.player.ID == 99 {
+		return nil
+	}
+
 	var others []*playerEntity
 	for _, tpe := range g.players {
 		// ignore our own player and others players on different z coordinates
@@ -459,6 +473,16 @@ func (g *Game) sendPlayerUpdate(pe *playerEntity) error {
 		pe.path = pe.path[1:]
 		pe.player.GlobalPos.X = next.X
 		pe.player.GlobalPos.Y = next.Y
+	}
+
+	for _, other := range pe.tracking {
+		posOffset := other.pe.player.GlobalPos.Sub(pe.player.GlobalPos).To2D()
+		update.AddToPlayerList(other.pe.player.ID, posOffset, true, true)
+
+		if other.needsUpdate {
+			update.AddAppearanceUpdate(other.pe.player.ID, other.pe.player.Username, pe.player.Appearance)
+			//other.needsUpdate = false
+		}
 	}
 
 	err := update.Write(pe.writer)

@@ -9,11 +9,11 @@ import (
 const PlayerUpdateResponseHeader byte = 0x51
 
 const (
-	localMoveNoUpdate  byte = 0xFF
-	localMoveUnchanged      = 0x00
-	localMoveWalk           = 0x01
-	localMoveRun            = 0x02
-	localMovePosition       = 0x03
+	playerMoveNoUpdate  byte = 0xFF
+	playerMoveUnchanged      = 0x00
+	playerMoveWalk           = 0x01
+	playerMoveRun            = 0x02
+	playerMovePosition       = 0x03
 )
 
 const (
@@ -62,44 +62,68 @@ type entityAppearance struct {
 	appearance *model.EntityAppearance
 }
 
+type trackedPlayer struct {
+	id             int
+	observed       bool
+	clearWaypoints bool
+	pos            model.Vector2D
+}
+
+type playerMovement struct {
+	moveType       byte
+	position       model.Vector3D
+	clearWaypoints bool
+	walkDirection  model.Direction
+	needsUpdate    bool
+}
+
 // PlayerUpdateResponse contains a game state update.
 type PlayerUpdateResponse struct {
-	localMoveType       byte
-	localPosition       model.Vector3D
-	localClearWaypoints bool
-	localWalkDirection  model.Direction
-	localNeedsUpdate    bool
-	updates             []*playerUpdate
+	local   *playerMovement
+	list    []*trackedPlayer
+	updates []*playerUpdate
 }
 
 // NewPlayerUpdateResponse creates a new game state update response.
 func NewPlayerUpdateResponse() *PlayerUpdateResponse {
 	return &PlayerUpdateResponse{
-		localMoveType: localMoveNoUpdate,
+		local: &playerMovement{
+			moveType: playerMoveNoUpdate,
+		},
 	}
 }
 
 // SetLocalPlayerNoMovement reports that the local player's state has not changed.
 func (p *PlayerUpdateResponse) SetLocalPlayerNoMovement() {
-	p.localMoveType = localMoveUnchanged
-	p.localNeedsUpdate = true
+	p.local.moveType = playerMoveUnchanged
+	p.local.needsUpdate = true
 }
 
 // SetLocalPlayerWalk reports that the local player is walking in a particular direction.
 func (p *PlayerUpdateResponse) SetLocalPlayerWalk(dir model.Direction, needsUpdate bool) {
-	p.localMoveType = localMoveWalk
-	p.localWalkDirection = dir
-	p.localNeedsUpdate = needsUpdate
+	p.local.moveType = playerMoveWalk
+	p.local.walkDirection = dir
+	p.local.needsUpdate = needsUpdate
 }
 
 // SetLocalPlayerPosition reports the local player's position in region local coordinates and update status. The
 // clearWaypoints flag indicates if the player's current path should be cancelled, such as in the case of the player
 // being teleported to a location.
-func (p *PlayerUpdateResponse) SetLocalPlayerPosition(pos model.Vector3D, clearWaypoints bool, needsUpdate bool) {
-	p.localMoveType = localMovePosition
-	p.localPosition = pos
-	p.localClearWaypoints = clearWaypoints
-	p.localNeedsUpdate = needsUpdate
+func (p *PlayerUpdateResponse) SetLocalPlayerPosition(pos model.Vector3D, clearWaypoints, needsUpdate bool) {
+	p.local.moveType = playerMovePosition
+	p.local.position = pos
+	p.local.clearWaypoints = clearWaypoints
+	p.local.needsUpdate = needsUpdate
+}
+
+// AddToPlayerList adds a tracked player to the local player list. The position should be relative to the local player.
+func (p *PlayerUpdateResponse) AddToPlayerList(playerID int, posOffset model.Vector2D, clearWaypoints, observed bool) {
+	p.list = append(p.list, &trackedPlayer{
+		id:             playerID,
+		observed:       observed,
+		clearWaypoints: clearWaypoints,
+		pos:            posOffset,
+	})
 }
 
 // AddAppearanceUpdate adds a player or NPC appearance update to send to the client.
@@ -173,12 +197,8 @@ func (p *PlayerUpdateResponse) writePayload(w *network.ProtocolWriter) error {
 	// TODO: write 8 bits for the number of other players to update
 	bs.SetBits(0, 8)
 
-	// TODO: updates for player list
-
-	// add local player as the last one in the update list if an update is requested
-	if p.localNeedsUpdate {
-		bs.SetBits(0x7FF, 11)
-	}
+	// write the local player list
+	p.writePlayerList(bs)
 
 	// write bits section first representing local, other and player list updates
 	err := bs.Write(w)
@@ -197,7 +217,7 @@ func (p *PlayerUpdateResponse) writePayload(w *network.ProtocolWriter) error {
 
 func (p *PlayerUpdateResponse) writeLocalPlayer(bs *network.BitSet) {
 	// first bit is a flag if there is an update for the local player
-	if p.localMoveType == localMoveNoUpdate {
+	if p.local.moveType == playerMoveNoUpdate {
 		// clear the first bit and bail out since there is nothing else to do
 		bs.Clear()
 		return
@@ -207,36 +227,56 @@ func (p *PlayerUpdateResponse) writeLocalPlayer(bs *network.BitSet) {
 	bs.Set()
 
 	// two bits represent the local player update type
-	bs.SetBits(uint32(p.localMoveType), 2)
+	bs.SetBits(uint32(p.local.moveType), 2)
 
-	switch p.localMoveType {
-	case localMoveUnchanged:
+	switch p.local.moveType {
+	case playerMoveUnchanged:
 		// nothing to do
 
-	case localMoveWalk:
+	case playerMoveWalk:
 		// write 2 bits for the direction
-		code := directionCodes[p.localWalkDirection]
+		code := directionCodes[p.local.walkDirection]
 		bs.SetBits(uint32(code), 3)
 
 		// write 1 bit if a further update is required
-		bs.SetOrClear(p.localNeedsUpdate)
+		bs.SetOrClear(p.local.needsUpdate)
 
-	case localMoveRun:
+	case playerMoveRun:
 		// TODO
 		panic("not implemented")
 
-	case localMovePosition:
+	case playerMovePosition:
 		// write 2 bits for the z coordinate
-		bs.SetBits(uint32(p.localPosition.Z), 2)
+		bs.SetBits(uint32(p.local.position.Z), 2)
 
 		// write 1 bit each for the clear waypoints and update needed flags
-		bs.SetOrClear(p.localClearWaypoints)
-		bs.SetOrClear(p.localNeedsUpdate)
+		bs.SetOrClear(p.local.clearWaypoints)
+		bs.SetOrClear(p.local.needsUpdate)
 
 		// write 7 bits each for the y and x coordinates
-		bs.SetBits(uint32(p.localPosition.Y), 7)
-		bs.SetBits(uint32(p.localPosition.X), 7)
+		bs.SetBits(uint32(p.local.position.Y), 7)
+		bs.SetBits(uint32(p.local.position.X), 7)
 	}
+}
+
+func (p *PlayerUpdateResponse) writePlayerList(bs *network.BitSet) {
+	for _, pl := range p.list {
+		// write 11 bits for the player id
+		bs.SetBits(uint32(pl.id), 11)
+
+		// write 1 bit if the player is observed
+		bs.SetOrClear(pl.observed)
+
+		// write 1 bit if the player should have their path waypoints cleared
+		bs.SetOrClear(pl.clearWaypoints)
+
+		// write 5 bits for the y and x coordinate offsets
+		bs.SetBits(uint32(pl.pos.Y), 5)
+		bs.SetBits(uint32(pl.pos.X), 5)
+	}
+
+	// add local player as the last one in the list
+	bs.SetBits(0x7FF, 11)
 }
 
 func (p *PlayerUpdateResponse) writePlayerUpdates(w *network.ProtocolWriter) error {

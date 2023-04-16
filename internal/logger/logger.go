@@ -8,7 +8,7 @@ var log *zap.SugaredLogger
 
 // Setup prepares the logging infrastructure for the server.
 func Setup() error {
-	level, _ := zap.ParseAtomicLevel("debug")
+	level, _ := zap.ParseAtomicLevel("info")
 
 	cfg := zap.NewProductionConfig()
 	cfg.Level = level
