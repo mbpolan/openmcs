@@ -201,6 +201,13 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 		// the player has become idle
 		c.game.MarkPlayerInactive(c.player)
 
+	case request.PlayerChatRequestHeader:
+		// the player sent a chat message
+		req, err := request.ReadPlayerChatRequest(c.reader)
+		if err == nil {
+			c.game.DoPlayerChat(c.player, req.Effect, req.Color, req.Text)
+		}
+
 	case request.WalkRequestHeader, request.WalkOnCommandRequestHeader:
 		// the player started walking to a destination on the map
 		req, err := request.ReadWalkRequest(c.reader)

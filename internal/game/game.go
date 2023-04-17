@@ -59,15 +59,6 @@ func NewGame(assetDir string) (*Game, error) {
 		doneChan: make(chan bool, 1),
 	}
 
-	g.players = []*playerEntity{{
-		lastInteraction: time.Now(),
-		player: model.NewPlayer(99, "bozo", "", model.PlayerNormal, false, model.Vector3D{
-			X: 3118,
-			Y: 3114,
-			Z: 0,
-		}),
-	}}
-
 	// load game asset
 	err := g.loadAssets(assetDir)
 	if err != nil {
@@ -89,6 +80,9 @@ func (g *Game) Run() {
 
 // MarkPlayerActive updates a player's last activity tracker and prevents them from becoming idle.
 func (g *Game) MarkPlayerActive(p *model.Player) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
 	pe := g.findPlayerByID(p)
 	if pe == nil {
 		return
@@ -99,6 +93,9 @@ func (g *Game) MarkPlayerActive(p *model.Player) {
 
 // MarkPlayerInactive flags that a player's client reported them as being idle.
 func (g *Game) MarkPlayerInactive(p *model.Player) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
 	pe := g.findPlayerByID(p)
 	if pe == nil {
 		return
@@ -107,7 +104,11 @@ func (g *Game) MarkPlayerInactive(p *model.Player) {
 	pe.scheduler.Plan(NewEventWithType(EventCheckIdleImmediate, time.Now()))
 }
 
+// RequestLogout attempts to log out a player.
 func (g *Game) RequestLogout(p *model.Player, action int) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
 	pe := g.findPlayerByID(p)
 	if pe == nil {
 		return
@@ -117,9 +118,17 @@ func (g *Game) RequestLogout(p *model.Player, action int) {
 	_ = g.disconnect(pe)
 }
 
+// DoPlayerChat broadcasts a player's chat message to nearby players.
+func (g *Game) DoPlayerChat(p *model.Player, effect model.ChatEffect, color model.ChatColor, text string) {
+	logger.Infof("chat: %s", text)
+}
+
 // WalkPlayer starts moving the player to a destination from a start position then following a set of waypoints. The
 // slice of waypoints are deltas relative to start.
 func (g *Game) WalkPlayer(p *model.Player, start model.Vector2D, waypoints []model.Vector2D) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
 	pe := g.findPlayerByID(p)
 	if pe == nil {
 		return
@@ -241,14 +250,8 @@ func (g *Game) RemovePlayer(p *model.Player) {
 	}
 }
 
-// findSpectators returns a slice of players that are within visual distance of a given player. This method does not
-// lock the game mutex.
+// findSpectators returns a slice of players that are within visual distance of a given player.
 func (g *Game) findSpectators(pe *playerEntity) []*playerEntity {
-	// TODO: remove the hardcoded dummy player
-	if pe.player.ID == 99 {
-		return nil
-	}
-
 	var others []*playerEntity
 	for _, tpe := range g.players {
 		// ignore our own player and others players on different z coordinates
@@ -270,9 +273,6 @@ func (g *Game) findSpectators(pe *playerEntity) []*playerEntity {
 
 // findPlayerByID returns the playerEntity for the corresponding player.
 func (g *Game) findPlayerByID(p *model.Player) *playerEntity {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
 	var tpe *playerEntity
 	for _, pe := range g.players {
 		if pe.player.ID == p.ID {
@@ -327,8 +327,6 @@ func (g *Game) playerLoop(pe *playerEntity) {
 				logger.Errorf("ending player loop due to error: %s", err)
 				return
 			}
-
-		default:
 		}
 	}
 }
@@ -475,13 +473,16 @@ func (g *Game) sendPlayerUpdate(pe *playerEntity) error {
 		pe.player.GlobalPos.Y = next.Y
 	}
 
+	// update players that are in this player's visible range
 	for _, other := range pe.tracking {
+		// compute the other player's location relative to this player, and add them to the update list
 		posOffset := other.pe.player.GlobalPos.Sub(pe.player.GlobalPos).To2D()
 		update.AddToPlayerList(other.pe.player.ID, posOffset, true, true)
 
+		// if the other player needs additional updates, include those as well
 		if other.needsUpdate {
 			update.AddAppearanceUpdate(other.pe.player.ID, other.pe.player.Username, pe.player.Appearance)
-			//other.needsUpdate = false
+			other.needsUpdate = false
 		}
 	}
 

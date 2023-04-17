@@ -18,6 +18,7 @@ func (d *Database) LoadPlayer(username string) (*model.Player, error) {
 		return nil, nil
 	}
 
+	// TODO: just for testing
 	x := 0
 	y := 0
 	if username == "hurz" {
