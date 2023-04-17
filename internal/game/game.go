@@ -19,26 +19,33 @@ const playerMaxIdleInterval = 3 * time.Minute
 // playerUpdateInterval defines how often player updates are sent.
 const playerUpdateInterval = 200 * time.Millisecond
 
-type trackedPlayerEntity struct {
-	pe           *playerEntity
-	needsUpdate  bool
-	lastPosition model.Vector3D
+// playerWalkInterval defines how long to wait between a player walks to their next waypoint.
+const playerWalkInterval = 600 * time.Millisecond
 
+type trackedPlayerEntity struct {
+	pe                  *playerEntity
+	needsUpdate         bool
+	lastPosition        model.Vector3D
+	lastTrackedWalkTime time.Time
 	lastChatMessage     *model.ChatMessage
 	lastTrackedChatTime time.Time
 }
 
 type playerEntity struct {
-	lastInteraction time.Time
-	player          *model.Player
-	tracking        []*trackedPlayerEntity
-	resetChan       chan bool
-	doneChan        chan bool
-	path            []model.Vector2D
-	scheduler       *Scheduler
-	writer          *network.ProtocolWriter
-	lastChatMessage *model.ChatMessage
-	lastChatTime    time.Time
+	lastInteraction   time.Time
+	player            *model.Player
+	tracking          []*trackedPlayerEntity
+	resetChan         chan bool
+	doneChan          chan bool
+	path              []model.Vector2D
+	scheduler         *Scheduler
+	writer            *network.ProtocolWriter
+	lastSentWalkTime  time.Time
+	lastWalkTime      time.Time
+	lastWalkDirection model.Direction
+	lastChatMessage   *model.ChatMessage
+	lastChatTime      time.Time
+	isMidWalk         bool
 }
 
 // PlanEvent adds a scheduled event to this player's queue and resets the event timer.
@@ -212,6 +219,8 @@ func (g *Game) WalkPlayer(p *model.Player, start model.Vector2D, waypoints []mod
 
 	logger.Debugf("path player %s via %+v", p.Username, path)
 	pe.path = path
+	pe.lastWalkTime = time.Now()
+	pe.lastSentWalkTime = pe.lastWalkTime
 }
 
 // AddPlayer joins a player to the world and handles ongoing game events and network interactions.
@@ -410,6 +419,28 @@ func (g *Game) handleGameUpdate() error {
 			}
 		}
 
+		// check if the player is walking, and it's time to move to the next waypoint
+		if len(pe.path) > 0 && time.Now().Sub(pe.lastWalkTime) >= playerWalkInterval/2 {
+			if pe.isMidWalk {
+				pe.isMidWalk = false
+			} else {
+				pe.isMidWalk = true
+
+				next := pe.path[0]
+
+				// find the direction the next segment is at relative to the player's current position
+				pe.lastWalkDirection = model.DirectionFromDelta(next.Sub(pe.player.GlobalPos.To2D()))
+
+				// update the player's position
+				pe.player.GlobalPos.X = next.X
+				pe.player.GlobalPos.Y = next.Y
+
+				// drop this path segment and mark this as the last time the player was moved
+				pe.path = pe.path[1:]
+				pe.lastWalkTime = time.Now()
+			}
+		}
+
 		logger.Debugf("%s has tracking: %+v", pe.player.Username, pe.tracking)
 	}
 
@@ -475,27 +506,29 @@ func (g *Game) sendPlayerUpdate(pe *playerEntity) error {
 
 	// update player's complete current state
 	// TODO: handle remaining possibilities
-	if len(pe.path) != 0 {
-		// the player is walking
-		next := pe.path[0]
 
-		// find the next direction to walk towards
-		dir := model.DirectionFromDelta(next.Sub(pe.player.GlobalPos.To2D()))
-		if dir != model.DirectionNone {
-			update.SetLocalPlayerWalk(dir)
-		}
-
-		// remove this waypoint from the path and update the player's position
-		pe.path = pe.path[1:]
-		pe.player.GlobalPos.X = next.X
-		pe.player.GlobalPos.Y = next.Y
+	// update the player if they are walking, and it's time for their next walk increment
+	if pe.lastWalkTime.After(pe.lastSentWalkTime) && pe.isMidWalk {
+		update.SetLocalPlayerWalk(pe.lastWalkDirection)
+		pe.lastSentWalkTime = pe.lastWalkTime
 	}
 
 	// update players that are in this player's visible range
 	for _, other := range pe.tracking {
-		// compute the other player's location relative to this player, and add them to the update list
-		posOffset := other.pe.player.GlobalPos.Sub(pe.player.GlobalPos).To2D()
-		update.AddToPlayerList(other.pe.player.ID, posOffset, true, true)
+		// if the other player is walking, update their movement. otherwise just add them to the player list so they
+		// are still tracked.
+		if other.pe.lastWalkTime.After(other.lastTrackedWalkTime) {
+			if other.pe.isMidWalk {
+				update.AddOtherPlayerNoUpdate(other.pe.player.ID)
+			} else {
+				update.AddOtherPlayerWalk(other.pe.player.ID, other.pe.lastWalkDirection)
+				other.lastTrackedWalkTime = other.pe.lastWalkTime
+			}
+		} else {
+			// compute the other player's location relative to this player, and add them to the update list
+			posOffset := other.pe.player.GlobalPos.Sub(pe.player.GlobalPos).To2D()
+			update.AddToPlayerList(other.pe.player.ID, posOffset, true, true)
+		}
 
 		// if the other player needs additional updates, include those as well
 		if other.needsUpdate {

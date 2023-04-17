@@ -85,6 +85,7 @@ type playerMovement struct {
 type PlayerUpdateResponse struct {
 	localPlayerID int
 	local         *playerMovement
+	others        map[int]*playerMovement
 	list          map[int]*trackedPlayer
 }
 
@@ -95,7 +96,8 @@ func NewPlayerUpdateResponse(localPlayerID int) *PlayerUpdateResponse {
 		local: &playerMovement{
 			moveType: playerMoveNoUpdate,
 		},
-		list: map[int]*trackedPlayer{},
+		others: map[int]*playerMovement{},
+		list:   map[int]*trackedPlayer{},
 	}
 }
 
@@ -124,6 +126,22 @@ func (p *PlayerUpdateResponse) SetLocalPlayerPosition(pos model.Vector3D, clearW
 	p.local.position = pos
 	p.local.clearWaypoints = clearWaypoints
 	p.list[localPlayerID] = &trackedPlayer{}
+}
+
+func (p *PlayerUpdateResponse) AddOtherPlayerNoUpdate(playerID int) {
+	p.others[playerID] = &playerMovement{
+		moveType: playerMoveNoUpdate,
+	}
+}
+
+// AddOtherPlayerWalk reports that another player is walking in a particular direction.
+func (p *PlayerUpdateResponse) AddOtherPlayerWalk(playerID int, dir model.Direction) {
+	p.others[playerID] = &playerMovement{
+		moveType:       playerMoveWalk,
+		position:       model.Vector3D{},
+		clearWaypoints: true,
+		walkDirection:  dir,
+	}
 }
 
 // AddToPlayerList adds a tracked player to the local player list. The position should be relative to the local player.
@@ -224,8 +242,8 @@ func (p *PlayerUpdateResponse) writePayload(w *network.ProtocolWriter) error {
 	// write local player movement details
 	p.writeLocalPlayer(bs)
 
-	// TODO: write 8 bits for the number of other players to update
-	bs.SetBits(0, 8)
+	// write 8 bits for the number of other players to update
+	p.writeOtherMovements(bs)
 
 	// write the local player list
 	p.writePlayerList(playerIDs, bs)
@@ -264,7 +282,7 @@ func (p *PlayerUpdateResponse) writeLocalPlayer(bs *network.BitSet) {
 		// nothing to do
 
 	case playerMoveWalk:
-		// write 2 bits for the direction
+		// write 3 bits for the direction
 		code := directionCodes[p.local.walkDirection]
 		bs.SetBits(uint32(code), 3)
 
@@ -288,6 +306,44 @@ func (p *PlayerUpdateResponse) writeLocalPlayer(bs *network.BitSet) {
 		// write 7 bits each for the y and x coordinates
 		bs.SetBits(uint32(p.local.position.Y), 7)
 		bs.SetBits(uint32(p.local.position.X), 7)
+	}
+}
+
+func (p *PlayerUpdateResponse) writeOtherMovements(bs *network.BitSet) {
+	// write 8 bits indicating how many other players there are to update
+	bs.SetBits(uint32(len(p.others)), 8)
+
+	for _, other := range p.others {
+		// set or clear 1 bit to flag if an update is required or if this player should only be tracked
+		if other.moveType == playerMoveNoUpdate {
+			bs.Clear()
+			continue
+		}
+
+		bs.Set()
+
+		// write 2 bits for the movement type
+		bs.SetBits(uint32(other.moveType), 2)
+
+		switch other.moveType {
+		case playerMoveUnchanged:
+			// nothing to do
+
+		case playerMoveWalk:
+			// write 3 bits for the direction
+			code := directionCodes[other.walkDirection]
+			bs.SetBits(uint32(code), 3)
+
+			// write 1 bit if a further update is required
+			// TODO: is this needed since the player is already in the player list?
+			//needsUpdate := p.list[playerID].update != nil
+			//bs.SetOrClear(needsUpdate)
+			bs.Clear()
+
+		case playerMoveRun:
+			// TODO
+			panic("not implemented")
+		}
 	}
 }
 
