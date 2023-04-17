@@ -28,6 +28,7 @@ var ChatColorCodes = map[byte]model.ChatColor{
 	0x0B: model.ChatColorGlow3,
 }
 
+// ChatEffectCode returns a protocol identifier for a chat message effect.
 func ChatEffectCode(c model.ChatEffect) byte {
 	for k, v := range ChatEffectCodes {
 		if v == c {
@@ -38,6 +39,7 @@ func ChatEffectCode(c model.ChatEffect) byte {
 	return 0
 }
 
+// ChatColorCode returns a protocol identifier for a chat message color.
 func ChatColorCode(c model.ChatColor) byte {
 	for k, v := range ChatColorCodes {
 		if v == c {

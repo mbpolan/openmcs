@@ -57,62 +57,11 @@ func ReadPlayerChatRequest(r *network.ProtocolReader) (*PlayerChatRequest, error
 		}
 	}
 
-	text, err := decodeText(rawText)
+	text, err := util.DecodeChat(rawText)
 
 	return &PlayerChatRequest{
 		Effect: effect,
 		Color:  color,
 		Text:   text,
 	}, nil
-}
-
-func decodeText(raw []byte) (string, error) {
-	var text []byte
-
-	lastCh := byte(0x00)
-	for i := 0; i < len(raw); i++ {
-		ch := raw[i]
-
-		// each byte contains up to two distinct characters
-		ch -= 0x80
-		hi := ch >> 4
-		lo := ch & 0x0F
-
-		// if the last byte had a continuation, form a single code point from the two parts
-		// if the high bits are a value greater than 13, treat the entire byte as a single code point
-		// otherwise treat the high bits as a single code point
-		code := -1
-		if lastCh > 0 {
-			code = int(((lastCh << 4) | hi) - 0xC3)
-			text = append(text, util.ValidChatChars[code])
-
-			lastCh = 0x00
-		} else if hi >= 13 {
-			code = int(ch - 0xC3)
-			text = append(text, util.ValidChatChars[code])
-
-			// skip the rest of the byte
-			continue
-		} else {
-			code = int(hi)
-			text = append(text, util.ValidChatChars[code])
-		}
-
-		// if the low bits are a value greater than 13, store them and expect the next byte to complete the code point
-		// otherwise treat the low bits as a single code point
-		if lo >= 13 {
-			lastCh = lo
-		} else {
-			code = int(lo)
-			text = append(text, util.ValidChatChars[code])
-		}
-	}
-
-	// if some bits are left over, form a code point from them
-	if lastCh > 0x00 {
-		code := int(lastCh)
-		text = append(text, util.ValidChatChars[code])
-	}
-
-	return string(text), nil
 }

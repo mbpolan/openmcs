@@ -356,7 +356,7 @@ func (p *PlayerUpdateResponse) writePlayerUpdate(update *playerUpdate, w *networ
 		colorCode := common.ChatColorCode(update.chatMessage.Color)
 		effectCode := common.ChatEffectCode(update.chatMessage.Effect)
 
-		err := w.WriteUint16(uint16(colorCode)<<8 | uint16(effectCode))
+		err := w.WriteUint16(uint16(effectCode)<<8 | uint16(colorCode))
 		if err != nil {
 			return err
 		}
@@ -507,26 +507,8 @@ func (p *PlayerUpdateResponse) writeAppearance(ea *entityAppearance, w *network.
 		}
 	}
 
-	// convert the name to a long integer
-	name := uint64(0)
-	validSetLen := uint64(len(util.ValidNameChars))
-	for _, ch := range ea.name {
-		name *= validSetLen
-
-		if ch >= 'A' && ch <= 'Z' {
-			name += uint64((ch + 1) - 'A')
-		} else if ch >= 'a' && ch <= 'z' {
-			name += uint64((ch + 1) - 'a')
-		} else if ch >= '0' && ch <= '9' {
-			name += uint64((ch + 27) - '0')
-		}
-	}
-
-	// normalize the value
-	for name%validSetLen == 0 && name != 0 {
-		name /= validSetLen
-	}
-
+	// convert the name to a long integer and write it as 8 bytes
+	name := util.EncodeName(ea.name)
 	err = bw.WriteUint64(name)
 	if err != nil {
 		return err

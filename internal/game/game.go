@@ -504,7 +504,7 @@ func (g *Game) sendPlayerUpdate(pe *playerEntity) error {
 		}
 
 		// has the other player posted a new chat message?
-		if other.pe.lastChatTime != other.lastTrackedChatTime && other.pe.lastChatMessage != nil {
+		if other.pe.lastChatTime.After(other.lastTrackedChatTime) && other.pe.lastChatMessage != nil {
 			update.AddChatMessage(other.pe.player.ID, other.pe.lastChatMessage)
 			other.lastTrackedChatTime = other.pe.lastChatTime
 		}
