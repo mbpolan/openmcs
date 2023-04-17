@@ -15,3 +15,14 @@ var ValidChatChars = []byte{
 	'?', '.', ',', ':', ';', '(', ')', '-', '&', '*', '\\', '\'', '@',
 	'#', '+', '=', '\243', '$', '%', '"', '[', ']',
 }
+
+// ChatCharCode returns the code point for a chat character. If the character is not valid, -1 is returned.
+func ChatCharCode(ch byte) int {
+	for i, c := range ValidChatChars {
+		if c == ch {
+			return i
+		}
+	}
+
+	return -1
+}

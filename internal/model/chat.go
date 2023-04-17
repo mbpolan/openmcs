@@ -29,3 +29,10 @@ const (
 	ChatColorGlow2
 	ChatColorGlow3
 )
+
+// ChatMessage is a chat message sent by a player. Chat messages may have associated effects and font color modifiers.
+type ChatMessage struct {
+	Color  ChatColor
+	Effect ChatEffect
+	Text   string
+}

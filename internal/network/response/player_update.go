@@ -3,6 +3,7 @@ package response
 import (
 	"github.com/mbpolan/openmcs/internal/model"
 	"github.com/mbpolan/openmcs/internal/network"
+	"github.com/mbpolan/openmcs/internal/network/common"
 	"github.com/mbpolan/openmcs/internal/util"
 	"sort"
 )
@@ -56,8 +57,9 @@ var directionCodes = map[model.Direction]byte{
 }
 
 type playerUpdate struct {
-	mask       uint16
-	appearance *entityAppearance
+	mask        uint16
+	appearance  *entityAppearance
+	chatMessage *model.ChatMessage
 }
 
 type entityAppearance struct {
@@ -149,6 +151,18 @@ func (p *PlayerUpdateResponse) AddAppearanceUpdate(playerID int, name string, a 
 		name:       name,
 		appearance: a,
 	}
+}
+
+// AddChatMessage adds a chat message that was posted by another player.
+func (p *PlayerUpdateResponse) AddChatMessage(playerID int, msg *model.ChatMessage) {
+	// do not include chat messages for the local player
+	if playerID == p.localPlayerID {
+		return
+	}
+
+	update := p.ensureUpdate(playerID)
+	update.mask |= updateChatMessageText
+	update.chatMessage = msg
 }
 
 // Write writes the contents of the message to a stream.
@@ -336,6 +350,44 @@ func (p *PlayerUpdateResponse) writePlayerUpdate(update *playerUpdate, w *networ
 		}
 	}
 
+	// write chat message
+	if update.mask&updateChatMessageText != 0 {
+		// write 2 bytes for the color and effect
+		colorCode := common.ChatColorCode(update.chatMessage.Color)
+		effectCode := common.ChatEffectCode(update.chatMessage.Effect)
+
+		err := w.WriteUint16(uint16(colorCode)<<8 | uint16(effectCode))
+		if err != nil {
+			return err
+		}
+
+		// TODO: player rights
+		// write 1 byte for the player rights of the sending player
+		err = w.WriteUint8(0x00)
+		if err != nil {
+			return err
+		}
+
+		// encode the chat message
+		encoded := p.encodeChatText(update.chatMessage.Text)
+		reversed := make([]byte, len(encoded))
+		for i := len(encoded) - 1; i >= 0; i-- {
+			reversed[i] = encoded[len(encoded)-i-1]
+		}
+
+		// write 1 byte the length of the message (inverted)
+		err = w.WriteUint8(byte(len(reversed) * -1))
+		if err != nil {
+			return err
+		}
+
+		// write the message text itself
+		_, err = w.Write(reversed)
+		if err != nil {
+			return err
+		}
+	}
+
 	// write appearance update
 	if update.mask&updateAppearance != 0 {
 		err := p.writeAppearance(update.appearance, w)
@@ -345,6 +397,40 @@ func (p *PlayerUpdateResponse) writePlayerUpdate(update *playerUpdate, w *networ
 	}
 
 	return nil
+}
+
+// encodeChatText encodes a chat message into a buffer of chat character indices.
+func (p *PlayerUpdateResponse) encodeChatText(text string) []byte {
+	var encoded []byte
+
+	lastCh := -1
+	for _, ch := range text {
+		code := util.ChatCharCode(byte(ch))
+
+		if code > 12 {
+			code += 0xC3
+		}
+
+		if lastCh == -1 {
+			if code < 13 {
+				lastCh = code
+			} else {
+				encoded = append(encoded, byte(code))
+			}
+		} else if code < 13 {
+			encoded = append(encoded, byte(lastCh<<4|code))
+			lastCh = -1
+		} else {
+			encoded = append(encoded, byte(lastCh<<4|(code>>4)))
+			lastCh = code & 0x0F
+		}
+	}
+
+	if lastCh != -1 {
+		encoded = append(encoded, byte(lastCh<<4))
+	}
+
+	return encoded
 }
 
 func (p *PlayerUpdateResponse) writeAppearance(ea *entityAppearance, w *network.ProtocolWriter) error {

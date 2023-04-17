@@ -23,6 +23,9 @@ type trackedPlayerEntity struct {
 	pe           *playerEntity
 	needsUpdate  bool
 	lastPosition model.Vector3D
+
+	lastChatMessage     *model.ChatMessage
+	lastTrackedChatTime time.Time
 }
 
 type playerEntity struct {
@@ -34,6 +37,8 @@ type playerEntity struct {
 	path            []model.Vector2D
 	scheduler       *Scheduler
 	writer          *network.ProtocolWriter
+	lastChatMessage *model.ChatMessage
+	lastChatTime    time.Time
 }
 
 // PlanEvent adds a scheduled event to this player's queue and resets the event timer.
@@ -120,7 +125,20 @@ func (g *Game) RequestLogout(p *model.Player, action int) {
 
 // DoPlayerChat broadcasts a player's chat message to nearby players.
 func (g *Game) DoPlayerChat(p *model.Player, effect model.ChatEffect, color model.ChatColor, text string) {
-	logger.Infof("chat: %s", text)
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	pe := g.findPlayerByID(p)
+	if pe == nil {
+		return
+	}
+
+	pe.lastChatMessage = &model.ChatMessage{
+		Color:  color,
+		Effect: effect,
+		Text:   text,
+	}
+	pe.lastChatTime = time.Now()
 }
 
 // WalkPlayer starts moving the player to a destination from a start position then following a set of waypoints. The
@@ -483,6 +501,12 @@ func (g *Game) sendPlayerUpdate(pe *playerEntity) error {
 		if other.needsUpdate {
 			update.AddAppearanceUpdate(other.pe.player.ID, other.pe.player.Username, pe.player.Appearance)
 			other.needsUpdate = false
+		}
+
+		// has the other player posted a new chat message?
+		if other.pe.lastChatTime != other.lastTrackedChatTime && other.pe.lastChatMessage != nil {
+			update.AddChatMessage(other.pe.player.ID, other.pe.lastChatMessage)
+			other.lastTrackedChatTime = other.pe.lastChatTime
 		}
 	}
 
