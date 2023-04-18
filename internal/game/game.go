@@ -45,7 +45,21 @@ type playerEntity struct {
 	lastWalkDirection model.Direction
 	lastChatMessage   *model.ChatMessage
 	lastChatTime      time.Time
-	isMidWalk         bool
+}
+
+// MoveDirection returns the direction the player is currently moving in. If the player is not moving, then
+// model.DirectionNone will be returned.
+func (pe *playerEntity) MoveDirection() model.Direction {
+	if !pe.Walking() {
+		return model.DirectionNone
+	}
+
+	return model.DirectionFromDelta(pe.path[0].Sub(pe.player.GlobalPos.To2D()))
+}
+
+// Walking determines if the player is walking to a destination.
+func (pe *playerEntity) Walking() bool {
+	return len(pe.path) > 0
 }
 
 // PlanEvent adds a scheduled event to this player's queue and resets the event timer.
@@ -220,7 +234,6 @@ func (g *Game) WalkPlayer(p *model.Player, start model.Vector2D, waypoints []mod
 	logger.Debugf("path player %s via %+v", p.Username, path)
 	pe.path = path
 	pe.lastWalkTime = time.Now()
-	pe.lastSentWalkTime = pe.lastWalkTime
 }
 
 // AddPlayer joins a player to the world and handles ongoing game events and network interactions.
@@ -420,25 +433,16 @@ func (g *Game) handleGameUpdate() error {
 		}
 
 		// check if the player is walking, and it's time to move to the next waypoint
-		if len(pe.path) > 0 && time.Now().Sub(pe.lastWalkTime) >= playerWalkInterval/2 {
-			if pe.isMidWalk {
-				pe.isMidWalk = false
-			} else {
-				pe.isMidWalk = true
+		if pe.Walking() && time.Now().Sub(pe.lastWalkTime) >= playerWalkInterval {
+			next := pe.path[0]
 
-				next := pe.path[0]
+			// update the player's position
+			pe.player.GlobalPos.X = next.X
+			pe.player.GlobalPos.Y = next.Y
 
-				// find the direction the next segment is at relative to the player's current position
-				pe.lastWalkDirection = model.DirectionFromDelta(next.Sub(pe.player.GlobalPos.To2D()))
-
-				// update the player's position
-				pe.player.GlobalPos.X = next.X
-				pe.player.GlobalPos.Y = next.Y
-
-				// drop this path segment and mark this as the last time the player was moved
-				pe.path = pe.path[1:]
-				pe.lastWalkTime = time.Now()
-			}
+			// drop this path segment and mark this as the last time the player was moved
+			pe.path = pe.path[1:]
+			pe.lastWalkTime = time.Now()
 		}
 
 		logger.Debugf("%s has tracking: %+v", pe.player.Username, pe.tracking)
@@ -508,25 +512,31 @@ func (g *Game) sendPlayerUpdate(pe *playerEntity) error {
 	// TODO: handle remaining possibilities
 
 	// update the player if they are walking, and it's time for their next walk increment
-	if pe.lastWalkTime.After(pe.lastSentWalkTime) && pe.isMidWalk {
-		update.SetLocalPlayerWalk(pe.lastWalkDirection)
+	if pe.Walking() && pe.lastWalkTime.After(pe.lastSentWalkTime) {
+		update.SetLocalPlayerWalk(pe.MoveDirection())
 		pe.lastSentWalkTime = pe.lastWalkTime
 	}
 
 	// update players that are in this player's visible range
 	for _, other := range pe.tracking {
-		// if the other player is walking, update their movement. otherwise just add them to the player list so they
-		// are still tracked.
-		if other.pe.lastWalkTime.After(other.lastTrackedWalkTime) {
-			if other.pe.isMidWalk {
-				update.AddOtherPlayerNoUpdate(other.pe.player.ID)
-			} else {
-				update.AddOtherPlayerWalk(other.pe.player.ID, other.pe.lastWalkDirection)
+		// the other player is walking
+		if other.pe.Walking() {
+			if other.pe.lastWalkTime.After(other.lastTrackedWalkTime) {
+				update.AddOtherPlayerWalk(other.pe.player.ID, other.pe.MoveDirection())
 				other.lastTrackedWalkTime = other.pe.lastWalkTime
+			} else {
+				update.AddOtherPlayerNoUpdate(other.pe.player.ID)
 			}
 		} else {
+			// adjust this player's position if our player is currently walking
+			pos := pe.player.GlobalPos
+			if pe.Walking() {
+				pos.X = pe.path[0].X
+				pos.Y = pe.path[0].Y
+			}
+
 			// compute the other player's location relative to this player, and add them to the update list
-			posOffset := other.pe.player.GlobalPos.Sub(pe.player.GlobalPos).To2D()
+			posOffset := other.pe.player.GlobalPos.Sub(pos).To2D()
 			update.AddToPlayerList(other.pe.player.ID, posOffset, true, true)
 		}
 
