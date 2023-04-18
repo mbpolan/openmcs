@@ -286,13 +286,13 @@ func (g *Game) RemovePlayer(p *model.Player) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	// remove the player from the game. other players who were tracking this player will have their spectators list
-	// refreshed the next time the game state update runs.
+	// remove the player from the game and from other players' tracking lists
 	for i, pe := range g.players {
-		if pe.player == p {
+		if pe.player.ID == p.ID {
 			g.players = append(g.players[:i], g.players[i+1:]...)
 			pe.doneChan <- true
-			break
+		} else {
+			delete(pe.tracking, p.ID)
 		}
 	}
 }
