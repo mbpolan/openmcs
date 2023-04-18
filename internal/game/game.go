@@ -32,19 +32,21 @@ type trackedPlayerEntity struct {
 }
 
 type playerEntity struct {
-	lastInteraction   time.Time
-	player            *model.Player
-	tracking          []*trackedPlayerEntity
-	resetChan         chan bool
-	doneChan          chan bool
-	path              []model.Vector2D
-	scheduler         *Scheduler
-	writer            *network.ProtocolWriter
-	lastSentWalkTime  time.Time
-	lastWalkTime      time.Time
-	lastWalkDirection model.Direction
-	lastChatMessage   *model.ChatMessage
-	lastChatTime      time.Time
+	lastInteraction time.Time
+	player          *model.Player
+	tracking        map[int]*playerEntity
+	resetChan       chan bool
+	doneChan        chan bool
+	path            []model.Vector2D
+	nextPathIdx     int
+	scheduler       *Scheduler
+	writer          *network.ProtocolWriter
+	lastWalkTime    time.Time
+	lastChatMessage *model.ChatMessage
+	lastChatTime    time.Time
+	chatHighWater   time.Time
+	nextUpdate      *response.PlayerUpdateResponse
+	mu              sync.Mutex
 }
 
 // MoveDirection returns the direction the player is currently moving in. If the player is not moving, then
@@ -54,12 +56,12 @@ func (pe *playerEntity) MoveDirection() model.Direction {
 		return model.DirectionNone
 	}
 
-	return model.DirectionFromDelta(pe.path[0].Sub(pe.player.GlobalPos.To2D()))
+	return model.DirectionFromDelta(pe.path[pe.nextPathIdx].Sub(pe.player.GlobalPos.To2D()))
 }
 
 // Walking determines if the player is walking to a destination.
 func (pe *playerEntity) Walking() bool {
-	return len(pe.path) > 0
+	return pe.nextPathIdx < len(pe.path)
 }
 
 // PlanEvent adds a scheduled event to this player's queue and resets the event timer.
@@ -173,6 +175,9 @@ func (g *Game) WalkPlayer(p *model.Player, start model.Vector2D, waypoints []mod
 		return
 	}
 
+	pe.mu.Lock()
+	defer pe.mu.Unlock()
+
 	// the starting position is offset by 6 tiles from the region origin, and serves as the basis for waypoints
 	initial := model.Vector2D{
 		X: start.X + (util.MapScale3D.X * 6),
@@ -233,7 +238,8 @@ func (g *Game) WalkPlayer(p *model.Player, start model.Vector2D, waypoints []mod
 
 	logger.Debugf("path player %s via %+v", p.Username, path)
 	pe.path = path
-	pe.lastWalkTime = time.Now()
+	pe.nextPathIdx = 0
+	pe.lastWalkTime = time.Now().Add(-1 * playerWalkInterval)
 }
 
 // AddPlayer joins a player to the world and handles ongoing game events and network interactions.
@@ -241,6 +247,7 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	pe := &playerEntity{
 		lastInteraction: time.Now(),
 		player:          p,
+		tracking:        map[int]*playerEntity{},
 		resetChan:       make(chan bool),
 		doneChan:        make(chan bool, 1),
 		scheduler:       NewScheduler(),
@@ -403,48 +410,62 @@ func (g *Game) handleGameUpdate() error {
 
 	// check each player in the world
 	for _, pe := range g.players {
+		pe.mu.Lock()
+
+		// prepare a new player update or use the pending, existing one
+		if pe.nextUpdate == nil {
+			pe.nextUpdate = response.NewPlayerUpdateResponse(pe.player.ID)
+		}
+		update := pe.nextUpdate
+
 		// find players within visual distance of this player
 		others := g.findSpectators(pe)
+		for _, other := range others {
+			// is this player new to us? if so we need to send an initial position and appearance update
+			if _, ok := pe.tracking[other.player.ID]; !ok {
+				posOffset := other.player.GlobalPos.Sub(pe.player.GlobalPos).To2D()
+				update.AddToPlayerList(other.player.ID, posOffset, true, true)
 
-		// has this set of tracked players changed?
-		trackingChanged := false
-		if len(pe.tracking) == len(others) {
-			for i, other := range others {
-				if pe.tracking[i].pe.player.ID != other.player.ID {
-					trackingChanged = true
-					break
+				update.AddAppearanceUpdate(other.player.ID, other.player.Username, other.player.Appearance)
+				pe.tracking[other.player.ID] = other
+			} else if !update.Tracking(other.player.ID) {
+				theirUpdate := other.nextUpdate
+
+				// if the other player does not have an update, do not change their posture relative to us. otherwise
+				// synchronize with their local movement
+				if theirUpdate == nil {
+					update.AddOtherPlayerNoUpdate(other.player.ID)
+				} else {
+					update.SyncLocalMovement(other.player.ID, theirUpdate)
 				}
 			}
-		} else {
-			trackingChanged = true
-		}
 
-		// update this player's slice of tracked players
-		if trackingChanged {
-			// TODO: can we reduce the amount of allocations here?
-			pe.tracking = make([]*trackedPlayerEntity, len(others))
-			for i, other := range others {
-				pe.tracking[i] = &trackedPlayerEntity{
-					pe:           other,
-					needsUpdate:  true,
-					lastPosition: other.player.GlobalPos,
-				}
+			if other.lastChatTime.After(pe.chatHighWater) && other.lastChatMessage != nil {
+				update.AddChatMessage(other.player.ID, other.lastChatMessage)
 			}
 		}
+
+		pe.chatHighWater = time.Now()
 
 		// check if the player is walking, and it's time to move to the next waypoint
 		if pe.Walking() && time.Now().Sub(pe.lastWalkTime) >= playerWalkInterval {
-			next := pe.path[0]
+			next := pe.path[pe.nextPathIdx]
+
+			// add the change in direction to the local player's movement
+			dir := model.DirectionFromDelta(next.Sub(pe.player.GlobalPos.To2D()))
+			update.SetLocalPlayerWalk(dir)
 
 			// update the player's position
 			pe.player.GlobalPos.X = next.X
 			pe.player.GlobalPos.Y = next.Y
 
-			// drop this path segment and mark this as the last time the player was moved
-			pe.path = pe.path[1:]
+			// move past this path segment and mark this as the last time the player was moved
+			pe.nextPathIdx++
 			pe.lastWalkTime = time.Now()
 		}
 
+		pe.nextUpdate = update
+		pe.mu.Unlock()
 		logger.Debugf("%s has tracking: %+v", pe.player.Username, pe.tracking)
 	}
 
@@ -506,56 +527,19 @@ func (g *Game) planClientTabInterfaces(pe *playerEntity) {
 
 // sendPlayerUpdate sends a game state update to the player.
 func (g *Game) sendPlayerUpdate(pe *playerEntity) error {
-	update := response.NewPlayerUpdateResponse(pe.player.ID)
+	g.mu.Lock()
+	defer g.mu.Unlock()
 
-	// update player's complete current state
-	// TODO: handle remaining possibilities
+	pe.mu.Lock()
+	defer pe.mu.Unlock()
 
-	// update the player if they are walking, and it's time for their next walk increment
-	if pe.Walking() && pe.lastWalkTime.After(pe.lastSentWalkTime) {
-		update.SetLocalPlayerWalk(pe.MoveDirection())
-		pe.lastSentWalkTime = pe.lastWalkTime
-	}
-
-	// update players that are in this player's visible range
-	for _, other := range pe.tracking {
-		// the other player is walking
-		if other.pe.Walking() {
-			if other.pe.lastWalkTime.After(other.lastTrackedWalkTime) {
-				update.AddOtherPlayerWalk(other.pe.player.ID, other.pe.MoveDirection())
-				other.lastTrackedWalkTime = other.pe.lastWalkTime
-			} else {
-				update.AddOtherPlayerNoUpdate(other.pe.player.ID)
-			}
-		} else {
-			// adjust this player's position if our player is currently walking
-			pos := pe.player.GlobalPos
-			if pe.Walking() {
-				pos.X = pe.path[0].X
-				pos.Y = pe.path[0].Y
-			}
-
-			// compute the other player's location relative to this player, and add them to the update list
-			posOffset := other.pe.player.GlobalPos.Sub(pos).To2D()
-			update.AddToPlayerList(other.pe.player.ID, posOffset, true, true)
+	if pe.nextUpdate != nil {
+		err := pe.nextUpdate.Write(pe.writer)
+		if err != nil {
+			return err
 		}
 
-		// if the other player needs additional updates, include those as well
-		if other.needsUpdate {
-			update.AddAppearanceUpdate(other.pe.player.ID, other.pe.player.Username, pe.player.Appearance)
-			other.needsUpdate = false
-		}
-
-		// has the other player posted a new chat message?
-		if other.pe.lastChatTime.After(other.lastTrackedChatTime) && other.pe.lastChatMessage != nil {
-			update.AddChatMessage(other.pe.player.ID, other.pe.lastChatMessage)
-			other.lastTrackedChatTime = other.pe.lastChatTime
-		}
-	}
-
-	err := update.Write(pe.writer)
-	if err != nil {
-		return err
+		pe.nextUpdate = nil
 	}
 
 	return nil

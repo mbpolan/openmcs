@@ -72,6 +72,7 @@ type trackedPlayer struct {
 	clearWaypoints bool
 	pos            model.Vector2D
 	update         *playerUpdate
+	movement       *playerMovement
 }
 
 type playerMovement struct {
@@ -85,7 +86,6 @@ type playerMovement struct {
 type PlayerUpdateResponse struct {
 	localPlayerID int
 	local         *playerMovement
-	others        map[int]*playerMovement
 	list          map[int]*trackedPlayer
 }
 
@@ -96,9 +96,21 @@ func NewPlayerUpdateResponse(localPlayerID int) *PlayerUpdateResponse {
 		local: &playerMovement{
 			moveType: playerMoveNoUpdate,
 		},
-		others: map[int]*playerMovement{},
-		list:   map[int]*trackedPlayer{},
+		list: map[int]*trackedPlayer{},
 	}
+}
+
+func (p *PlayerUpdateResponse) Tracking(playerID int) bool {
+	if playerID == p.localPlayerID {
+		return true
+	}
+
+	_, ok := p.list[playerID]
+	return ok
+}
+
+func (p *PlayerUpdateResponse) SyncLocalMovement(playerID int, other *PlayerUpdateResponse) {
+	p.ensurePlayer(playerID).movement = other.local
 }
 
 // SetLocalPlayerNoMovement reports that the local player's state has not changed.
@@ -129,14 +141,14 @@ func (p *PlayerUpdateResponse) SetLocalPlayerPosition(pos model.Vector3D, clearW
 }
 
 func (p *PlayerUpdateResponse) AddOtherPlayerNoUpdate(playerID int) {
-	p.others[playerID] = &playerMovement{
+	p.ensurePlayer(playerID).movement = &playerMovement{
 		moveType: playerMoveNoUpdate,
 	}
 }
 
 // AddOtherPlayerWalk reports that another player is walking in a particular direction.
 func (p *PlayerUpdateResponse) AddOtherPlayerWalk(playerID int, dir model.Direction) {
-	p.others[playerID] = &playerMovement{
+	p.ensurePlayer(playerID).movement = &playerMovement{
 		moveType:       playerMoveWalk,
 		position:       model.Vector3D{},
 		clearWaypoints: true,
@@ -215,9 +227,19 @@ func (p *PlayerUpdateResponse) Write(w *network.ProtocolWriter) error {
 	return nil
 }
 
+func (p *PlayerUpdateResponse) ensurePlayer(playerID int) *trackedPlayer {
+	pl, ok := p.list[playerID]
+	if !ok {
+		pl = &trackedPlayer{}
+		p.list[playerID] = pl
+	}
+
+	return pl
+}
+
 // ensureUpdate returns a pointer to a player's pending updates, or creates an empty update if none were prepared.
 func (p *PlayerUpdateResponse) ensureUpdate(playerID int) *playerUpdate {
-	pl := p.list[playerID]
+	pl := p.ensurePlayer(playerID)
 	if pl.update == nil {
 		pl.update = &playerUpdate{}
 	}
@@ -310,35 +332,53 @@ func (p *PlayerUpdateResponse) writeLocalPlayer(bs *network.BitSet) {
 }
 
 func (p *PlayerUpdateResponse) writeOtherMovements(bs *network.BitSet) {
-	// write 8 bits indicating how many other players there are to update
-	bs.SetBits(uint32(len(p.others)), 8)
-
-	for _, other := range p.others {
-		// set or clear 1 bit to flag if an update is required or if this player should only be tracked
-		if other.moveType == playerMoveNoUpdate {
-			bs.Clear()
+	movements := 0
+	for playerID, other := range p.list {
+		if playerID == localPlayerID || other.movement == nil {
 			continue
+		}
+
+		movements++
+	}
+
+	// write 8 bits indicating how many other players there are to update
+	bs.SetBits(uint32(movements), 8)
+
+	for playerID, other := range p.list {
+		if playerID == localPlayerID || other.movement == nil {
+			continue
+		}
+
+		// set or clear 1 bit to flag if an update is required or if this player should only be tracked
+		if other.movement.moveType == playerMoveNoUpdate {
+			// if the player does have an update pending, we need to send a unchanged movement type instead
+			if other.update == nil {
+				bs.Clear()
+				continue
+			}
+
+			other.movement.moveType = playerMoveUnchanged
 		}
 
 		bs.Set()
 
 		// write 2 bits for the movement type
-		bs.SetBits(uint32(other.moveType), 2)
+		bs.SetBits(uint32(other.movement.moveType), 2)
 
-		switch other.moveType {
+		switch other.movement.moveType {
 		case playerMoveUnchanged:
 			// nothing to do
 
 		case playerMoveWalk:
 			// write 3 bits for the direction
-			code := directionCodes[other.walkDirection]
+			code := directionCodes[other.movement.walkDirection]
 			bs.SetBits(uint32(code), 3)
 
 			// write 1 bit if a further update is required
 			// TODO: is this needed since the player is already in the player list?
-			//needsUpdate := p.list[playerID].update != nil
-			//bs.SetOrClear(needsUpdate)
-			bs.Clear()
+			needsUpdate := p.list[playerID].update != nil
+			bs.SetOrClear(needsUpdate)
+			//bs.Clear()
 
 		case playerMoveRun:
 			// TODO
@@ -349,18 +389,19 @@ func (p *PlayerUpdateResponse) writeOtherMovements(bs *network.BitSet) {
 
 func (p *PlayerUpdateResponse) writePlayerList(playerIDs []int, bs *network.BitSet) {
 	for _, playerID := range playerIDs {
-		// don't include the local player here
-		if playerID == localPlayerID {
+		pl := p.list[playerID]
+
+		// don't include the local player here or players with movements reported earlier
+		if playerID == localPlayerID || pl.movement != nil {
 			continue
 		}
-
-		pl := p.list[playerID]
 
 		// write 11 bits for the player id
 		bs.SetBits(uint32(playerID), 11)
 
 		// write 1 bit if the player is observed
-		bs.SetOrClear(pl.observed)
+		needsUpdate := pl.update != nil
+		bs.SetOrClear(needsUpdate)
 
 		// write 1 bit if the player should have their path waypoints cleared
 		bs.SetOrClear(pl.clearWaypoints)
