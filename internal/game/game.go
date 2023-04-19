@@ -306,6 +306,10 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	// plan an update to the client sidebar interfaces
 	g.planClientTabInterfaces(pe)
 
+	// plan an update to the client's interaction modes
+	modes := response.NewSetModesResponse(pe.player.Modes.PublicChat, pe.player.Modes.PrivateChat, pe.player.Modes.Interaction)
+	pe.PlanEvent(NewSendResponseEvent(modes, time.Now()))
+
 	// plan the first continuous player update after the initial one is done
 	pe.PlanEvent(NewEventWithType(EventPlayerUpdate, time.Now().Add(playerUpdateInterval)))
 

@@ -4,22 +4,8 @@ import (
 	"fmt"
 	"github.com/mbpolan/openmcs/internal/model"
 	"github.com/mbpolan/openmcs/internal/network"
+	"github.com/mbpolan/openmcs/internal/network/common"
 )
-
-// chatModeCodes maps protocol codes to chat modes.
-var chatModeCodes = map[byte]model.ChatMode{
-	0x00: model.ChatModePublic,
-	0x01: model.ChatModeFriends,
-	0x02: model.ChatModeOff,
-	0x03: model.ChatModeHide,
-}
-
-// interactionModeCodes maps protocol codes to interaction modes.
-var interactionModeCodes = map[byte]model.InteractionMode{
-	0x00: model.InteractionModePublic,
-	0x01: model.InteractionModeFriends,
-	0x02: model.InteractionModeOff,
-}
 
 const ChangeModesRequestHeader byte = 0x5F
 
@@ -37,7 +23,7 @@ func ReadChangeModesRequest(r *network.ProtocolReader) (*ChangeModesRequest, err
 		return nil, err
 	}
 
-	publicChatMode, ok := chatModeCodes[b]
+	publicChatMode, ok := common.ChatModeCodes[b]
 	if !ok {
 		return nil, fmt.Errorf("invalid public chat mode byte: %d", b)
 	}
@@ -48,7 +34,7 @@ func ReadChangeModesRequest(r *network.ProtocolReader) (*ChangeModesRequest, err
 		return nil, err
 	}
 
-	privateChatMode, ok := chatModeCodes[b]
+	privateChatMode, ok := common.ChatModeCodes[b]
 	if !ok {
 		return nil, fmt.Errorf("invalid private chat mode byte: %d", b)
 	}
@@ -59,7 +45,7 @@ func ReadChangeModesRequest(r *network.ProtocolReader) (*ChangeModesRequest, err
 		return nil, err
 	}
 
-	interactionMode, ok := interactionModeCodes[b]
+	interactionMode, ok := common.InteractionModeCodes[b]
 	if !ok {
 		return nil, fmt.Errorf("invalid interaction mode byte: %d", b)
 	}
