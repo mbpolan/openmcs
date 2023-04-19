@@ -22,54 +22,6 @@ const playerUpdateInterval = 200 * time.Millisecond
 // playerWalkInterval defines how long to wait between a player walks to their next waypoint.
 const playerWalkInterval = 600 * time.Millisecond
 
-type trackedPlayerEntity struct {
-	pe                  *playerEntity
-	needsUpdate         bool
-	lastPosition        model.Vector3D
-	lastTrackedWalkTime time.Time
-	lastChatMessage     *model.ChatMessage
-	lastTrackedChatTime time.Time
-}
-
-type playerEntity struct {
-	lastInteraction time.Time
-	player          *model.Player
-	tracking        map[int]*playerEntity
-	resetChan       chan bool
-	doneChan        chan bool
-	path            []model.Vector2D
-	nextPathIdx     int
-	scheduler       *Scheduler
-	writer          *network.ProtocolWriter
-	lastWalkTime    time.Time
-	lastChatMessage *model.ChatMessage
-	lastChatTime    time.Time
-	chatHighWater   time.Time
-	nextUpdate      *response.PlayerUpdateResponse
-	mu              sync.Mutex
-}
-
-// MoveDirection returns the direction the player is currently moving in. If the player is not moving, then
-// model.DirectionNone will be returned.
-func (pe *playerEntity) MoveDirection() model.Direction {
-	if !pe.Walking() {
-		return model.DirectionNone
-	}
-
-	return model.DirectionFromDelta(pe.path[pe.nextPathIdx].Sub(pe.player.GlobalPos.To2D()))
-}
-
-// Walking determines if the player is walking to a destination.
-func (pe *playerEntity) Walking() bool {
-	return pe.nextPathIdx < len(pe.path)
-}
-
-// PlanEvent adds a scheduled event to this player's queue and resets the event timer.
-func (pe *playerEntity) PlanEvent(e *Event) {
-	pe.scheduler.Plan(e)
-	pe.resetChan <- true
-}
-
 // Game is the game engine and representation of the game world.
 type Game struct {
 	items    []*model.Item
@@ -276,14 +228,13 @@ func (g *Game) WalkPlayer(p *model.Player, start model.Vector2D, waypoints []mod
 
 // AddPlayer joins a player to the world and handles ongoing game events and network interactions.
 func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
-	pe := &playerEntity{
-		lastInteraction: time.Now(),
-		player:          p,
-		tracking:        map[int]*playerEntity{},
-		resetChan:       make(chan bool),
-		doneChan:        make(chan bool, 1),
-		scheduler:       NewScheduler(),
-		writer:          writer,
+	pe := newPlayerEntity(p, writer)
+
+	// set initial client tab interfaces
+	// TODO: these ids should not be hardcoded
+	pe.tabInterfaces = map[model.ClientTab]int{
+		model.ClientTabFriendsList: 5065,
+		model.ClientTabLogout:      2449,
 	}
 
 	// start the player's processing loop
@@ -304,7 +255,7 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	pe.PlanEvent(NewSendResponseEvent(update, time.Now()))
 
 	// plan an update to the client sidebar interfaces
-	g.planClientTabInterfaces(pe)
+	pe.PlanEvent(NewEventWithType(EventUpdateTabInterfaces, time.Now()))
 
 	// plan an update to the client's interaction modes
 	modes := response.NewSetModesResponse(pe.player.Modes.PublicChat, pe.player.Modes.PrivateChat, pe.player.Modes.Interaction)
@@ -561,6 +512,23 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 			Schedule: time.Now().Add(playerUpdateInterval),
 		})
 
+	case EventUpdateTabInterfaces:
+		// send all client tab interface ids
+		for _, tab := range model.ClientTabs {
+			var r *response.SidebarInterfaceResponse
+			// does the player have an interface for this tab?
+			if id, ok := pe.tabInterfaces[tab]; ok {
+				r = response.NewSidebarInterfaceResponse(tab, id)
+			} else {
+				r = response.NewRemoveSidebarInterfaceResponse(tab)
+			}
+
+			err := r.Write(pe.writer)
+			if err != nil {
+				return err
+			}
+		}
+
 	case EventSendResponse:
 		// send a generic response to the client
 		err := event.Response.Write(pe.writer)
@@ -570,13 +538,6 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 	}
 
 	return nil
-}
-
-// planClientTabInterfaces schedules an update for the player's client to refresh its tab interfaces.
-func (g *Game) planClientTabInterfaces(pe *playerEntity) {
-	// TODO: these ids should not be hardcoded
-	r := response.NewSidebarInterfaceResponse(model.ClientTabLogout, 2449)
-	pe.scheduler.Plan(NewSendResponseEvent(r, time.Now()))
 }
 
 // sendPlayerUpdate sends a game state update to the player.

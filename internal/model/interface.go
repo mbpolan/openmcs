@@ -27,3 +27,20 @@ const (
 	ClientTabControls
 	ClientTabMusic
 )
+
+// ClientTabs is a slice of all client tab interfaces.
+var ClientTabs = []ClientTab{
+	ClientTabEquippedItem,
+	ClientTabSkills,
+	ClientTabQuests,
+	ClientTabInventory,
+	ClientTabEquipment,
+	ClientTabPrayers,
+	ClientTabSpells,
+	ClientTabFriendsList,
+	ClientTabIgnoreList,
+	ClientTabLogout,
+	ClientTabSettings,
+	ClientTabControls,
+	ClientTabMusic,
+}

@@ -14,13 +14,16 @@ var clientTabIndices = map[model.ClientTab]byte{
 	model.ClientTabEquipment:    0x04,
 	model.ClientTabPrayers:      0x05,
 	model.ClientTabSpells:       0x06,
-	model.ClientTabFriendsList:  0x07,
-	model.ClientTabIgnoreList:   0x08,
+	model.ClientTabFriendsList:  0x08,
+	model.ClientTabIgnoreList:   0x09,
 	model.ClientTabLogout:       0x0A,
 	model.ClientTabSettings:     0x0B,
 	model.ClientTabControls:     0x0C,
 	model.ClientTabMusic:        0x0D,
 }
+
+// noSidebarInterfaceID is an identifier used to remove an interface from a client tab.
+const noSidebarInterfaceID int = 0xFFFF
 
 const SidebarInterfaceResponseHeader byte = 0x47
 
@@ -30,9 +33,18 @@ type SidebarInterfaceResponse struct {
 	SidebarID int
 }
 
+// NewSidebarInterfaceResponse creates a response to set an interface on a client tab.
 func NewSidebarInterfaceResponse(tab model.ClientTab, sidebarID int) *SidebarInterfaceResponse {
 	return &SidebarInterfaceResponse{
 		SidebarID: sidebarID,
+		Tab:       tab,
+	}
+}
+
+// NewRemoveSidebarInterfaceResponse creates a response to remove an interface on a client tab.
+func NewRemoveSidebarInterfaceResponse(tab model.ClientTab) *SidebarInterfaceResponse {
+	return &SidebarInterfaceResponse{
+		SidebarID: noSidebarInterfaceID,
 		Tab:       tab,
 	}
 }
