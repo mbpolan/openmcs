@@ -197,6 +197,16 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 	case request.RegionLoadedRequestHeader:
 		// the player's client finished loading a new map region
 
+	case request.ReportRequestHeader:
+		// the player sent an abuse report
+		req, err := request.ReadReportRequest(c.reader)
+		if err == nil {
+			c.game.ProcessAbuseReport(c.player, req.Username, req.Reason, req.EnableMute)
+		}
+
+	case request.CloseInterfaceRequestHeader:
+		// the player's client dismissed the current interface, if any
+
 	case request.PlayerIdleRequestHeader:
 		// the player has become idle
 		c.game.MarkPlayerInactive(c.player)

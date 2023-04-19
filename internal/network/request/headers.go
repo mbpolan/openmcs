@@ -10,3 +10,6 @@ const PlayerIdleRequestHeader byte = 0xCA
 
 // RegionLoadedRequestHeader is sent by the client to confirm that a map region has been loaded.
 const RegionLoadedRequestHeader byte = 0x79
+
+// CloseInterfaceRequestHeader is sent by the client when the current interface, if any, has been dismissed.
+const CloseInterfaceRequestHeader byte = 0x82

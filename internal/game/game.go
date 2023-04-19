@@ -126,6 +126,12 @@ func (g *Game) SetPlayerModes(p *model.Player, publicChat model.ChatMode, privat
 	}
 }
 
+// ProcessAbuseReport handles an abuse report sent by a player.
+func (g *Game) ProcessAbuseReport(p *model.Player, username string, reason int, mute bool) {
+	// TODO: log the report and mute target player, if they exist
+	logger.Infof("player %s reported %s for abuse reason %d (mute? %t)", p.Username, username, reason, mute)
+}
+
 // MarkPlayerActive updates a player's last activity tracker and prevents them from becoming idle.
 func (g *Game) MarkPlayerActive(p *model.Player) {
 	g.mu.RLock()

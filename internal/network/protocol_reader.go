@@ -131,6 +131,21 @@ func (r *ProtocolReader) Uint32() (uint32, error) {
 	return (uint32(i1) << 24) | (uint32(i2) << 16) | (uint32(i3) << 8) | uint32(i4), nil
 }
 
+// Uint64 reads an unsigned, 64-bit integer in big-endian format.
+func (r *ProtocolReader) Uint64() (uint64, error) {
+	i1, err := r.Uint32()
+	if err != nil {
+		return 0, err
+	}
+
+	i2, err := r.Uint32()
+	if err != nil {
+		return 0, err
+	}
+
+	return (uint64(i1) << 32) | uint64(i2), nil
+}
+
 // String reads a variable-length string.
 func (r *ProtocolReader) String() (string, error) {
 	var str []byte

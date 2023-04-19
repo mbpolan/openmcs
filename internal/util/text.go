@@ -1,5 +1,7 @@
 package util
 
+import "fmt"
+
 // ValidNameChars is the set of characters which can be used in player and NPC names.
 var validNameChars = []byte{
 	'_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l',
@@ -16,6 +18,9 @@ var validChatChars = []byte{
 	'#', '+', '=', '\243', '$', '%', '"', '[', ']',
 }
 
+// validNameCharSetLen defines how many unique characters comprise the set of valid username characters.
+var validNameCharSetLen = uint64(len(validNameChars))
+
 // ChatCharCode returns the code point for a chat character. If the character is not valid, -1 is returned.
 func ChatCharCode(ch byte) int {
 	for i, c := range validChatChars {
@@ -31,9 +36,8 @@ func ChatCharCode(ch byte) int {
 func EncodeName(text string) uint64 {
 	name := uint64(0)
 
-	validSetLen := uint64(len(validNameChars))
 	for _, ch := range text {
-		name *= validSetLen
+		name *= validNameCharSetLen
 
 		if ch >= 'A' && ch <= 'Z' {
 			name += uint64((ch + 1) - 'A')
@@ -45,11 +49,28 @@ func EncodeName(text string) uint64 {
 	}
 
 	// normalize the value
-	for name%validSetLen == 0 && name != 0 {
-		name /= validSetLen
+	for name%validNameCharSetLen == 0 && name != 0 {
+		name /= validNameCharSetLen
 	}
 
 	return name
+}
+
+// DecodeName decodes a player name from a long integer.
+func DecodeName(n uint64) (string, error) {
+	var bytes []byte
+
+	for n != 0 {
+		code := int(n - (n/validNameCharSetLen)*validNameCharSetLen)
+		if code >= len(validNameChars) {
+			return "", fmt.Errorf("invalid name code: %d", n)
+		}
+
+		bytes = append([]byte{validNameChars[code]}, bytes...)
+		n /= validNameCharSetLen
+	}
+
+	return string(bytes), nil
 }
 
 // EncodeChat encodes a chat message using the dictionary of valid chat characters.

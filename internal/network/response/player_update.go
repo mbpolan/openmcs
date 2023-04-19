@@ -466,7 +466,7 @@ func (p *PlayerUpdateResponse) writePlayerUpdate(update *playerUpdate, w *networ
 		}
 
 		// encode the chat message
-		encoded := p.encodeChatText(update.chatMessage.Text)
+		encoded := util.EncodeChat(update.chatMessage.Text)
 		reversed := make([]byte, len(encoded))
 		for i := len(encoded) - 1; i >= 0; i-- {
 			reversed[i] = encoded[len(encoded)-i-1]
@@ -494,40 +494,6 @@ func (p *PlayerUpdateResponse) writePlayerUpdate(update *playerUpdate, w *networ
 	}
 
 	return nil
-}
-
-// encodeChatText encodes a chat message into a buffer of chat character indices.
-func (p *PlayerUpdateResponse) encodeChatText(text string) []byte {
-	var encoded []byte
-
-	lastCh := -1
-	for _, ch := range text {
-		code := util.ChatCharCode(byte(ch))
-
-		if code > 12 {
-			code += 0xC3
-		}
-
-		if lastCh == -1 {
-			if code < 13 {
-				lastCh = code
-			} else {
-				encoded = append(encoded, byte(code))
-			}
-		} else if code < 13 {
-			encoded = append(encoded, byte(lastCh<<4|code))
-			lastCh = -1
-		} else {
-			encoded = append(encoded, byte(lastCh<<4|(code>>4)))
-			lastCh = code & 0x0F
-		}
-	}
-
-	if lastCh != -1 {
-		encoded = append(encoded, byte(lastCh<<4))
-	}
-
-	return encoded
 }
 
 func (p *PlayerUpdateResponse) writeAppearance(ea *entityAppearance, w *network.ProtocolWriter) error {
