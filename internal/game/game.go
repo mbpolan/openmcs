@@ -91,16 +91,11 @@ func (g *Game) AddFriend(p *model.Player, username string) {
 
 // SetPlayerModes updates the chat and interaction modes for a player.
 func (g *Game) SetPlayerModes(p *model.Player, publicChat model.ChatMode, privateChat model.ChatMode, interaction model.InteractionMode) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	pe := g.findPlayer(p)
+	pe, unlockFunc := g.findAndLockPlayer(p)
+	defer unlockFunc()
 	if pe == nil {
 		return
 	}
-
-	pe.mu.Lock()
-	defer pe.mu.Unlock()
 
 	pe.player.Modes = model.PlayerModes{
 		PublicChat:  publicChat,
@@ -117,42 +112,30 @@ func (g *Game) ProcessAbuseReport(p *model.Player, username string, reason int, 
 
 // MarkPlayerActive updates a player's last activity tracker and prevents them from becoming idle.
 func (g *Game) MarkPlayerActive(p *model.Player) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	pe := g.findPlayer(p)
+	pe, unlockFunc := g.findAndLockPlayer(p)
+	defer unlockFunc()
 	if pe == nil {
 		return
 	}
-
-	pe.mu.Lock()
-	defer pe.mu.Unlock()
 
 	pe.lastInteraction = time.Now()
 }
 
 // MarkPlayerInactive flags that a player's client reported them as being idle.
 func (g *Game) MarkPlayerInactive(p *model.Player) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	pe := g.findPlayer(p)
+	pe, unlockFunc := g.findAndLockPlayer(p)
+	defer unlockFunc()
 	if pe == nil {
 		return
 	}
-
-	pe.mu.Lock()
-	defer pe.mu.Unlock()
 
 	pe.scheduler.Plan(NewEventWithType(EventCheckIdleImmediate, time.Now()))
 }
 
 // RequestLogout attempts to log out a player.
 func (g *Game) RequestLogout(p *model.Player, action int) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	pe := g.findPlayer(p)
+	pe, unlockFunc := g.findAndLockPlayer(p)
+	defer unlockFunc()
 	if pe == nil {
 		return
 	}
@@ -163,10 +146,8 @@ func (g *Game) RequestLogout(p *model.Player, action int) {
 
 // DoPlayerChat broadcasts a player's chat message to nearby players.
 func (g *Game) DoPlayerChat(p *model.Player, effect model.ChatEffect, color model.ChatColor, text string) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	pe := g.findPlayer(p)
+	pe, unlockFunc := g.findAndLockPlayer(p)
+	defer unlockFunc()
 	if pe == nil {
 		return
 	}
@@ -182,16 +163,11 @@ func (g *Game) DoPlayerChat(p *model.Player, effect model.ChatEffect, color mode
 // WalkPlayer starts moving the player to a destination from a start position then following a set of waypoints. The
 // slice of waypoints are deltas relative to start.
 func (g *Game) WalkPlayer(p *model.Player, start model.Vector2D, waypoints []model.Vector2D) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
-	pe := g.findPlayer(p)
+	pe, unlockFunc := g.findAndLockPlayer(p)
+	defer unlockFunc()
 	if pe == nil {
 		return
 	}
-
-	pe.mu.Lock()
-	defer pe.mu.Unlock()
 
 	// the starting position is offset by 6 tiles from the region origin, and serves as the basis for waypoints
 	initial := model.Vector2D{
@@ -292,6 +268,9 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	modes := response.NewSetModesResponse(pe.player.Modes.PublicChat, pe.player.Modes.PrivateChat, pe.player.Modes.Interaction)
 	pe.PlanEvent(NewSendResponseEvent(modes, time.Now()))
 
+	// plan an update to the player's friends list
+	pe.PlanEvent(NewEventWithType(EventFriendList, time.Now()))
+
 	// plan the first continuous player update after the initial one is done
 	pe.PlanEvent(NewEventWithType(EventPlayerUpdate, time.Now().Add(playerUpdateInterval)))
 
@@ -343,7 +322,7 @@ func (g *Game) findAndLockPlayer(p *model.Player) (*playerEntity, func()) {
 
 	pe := g.findPlayer(p)
 	if pe == nil {
-		g.mu.Unlock()
+		g.mu.RUnlock()
 
 		return nil, func() {}
 	}
@@ -352,7 +331,7 @@ func (g *Game) findAndLockPlayer(p *model.Player) (*playerEntity, func()) {
 
 	return pe, func() {
 		pe.mu.Unlock()
-		g.mu.Unlock()
+		g.mu.RUnlock()
 	}
 }
 
@@ -564,11 +543,38 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 			Schedule: time.Now().Add(playerUpdateInterval),
 		})
 
+	case EventFriendList:
+		// send a player their entire friends list
+
+		// tell the client the list is loading
+		status := response.NewFriendsListStatusResponse(model.FriendsListStatusLoading)
+		err := status.Write(pe.writer)
+		if err != nil {
+			return err
+		}
+
+		// send the status for each friends list entry
+		for _, username := range pe.player.Friends {
+			// TODO: track player's online status
+			friend := response.NewOfflineFriendStatusResponse(username)
+			err := friend.Write(pe.writer)
+			if err != nil {
+				return err
+			}
+		}
+
+		// finally, tell the client the list has been sent
+		status = response.NewFriendsListStatusResponse(model.FriendsListStatusLoaded)
+		err = status.Write(pe.writer)
+		if err != nil {
+			return err
+		}
+
 	case EventUpdateTabInterfaces:
 		// send all client tab interface ids
 		for _, tab := range model.ClientTabs {
-			var r *response.SidebarInterfaceResponse
 			// does the player have an interface for this tab?
+			var r *response.SidebarInterfaceResponse
 			if id, ok := pe.tabInterfaces[tab]; ok {
 				r = response.NewSidebarInterfaceResponse(tab, id)
 			} else {

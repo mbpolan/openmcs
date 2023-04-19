@@ -78,5 +78,8 @@ func NewPlayer(id int, username, password string, pType PlayerType, flagged bool
 		Flagged:    flagged,
 		GlobalPos:  globalPos,
 		Appearance: appearance,
+		Friends: []string{
+			"Hurzel",
+		},
 	}
 }

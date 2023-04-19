@@ -1,5 +1,14 @@
 package model
 
+// FriendsListStatus enumerates which state a player's client should show the friends list.
+type FriendsListStatus int
+
+const (
+	FriendsListStatusLoading FriendsListStatus = iota
+	FriendsListStatusPending
+	FriendsListStatusLoaded
+)
+
 // InteractionMode controls from whom a player receives trades and duels requests.
 type InteractionMode int
 

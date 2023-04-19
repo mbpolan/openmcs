@@ -18,6 +18,10 @@ const (
 	EventCheckIdleImmediate
 	// EventUpdateTabInterfaces updates all of the player's client tab interfaces.
 	EventUpdateTabInterfaces
+	// EventFriendStatusUpdate conveys a change to a single friends list player status.
+	EventFriendStatusUpdate
+	// EventFriendList sends a player's entire friends list.
+	EventFriendList
 )
 
 // Event is an action that the game server should take at a specified time.
