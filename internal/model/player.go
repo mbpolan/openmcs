@@ -19,6 +19,7 @@ type Player struct {
 	GlobalPos  Vector3D
 	Appearance *EntityAppearance
 	Modes      PlayerModes
+	Friends    []string
 }
 
 // PlayerModes indicates what types of chat and interactions a player wishes to receive.

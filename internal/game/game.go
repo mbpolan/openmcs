@@ -8,6 +8,7 @@ import (
 	"github.com/mbpolan/openmcs/internal/network/response"
 	"github.com/mbpolan/openmcs/internal/util"
 	"github.com/pkg/errors"
+	"strings"
 	"sync"
 	"time"
 )
@@ -58,12 +59,42 @@ func (g *Game) Run() {
 	go g.loop()
 }
 
+// AddFriend attempts to add another player to the player's friends list.
+func (g *Game) AddFriend(p *model.Player, username string) {
+	target := strings.Trim(strings.ToLower(username), " ")
+
+	// TODO: validate if target player exists in persistent storage
+
+	// TODO: update friends list in persistent storage
+
+	pe, unlockFunc := g.findAndLockPlayer(p)
+	defer unlockFunc()
+	if pe == nil {
+		return
+	}
+
+	// is this player already in their friend's list
+	exists := false
+	for _, u := range pe.player.Friends {
+		if strings.ToLower(u) == target {
+			exists = true
+		}
+	}
+
+	// avoid adding duplicates
+	if exists {
+		return
+	}
+
+	pe.player.Friends = append(pe.player.Friends, target)
+}
+
 // SetPlayerModes updates the chat and interaction modes for a player.
 func (g *Game) SetPlayerModes(p *model.Player, publicChat model.ChatMode, privateChat model.ChatMode, interaction model.InteractionMode) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	pe := g.findPlayerByID(p)
+	pe := g.findPlayer(p)
 	if pe == nil {
 		return
 	}
@@ -89,7 +120,7 @@ func (g *Game) MarkPlayerActive(p *model.Player) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	pe := g.findPlayerByID(p)
+	pe := g.findPlayer(p)
 	if pe == nil {
 		return
 	}
@@ -105,7 +136,7 @@ func (g *Game) MarkPlayerInactive(p *model.Player) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	pe := g.findPlayerByID(p)
+	pe := g.findPlayer(p)
 	if pe == nil {
 		return
 	}
@@ -121,7 +152,7 @@ func (g *Game) RequestLogout(p *model.Player, action int) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	pe := g.findPlayerByID(p)
+	pe := g.findPlayer(p)
 	if pe == nil {
 		return
 	}
@@ -135,7 +166,7 @@ func (g *Game) DoPlayerChat(p *model.Player, effect model.ChatEffect, color mode
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	pe := g.findPlayerByID(p)
+	pe := g.findPlayer(p)
 	if pe == nil {
 		return
 	}
@@ -154,7 +185,7 @@ func (g *Game) WalkPlayer(p *model.Player, start model.Vector2D, waypoints []mod
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	pe := g.findPlayerByID(p)
+	pe := g.findPlayer(p)
 	if pe == nil {
 		return
 	}
@@ -305,8 +336,29 @@ func (g *Game) findSpectators(pe *playerEntity) []*playerEntity {
 	return others
 }
 
-// findPlayerByID returns the playerEntity for the corresponding player.
-func (g *Game) findPlayerByID(p *model.Player) *playerEntity {
+// findAndLockPlayer returns the playerEntity for the corresponding player, locking the game and playerEntity mutexes
+// along the way. You must call the returned function to properly unlock all mutexes.
+func (g *Game) findAndLockPlayer(p *model.Player) (*playerEntity, func()) {
+	g.mu.RLock()
+
+	pe := g.findPlayer(p)
+	if pe == nil {
+		g.mu.Unlock()
+
+		return nil, func() {}
+	}
+
+	pe.mu.Lock()
+
+	return pe, func() {
+		pe.mu.Unlock()
+		g.mu.Unlock()
+	}
+}
+
+// findPlayer returns the playerEntity for the corresponding player. This method does not lock; if you need thread
+// safety, use the findAndLockPlayer method instead.
+func (g *Game) findPlayer(p *model.Player) *playerEntity {
 	var tpe *playerEntity
 	for _, pe := range g.players {
 		if pe.player.ID == p.ID {

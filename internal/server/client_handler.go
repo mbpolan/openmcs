@@ -232,6 +232,13 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 			c.game.WalkPlayer(c.player, req.Start, req.Waypoints)
 		}
 
+	case request.AddFriendRequestHeader:
+		// the player requested another player be added to their friends list
+		req, err := request.ReadAddFriendRequest(c.reader)
+		if err == nil {
+			c.game.AddFriend(c.player, req.Username)
+		}
+
 	case request.LogoutRequestHeader:
 		// the player has requested to log out
 		req, err := request.ReadLogoutRequest(c.reader)
