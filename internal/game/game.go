@@ -25,13 +25,14 @@ const playerWalkInterval = 600 * time.Millisecond
 
 // Game is the game engine and representation of the game world.
 type Game struct {
-	items    []*model.Item
-	doneChan chan bool
-	ticker   *time.Ticker
-	objects  []*model.WorldObject
-	players  []*playerEntity
-	worldMap *model.Map
-	mu       sync.RWMutex
+	items         []*model.Item
+	doneChan      chan bool
+	ticker        *time.Ticker
+	objects       []*model.WorldObject
+	players       []*playerEntity
+	playersOnline sync.Map
+	worldMap      *model.Map
+	mu            sync.RWMutex
 }
 
 // NewGame creates a new game engine using game assets located at the given assetDir.
@@ -63,7 +64,7 @@ func (g *Game) Run() {
 func (g *Game) AddFriend(p *model.Player, username string) {
 	target := strings.Trim(strings.ToLower(username), " ")
 
-	// TODO: validate if target player exists in persistent storage
+	// TODO: validate if target player exists in persistent storage and get their properly cased name
 
 	// TODO: update friends list in persistent storage
 
@@ -250,6 +251,9 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	g.mu.Unlock()
 
 	go g.playerLoop(pe)
+	
+	// mark the player as being online
+	g.playersOnline.Store(pe.player.Username, true)
 
 	// plan an initial map region load
 	region := response.NewLoadRegionResponse(util.GlobalToRegionOrigin(p.GlobalPos).To2D())
@@ -283,10 +287,14 @@ func (g *Game) RemovePlayer(p *model.Player) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	// remove the player from the game and from other players' tracking lists
+	// remove the player from the game
 	for i, pe := range g.players {
 		if pe.player.ID == p.ID {
+			// drop the player from the player list and from the online players map
 			g.players = append(g.players[:i], g.players[i+1:]...)
+			g.playersOnline.Delete(pe.player.Username)
+
+			// flag the player's event loop to stop
 			pe.doneChan <- true
 		} else {
 			delete(pe.tracking, p.ID)
@@ -555,8 +563,16 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 
 		// send the status for each friends list entry
 		for _, username := range pe.player.Friends {
-			// TODO: track player's online status
-			friend := response.NewOfflineFriendStatusResponse(username)
+			var friend *response.FriendStatusResponse
+
+			// send a status for this player if they are online or not
+			_, ok := g.playersOnline.Load(username)
+			if ok {
+				friend = response.NewFriendStatusResponse(username, 69)
+			} else {
+				friend = response.NewOfflineFriendStatusResponse(username)
+			}
+
 			err := friend.Write(pe.writer)
 			if err != nil {
 				return err
