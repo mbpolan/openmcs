@@ -1,5 +1,15 @@
 package model
 
+// ChatMode restricts which types of chat messages a player receives.
+type ChatMode int
+
+const (
+	ChatModePublic ChatMode = iota
+	ChatModeFriends
+	ChatModeOff
+	ChatModeHide
+)
+
 // ChatEffect is a visual effect applied to chat messages.
 type ChatEffect int
 

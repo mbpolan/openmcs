@@ -208,6 +208,13 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 			c.game.DoPlayerChat(c.player, req.Effect, req.Color, req.Text)
 		}
 
+	case request.ChangeModesRequestHeader:
+		// the player changed one or more chat or interaction modes
+		req, err := request.ReadChangeModesRequest(c.reader)
+		if err == nil {
+			c.game.SetPlayerModes(c.player, req.PublicChat, req.PrivateChat, req.Interaction)
+		}
+
 	case request.WalkRequestHeader, request.WalkOnCommandRequestHeader:
 		// the player started walking to a destination on the map
 		req, err := request.ReadWalkRequest(c.reader)

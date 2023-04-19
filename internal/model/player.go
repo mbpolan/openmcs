@@ -8,7 +8,8 @@ const (
 	PlayerAdmin
 )
 
-// Player is a human player connected to the game server.
+// Player is a human player connected to the game server. This struct stores a player's persistent data, including
+// various preferences, game world properties and other such attributes.
 type Player struct {
 	ID         int
 	Username   string
@@ -17,6 +18,14 @@ type Player struct {
 	Flagged    bool
 	GlobalPos  Vector3D
 	Appearance *EntityAppearance
+	Modes      PlayerModes
+}
+
+// PlayerModes indicates what types of chat and interactions a player wishes to receive.
+type PlayerModes struct {
+	PublicChat  ChatMode
+	PrivateChat ChatMode
+	Interaction InteractionMode
 }
 
 // NewPlayer returns a new player model.

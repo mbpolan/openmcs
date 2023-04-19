@@ -106,6 +106,26 @@ func (g *Game) Run() {
 	go g.loop()
 }
 
+// SetPlayerModes updates the chat and interaction modes for a player.
+func (g *Game) SetPlayerModes(p *model.Player, publicChat model.ChatMode, privateChat model.ChatMode, interaction model.InteractionMode) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	pe := g.findPlayerByID(p)
+	if pe == nil {
+		return
+	}
+
+	pe.mu.Lock()
+	defer pe.mu.Unlock()
+
+	pe.player.Modes = model.PlayerModes{
+		PublicChat:  publicChat,
+		PrivateChat: privateChat,
+		Interaction: interaction,
+	}
+}
+
 // MarkPlayerActive updates a player's last activity tracker and prevents them from becoming idle.
 func (g *Game) MarkPlayerActive(p *model.Player) {
 	g.mu.RLock()
@@ -115,6 +135,9 @@ func (g *Game) MarkPlayerActive(p *model.Player) {
 	if pe == nil {
 		return
 	}
+
+	pe.mu.Lock()
+	defer pe.mu.Unlock()
 
 	pe.lastInteraction = time.Now()
 }
@@ -128,6 +151,9 @@ func (g *Game) MarkPlayerInactive(p *model.Player) {
 	if pe == nil {
 		return
 	}
+
+	pe.mu.Lock()
+	defer pe.mu.Unlock()
 
 	pe.scheduler.Plan(NewEventWithType(EventCheckIdleImmediate, time.Now()))
 }
@@ -440,8 +466,26 @@ func (g *Game) handleGameUpdate() error {
 				}
 			}
 
+			// if the other player has posted a chat message, determine if this player should receive it
 			if other.lastChatTime.After(pe.chatHighWater) && other.lastChatMessage != nil {
-				update.AddChatMessage(other.player.ID, other.lastChatMessage)
+				receive := true
+
+				switch pe.player.Modes.PublicChat {
+				case model.ChatModePublic, model.ChatModeHide:
+					// receive all chat messages, allowing client to hide chat messages on demand
+
+				case model.ChatModeFriends:
+					// TODO: check if the other player is a friend
+
+				case model.ChatModeOff:
+					// do not receive any messages
+					receive = false
+				}
+
+				// only include this chat message if the player should receive it
+				if receive {
+					update.AddChatMessage(other.player.ID, other.lastChatMessage)
+				}
 			}
 		}
 
