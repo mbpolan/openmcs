@@ -15,6 +15,7 @@ type playerEntity struct {
 	tracking        map[int]*playerEntity
 	resetChan       chan bool
 	doneChan        chan bool
+	updateChan      chan *response.PlayerUpdateResponse
 	path            []model.Vector2D
 	nextPathIdx     int
 	scheduler       *Scheduler
@@ -36,6 +37,7 @@ func newPlayerEntity(p *model.Player, w *network.ProtocolWriter) *playerEntity {
 		tracking:        map[int]*playerEntity{},
 		resetChan:       make(chan bool),
 		doneChan:        make(chan bool, 1),
+		updateChan:      make(chan *response.PlayerUpdateResponse),
 		scheduler:       NewScheduler(),
 		writer:          w,
 	}

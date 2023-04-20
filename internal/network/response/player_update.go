@@ -350,22 +350,23 @@ func (p *PlayerUpdateResponse) writeOtherMovements(bs *network.BitSet) {
 		}
 
 		// set or clear 1 bit to flag if an update is required or if this player should only be tracked
-		if other.movement.moveType == playerMoveNoUpdate {
-			// if the player does have an update pending, we need to send a unchanged movement type instead
+		moveType := other.movement.moveType
+		if moveType == playerMoveNoUpdate {
+			// if the player does have an update pending, we need to send an unchanged movement type instead
 			if other.update == nil {
 				bs.Clear()
 				continue
 			}
 
-			other.movement.moveType = playerMoveUnchanged
+			moveType = playerMoveUnchanged
 		}
 
 		bs.Set()
 
 		// write 2 bits for the movement type
-		bs.SetBits(uint32(other.movement.moveType), 2)
+		bs.SetBits(uint32(moveType), 2)
 
-		switch other.movement.moveType {
+		switch moveType {
 		case playerMoveUnchanged:
 			// nothing to do
 

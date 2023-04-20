@@ -25,14 +25,15 @@ const playerWalkInterval = 600 * time.Millisecond
 
 // Game is the game engine and representation of the game world.
 type Game struct {
-	items         []*model.Item
-	doneChan      chan bool
-	ticker        *time.Ticker
-	objects       []*model.WorldObject
-	players       []*playerEntity
-	playersOnline sync.Map
-	worldMap      *model.Map
-	mu            sync.RWMutex
+	items            []*model.Item
+	doneChan         chan bool
+	ticker           *time.Ticker
+	objects          []*model.WorldObject
+	players          []*playerEntity
+	playersOnline    sync.Map
+	lastPlayerUpdate time.Time
+	worldMap         *model.Map
+	mu               sync.RWMutex
 }
 
 // NewGame creates a new game engine using game assets located at the given assetDir.
@@ -495,6 +496,13 @@ func (g *Game) playerLoop(pe *playerEntity) {
 		case <-pe.resetChan:
 			// a new event was planned; rerun the loop and let the scheduler report the next process time
 
+		case update := <-pe.updateChan:
+			err := update.Write(pe.writer)
+			if err != nil {
+				logger.Errorf("ending player loop due to error on update: %s", err)
+				return
+			}
+
 		case <-time.After(pe.scheduler.TimeUntil()):
 			// handle an event that is now ready for processing
 			err := g.handlePlayerEvent(pe)
@@ -536,6 +544,9 @@ func (g *Game) loadAssets(assetDir string) error {
 func (g *Game) handleGameUpdate() error {
 	g.mu.Lock()
 
+	// determine if it's time to send game state updates to players
+	sendUpdates := time.Now().Sub(g.lastPlayerUpdate) >= playerUpdateInterval
+
 	// lock all players
 	for _, pe := range g.players {
 		pe.mu.Lock()
@@ -565,8 +576,6 @@ func (g *Game) handleGameUpdate() error {
 			pe.nextPathIdx++
 			pe.lastWalkTime = time.Now()
 		}
-
-		pe.nextUpdate = update
 	}
 
 	// update each player with nearby players' updates
@@ -619,11 +628,17 @@ func (g *Game) handleGameUpdate() error {
 		}
 
 		pe.chatHighWater = time.Now()
+
+		// unlock the player and send an update if needed
+		pe.mu.Unlock()
+		if sendUpdates {
+			pe.updateChan <- pe.nextUpdate
+			pe.nextUpdate = nil
+		}
 	}
 
-	// unlock all players
-	for _, pe := range g.players {
-		pe.mu.Unlock()
+	if sendUpdates {
+		g.lastPlayerUpdate = time.Now()
 	}
 
 	g.mu.Unlock()
@@ -651,18 +666,18 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 			pe.scheduler.Plan(NewEventWithType(EventCheckIdle, time.Now().Add(playerMaxIdleInterval)))
 		}
 
-	case EventPlayerUpdate:
-		// send a player update
-		err := g.sendPlayerUpdate(pe)
-		if err != nil {
-			return err
-		}
-
-		// plan the next update
-		pe.scheduler.Plan(&Event{
-			Type:     EventPlayerUpdate,
-			Schedule: time.Now().Add(playerUpdateInterval),
-		})
+	//case EventPlayerUpdate:
+	//	// send a player update
+	//	err := g.sendPlayerUpdate(pe)
+	//	if err != nil {
+	//		return err
+	//	}
+	//
+	//	// plan the next update
+	//	pe.scheduler.Plan(&Event{
+	//		Type:     EventPlayerUpdate,
+	//		Schedule: time.Now().Add(playerUpdateInterval),
+	//	})
 
 	case EventFriendList:
 		// send a player their entire friends list
