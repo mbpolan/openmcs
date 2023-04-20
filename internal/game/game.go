@@ -324,9 +324,6 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	// plan an update to the player's friends list
 	pe.PlanEvent(NewEventWithType(EventFriendList, time.Now()))
 
-	// plan the first continuous player update after the initial one is done
-	pe.PlanEvent(NewEventWithType(EventPlayerUpdate, time.Now().Add(playerUpdateInterval)))
-
 	// plan the first continuous idle check event
 	pe.PlanEvent(NewEventWithType(EventCheckIdle, time.Now().Add(playerMaxIdleInterval)))
 }
@@ -497,6 +494,8 @@ func (g *Game) playerLoop(pe *playerEntity) {
 			// a new event was planned; rerun the loop and let the scheduler report the next process time
 
 		case update := <-pe.updateChan:
+			// send a game state update, which takes priority over other pending events
+			// TODO: should this be an event itself instead?
 			err := update.Write(pe.writer)
 			if err != nil {
 				logger.Errorf("ending player loop due to error on update: %s", err)
@@ -665,19 +664,6 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 		if event.Type != EventCheckIdleImmediate {
 			pe.scheduler.Plan(NewEventWithType(EventCheckIdle, time.Now().Add(playerMaxIdleInterval)))
 		}
-
-	//case EventPlayerUpdate:
-	//	// send a player update
-	//	err := g.sendPlayerUpdate(pe)
-	//	if err != nil {
-	//		return err
-	//	}
-	//
-	//	// plan the next update
-	//	pe.scheduler.Plan(&Event{
-	//		Type:     EventPlayerUpdate,
-	//		Schedule: time.Now().Add(playerUpdateInterval),
-	//	})
 
 	case EventFriendList:
 		// send a player their entire friends list

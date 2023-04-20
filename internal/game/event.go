@@ -8,10 +8,8 @@ import (
 type EventType int
 
 const (
-	// EventPlayerUpdate indicates a game state update should be sent to the player.
-	EventPlayerUpdate EventType = iota
 	// EventSendResponse sends a generic response to the client.
-	EventSendResponse
+	EventSendResponse EventType = iota
 	// EventCheckIdle is a recurring, scheduled check for player inactivity.
 	EventCheckIdle
 	// EventCheckIdleImmediate is a one-off check for player inactivity.
