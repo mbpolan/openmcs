@@ -68,11 +68,14 @@ func (g *Game) AddFriend(p *model.Player, username string) {
 
 	// TODO: update friends list in persistent storage
 
-	pe, unlockFunc := g.findAndLockPlayer(p)
+	// we need to manually control the player's lock
+	pe, unlockFunc := g.findPlayerAndLockGame(p)
 	defer unlockFunc()
 	if pe == nil {
 		return
 	}
+
+	pe.mu.Lock()
 
 	// is this player already in their friend's list
 	exists := false
@@ -84,15 +87,30 @@ func (g *Game) AddFriend(p *model.Player, username string) {
 
 	// avoid adding duplicates
 	if exists {
+		pe.mu.Unlock()
 		return
 	}
 
 	pe.player.Friends = append(pe.player.Friends, target)
+	pe.mu.Unlock()
+
+	// send a status update about the player that was just added
+	var tpe *playerEntity
+	for _, other := range g.players {
+		if other.player.Username == target {
+			tpe = other
+			break
+		}
+	}
+
+	if tpe != nil {
+		g.broadcastPlayerStatus(tpe, pe.player.Username)
+	}
 }
 
 // SetPlayerModes updates the chat and interaction modes for a player.
 func (g *Game) SetPlayerModes(p *model.Player, publicChat model.ChatMode, privateChat model.ChatMode, interaction model.InteractionMode) {
-	pe, unlockFunc := g.findAndLockPlayer(p)
+	pe, unlockFunc := g.findPlayerAndLockAll(p)
 	defer unlockFunc()
 	if pe == nil {
 		return
@@ -113,7 +131,7 @@ func (g *Game) ProcessAbuseReport(p *model.Player, username string, reason int, 
 
 // MarkPlayerActive updates a player's last activity tracker and prevents them from becoming idle.
 func (g *Game) MarkPlayerActive(p *model.Player) {
-	pe, unlockFunc := g.findAndLockPlayer(p)
+	pe, unlockFunc := g.findPlayerAndLockAll(p)
 	defer unlockFunc()
 	if pe == nil {
 		return
@@ -124,7 +142,7 @@ func (g *Game) MarkPlayerActive(p *model.Player) {
 
 // MarkPlayerInactive flags that a player's client reported them as being idle.
 func (g *Game) MarkPlayerInactive(p *model.Player) {
-	pe, unlockFunc := g.findAndLockPlayer(p)
+	pe, unlockFunc := g.findPlayerAndLockAll(p)
 	defer unlockFunc()
 	if pe == nil {
 		return
@@ -135,7 +153,7 @@ func (g *Game) MarkPlayerInactive(p *model.Player) {
 
 // RequestLogout attempts to log out a player.
 func (g *Game) RequestLogout(p *model.Player, action int) {
-	pe, unlockFunc := g.findAndLockPlayer(p)
+	pe, unlockFunc := g.findPlayerAndLockAll(p)
 	defer unlockFunc()
 	if pe == nil {
 		return
@@ -147,7 +165,7 @@ func (g *Game) RequestLogout(p *model.Player, action int) {
 
 // DoPlayerChat broadcasts a player's chat message to nearby players.
 func (g *Game) DoPlayerChat(p *model.Player, effect model.ChatEffect, color model.ChatColor, text string) {
-	pe, unlockFunc := g.findAndLockPlayer(p)
+	pe, unlockFunc := g.findPlayerAndLockAll(p)
 	defer unlockFunc()
 	if pe == nil {
 		return
@@ -164,7 +182,7 @@ func (g *Game) DoPlayerChat(p *model.Player, effect model.ChatEffect, color mode
 // WalkPlayer starts moving the player to a destination from a start position then following a set of waypoints. The
 // slice of waypoints are deltas relative to start.
 func (g *Game) WalkPlayer(p *model.Player, start model.Vector2D, waypoints []model.Vector2D) {
-	pe, unlockFunc := g.findAndLockPlayer(p)
+	pe, unlockFunc := g.findPlayerAndLockAll(p)
 	defer unlockFunc()
 	if pe == nil {
 		return
@@ -245,15 +263,19 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 		model.ClientTabLogout:      2449,
 	}
 
-	// start the player's processing loop
 	g.mu.Lock()
+
+	// add the player to the player list
 	g.players = append(g.players, pe)
+
+	// mark the player as being online and broadcast their status. the game state needs to be locked up front.
+	g.playersOnline.Store(pe.player.Username, true)
+	g.broadcastPlayerStatus(pe)
+
 	g.mu.Unlock()
 
+	// start the player's event loop
 	go g.playerLoop(pe)
-	
-	// mark the player as being online
-	g.playersOnline.Store(pe.player.Username, true)
 
 	// plan an initial map region load
 	region := response.NewLoadRegionResponse(util.GlobalToRegionOrigin(p.GlobalPos).To2D())
@@ -290,15 +312,52 @@ func (g *Game) RemovePlayer(p *model.Player) {
 	// remove the player from the game
 	for i, pe := range g.players {
 		if pe.player.ID == p.ID {
-			// drop the player from the player list and from the online players map
+			// drop the player from the player list
 			g.players = append(g.players[:i], g.players[i+1:]...)
+
+			// mark the player as offline and broadcast their status
 			g.playersOnline.Delete(pe.player.Username)
+			g.broadcastPlayerStatus(pe)
 
 			// flag the player's event loop to stop
 			pe.doneChan <- true
 		} else {
 			delete(pe.tracking, p.ID)
 		}
+	}
+}
+
+// broadcastPlayerStatus sends updates to other players that have them on their friends lists. An optional list of
+// target player usernames can be passed to limit who receives the update. The game state should be locked before
+// calling this method.
+func (g *Game) broadcastPlayerStatus(pe *playerEntity, targets ...string) {
+	_, online := g.playersOnline.Load(pe.player.Username)
+
+	// find players that have this player on their friends list
+	for _, other := range g.players {
+		// skip the same player, or if they are not targeted
+		if pe == other || (len(targets) > 0 && !util.Contains(targets, other.player.Username)) {
+			continue
+		}
+
+		other.mu.Lock()
+
+		if util.Contains(other.player.Friends, pe.player.Username) {
+			var update *response.FriendStatusResponse
+			if online {
+				update = response.NewFriendStatusResponse(pe.player.Username, 69)
+			} else {
+				update = response.NewOfflineFriendStatusResponse(pe.player.Username)
+			}
+
+			err := update.Write(other.writer)
+			if err != nil {
+				// other player could have disconnected, so we don't treat this as a fatal error
+				logger.Debugf("failed to send friend status update for %s to %s: %s", pe.player.Username, other.player.Username, err)
+			}
+		}
+
+		other.mu.Unlock()
 	}
 }
 
@@ -323,9 +382,26 @@ func (g *Game) findSpectators(pe *playerEntity) []*playerEntity {
 	return others
 }
 
-// findAndLockPlayer returns the playerEntity for the corresponding player, locking the game and playerEntity mutexes
+// findPlayerAndLockGame returns the playerEntity for the corresponding player, locking only the game mutex. You must
+// call the returned function to properly unlock the mutex.
+func (g *Game) findPlayerAndLockGame(p *model.Player) (*playerEntity, func()) {
+	g.mu.RLock()
+
+	pe := g.findPlayer(p)
+	if pe == nil {
+		g.mu.RUnlock()
+
+		return nil, func() {}
+	}
+
+	return pe, func() {
+		g.mu.RUnlock()
+	}
+}
+
+// findPlayerAndLockAll returns the playerEntity for the corresponding player, locking the game and playerEntity mutexes
 // along the way. You must call the returned function to properly unlock all mutexes.
-func (g *Game) findAndLockPlayer(p *model.Player) (*playerEntity, func()) {
+func (g *Game) findPlayerAndLockAll(p *model.Player) (*playerEntity, func()) {
 	g.mu.RLock()
 
 	pe := g.findPlayer(p)
@@ -344,7 +420,7 @@ func (g *Game) findAndLockPlayer(p *model.Player) (*playerEntity, func()) {
 }
 
 // findPlayer returns the playerEntity for the corresponding player. This method does not lock; if you need thread
-// safety, use the findAndLockPlayer method instead.
+// safety, use the findPlayerAndLockAll method instead.
 func (g *Game) findPlayer(p *model.Player) *playerEntity {
 	var tpe *playerEntity
 	for _, pe := range g.players {
@@ -616,9 +692,6 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 
 // sendPlayerUpdate sends a game state update to the player.
 func (g *Game) sendPlayerUpdate(pe *playerEntity) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
 	pe.mu.Lock()
 	defer pe.mu.Unlock()
 

@@ -10,3 +10,14 @@ func Remove[T comparable](s []T, t T) []T {
 
 	return s
 }
+
+// Contains returns true if a slice contains an element.
+func Contains[T comparable](s []T, t T) bool {
+	for _, e := range s {
+		if e == t {
+			return true
+		}
+	}
+
+	return false
+}
