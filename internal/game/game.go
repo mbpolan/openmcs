@@ -123,30 +123,53 @@ func (g *Game) RemoveFriend(p *model.Player, username string) {
 	pe.mu.Lock()
 
 	// remove the player from the friends list
+	removed := false
 	target := strings.Trim(strings.ToLower(username), " ")
 	for i, other := range pe.player.Friends {
 		if strings.ToLower(other) == target {
 			pe.player.Friends = append(pe.player.Friends[:i], pe.player.Friends[i+1:]...)
+			removed = true
 			break
 		}
 	}
 
 	// the client automatically removes players so we don't need to send an explicit update
 	pe.mu.Unlock()
+
+	// if the player's private chat is set to friends-only, we need to broadcast their status in case the removed
+	// player should no longer see them online
+	if removed {
+		g.broadcastPlayerStatus(pe, target)
+	}
 }
 
 // SetPlayerModes updates the chat and interaction modes for a player.
 func (g *Game) SetPlayerModes(p *model.Player, publicChat model.ChatMode, privateChat model.ChatMode, interaction model.InteractionMode) {
-	pe, unlockFunc := g.findPlayerAndLockAll(p)
-	defer unlockFunc()
+	g.mu.Lock()
+	pe := g.findPlayer(p)
+	g.mu.Unlock()
+
 	if pe == nil {
 		return
 	}
+
+	// lock the player while we update their modes
+	pe.mu.Lock()
+
+	// if this player's private chat mode has changed to be more or less restrictive, we need to broadcast their
+	// online status again
+	broadcast := pe.player.Modes.PrivateChat != privateChat
 
 	pe.player.Modes = model.PlayerModes{
 		PublicChat:  publicChat,
 		PrivateChat: privateChat,
 		Interaction: interaction,
+	}
+
+	// unlock the player before broadcasting their status, if needed
+	pe.mu.Unlock()
+	if broadcast {
+		g.broadcastPlayerStatus(pe)
 	}
 }
 
@@ -357,6 +380,11 @@ func (g *Game) RemovePlayer(p *model.Player) {
 func (g *Game) broadcastPlayerStatus(pe *playerEntity, targets ...string) {
 	_, online := g.playersOnline.Load(pe.player.Username)
 
+	// if this player has their private chat turned off, show them as offline to everyone
+	if pe.player.Modes.PrivateChat == model.ChatModeOff {
+		online = false
+	}
+
 	// find players that have this player on their friends list
 	for _, other := range g.players {
 		// skip the same player, or if they are not targeted
@@ -366,9 +394,17 @@ func (g *Game) broadcastPlayerStatus(pe *playerEntity, targets ...string) {
 
 		other.mu.Lock()
 
-		if util.Contains(other.player.Friends, pe.player.Username) {
+		// check if the other player has this player on their friends list
+		if other.player.HasFriend(pe.player.Username) {
+			// if the player's private chat mode is friends-only, then we only show them online if the two are mutual
+			// friends
+			onlineForOther := online
+			if pe.player.Modes.PrivateChat == model.ChatModeFriends && !pe.player.HasFriend(other.player.Username) {
+				onlineForOther = false
+			}
+
 			var update *response.FriendStatusResponse
-			if online {
+			if onlineForOther {
 				update = response.NewFriendStatusResponse(pe.player.Username, 69)
 			} else {
 				update = response.NewOfflineFriendStatusResponse(pe.player.Username)
