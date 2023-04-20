@@ -95,17 +95,19 @@ func (g *Game) AddFriend(p *model.Player, username string) {
 	pe.player.Friends = append(pe.player.Friends, target)
 	pe.mu.Unlock()
 
-	// send a status update about the player that was just added
-	var tpe *playerEntity
-	for _, other := range g.players {
-		if other.player.Username == target {
-			tpe = other
+	// find the target player, if they are online
+	var targetPlayer *playerEntity
+	for _, tpe := range g.players {
+		if strings.ToLower(tpe.player.Username) == target {
+			targetPlayer = tpe
 			break
 		}
 	}
 
-	if tpe != nil {
-		g.broadcastPlayerStatus(tpe, pe.player.Username)
+	// send a status update about the player that was just added and vice versa
+	g.broadcastPlayerStatus(pe, target)
+	if targetPlayer != nil {
+		g.broadcastPlayerStatus(targetPlayer, pe.player.Username)
 	}
 }
 
