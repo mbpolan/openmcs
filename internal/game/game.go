@@ -108,6 +108,32 @@ func (g *Game) AddFriend(p *model.Player, username string) {
 	}
 }
 
+// RemoveFriend removes another player from the player's friends list.
+func (g *Game) RemoveFriend(p *model.Player, username string) {
+	// only lock the game state temporarily
+	g.mu.Lock()
+	pe := g.findPlayer(p)
+	g.mu.Unlock()
+
+	if pe == nil {
+		return
+	}
+
+	pe.mu.Lock()
+
+	// remove the player from the friends list
+	target := strings.Trim(strings.ToLower(username), " ")
+	for i, other := range pe.player.Friends {
+		if strings.ToLower(other) == target {
+			pe.player.Friends = append(pe.player.Friends[:i], pe.player.Friends[i+1:]...)
+			break
+		}
+	}
+
+	// the client automatically removes players so we don't need to send an explicit update
+	pe.mu.Unlock()
+}
+
 // SetPlayerModes updates the chat and interaction modes for a player.
 func (g *Game) SetPlayerModes(p *model.Player, publicChat model.ChatMode, privateChat model.ChatMode, interaction model.InteractionMode) {
 	pe, unlockFunc := g.findPlayerAndLockAll(p)
@@ -510,14 +536,41 @@ func (g *Game) loadAssets(assetDir string) error {
 func (g *Game) handleGameUpdate() error {
 	g.mu.Lock()
 
-	// check each player in the world
+	// lock all players
 	for _, pe := range g.players {
 		pe.mu.Lock()
+	}
 
+	// update each player's own movements
+	for _, pe := range g.players {
 		// prepare a new player update or use the pending, existing one
 		if pe.nextUpdate == nil {
 			pe.nextUpdate = response.NewPlayerUpdateResponse(pe.player.ID)
 		}
+		update := pe.nextUpdate
+
+		// check if the player is walking, and it's time to move to the next waypoint
+		if pe.Walking() && time.Now().Sub(pe.lastWalkTime) >= playerWalkInterval {
+			next := pe.path[pe.nextPathIdx]
+
+			// add the change in direction to the local player's movement
+			dir := model.DirectionFromDelta(next.Sub(pe.player.GlobalPos.To2D()))
+			update.SetLocalPlayerWalk(dir)
+
+			// update the player's position
+			pe.player.GlobalPos.X = next.X
+			pe.player.GlobalPos.Y = next.Y
+
+			// move past this path segment and mark this as the last time the player was moved
+			pe.nextPathIdx++
+			pe.lastWalkTime = time.Now()
+		}
+
+		pe.nextUpdate = update
+	}
+
+	// update each player with nearby players' updates
+	for _, pe := range g.players {
 		update := pe.nextUpdate
 
 		// find players within visual distance of this player
@@ -566,27 +619,11 @@ func (g *Game) handleGameUpdate() error {
 		}
 
 		pe.chatHighWater = time.Now()
+	}
 
-		// check if the player is walking, and it's time to move to the next waypoint
-		if pe.Walking() && time.Now().Sub(pe.lastWalkTime) >= playerWalkInterval {
-			next := pe.path[pe.nextPathIdx]
-
-			// add the change in direction to the local player's movement
-			dir := model.DirectionFromDelta(next.Sub(pe.player.GlobalPos.To2D()))
-			update.SetLocalPlayerWalk(dir)
-
-			// update the player's position
-			pe.player.GlobalPos.X = next.X
-			pe.player.GlobalPos.Y = next.Y
-
-			// move past this path segment and mark this as the last time the player was moved
-			pe.nextPathIdx++
-			pe.lastWalkTime = time.Now()
-		}
-
-		pe.nextUpdate = update
+	// unlock all players
+	for _, pe := range g.players {
 		pe.mu.Unlock()
-		logger.Debugf("%s has tracking: %+v", pe.player.Username, pe.tracking)
 	}
 
 	g.mu.Unlock()

@@ -6,13 +6,14 @@ import (
 )
 
 const AddFriendRequestHeader byte = 0xBC
+const RemoveFriendRequestHeader byte = 0xD7
 
-// AddFriendRequest is sent by the client when the player adds another player to their friends list.
-type AddFriendRequest struct {
+// ModifyFriendRequest is sent by the client when the player adds or removes another player on their friends list.
+type ModifyFriendRequest struct {
 	Username string
 }
 
-func ReadAddFriendRequest(r *network.ProtocolReader) (*AddFriendRequest, error) {
+func ReadModifyFriendRequest(r *network.ProtocolReader) (*ModifyFriendRequest, error) {
 	// read 8 bytes containing the encoded friend name
 	name, err := r.Uint64()
 	if err != nil {
@@ -25,7 +26,7 @@ func ReadAddFriendRequest(r *network.ProtocolReader) (*AddFriendRequest, error) 
 		return nil, err
 	}
 
-	return &AddFriendRequest{
+	return &ModifyFriendRequest{
 		Username: username,
 	}, nil
 }

@@ -234,9 +234,16 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 
 	case request.AddFriendRequestHeader:
 		// the player requested another player be added to their friends list
-		req, err := request.ReadAddFriendRequest(c.reader)
+		req, err := request.ReadModifyFriendRequest(c.reader)
 		if err == nil {
 			c.game.AddFriend(c.player, req.Username)
+		}
+
+	case request.RemoveFriendRequestHeader:
+		// the player requested another player be removed from their friends list
+		req, err := request.ReadModifyFriendRequest(c.reader)
+		if err == nil {
+			c.game.RemoveFriend(c.player, req.Username)
 		}
 
 	case request.LogoutRequestHeader:
