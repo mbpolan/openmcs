@@ -63,86 +63,22 @@ func (g *Game) Run() {
 
 // AddFriend attempts to add another player to the player's friends list.
 func (g *Game) AddFriend(p *model.Player, username string) {
-	target := strings.Trim(strings.ToLower(username), " ")
-
-	// TODO: validate if target player exists in persistent storage and get their properly cased name
-
-	// TODO: update friends list in persistent storage
-
-	// we need to manually control the player's lock
-	pe, unlockFunc := g.findPlayerAndLockGame(p)
-	defer unlockFunc()
-	if pe == nil {
-		return
-	}
-
-	pe.mu.Lock()
-
-	// is this player already in their friend's list
-	exists := false
-	for _, u := range pe.player.Friends {
-		if strings.ToLower(u) == target {
-			exists = true
-		}
-	}
-
-	// avoid adding duplicates
-	if exists {
-		pe.mu.Unlock()
-		return
-	}
-
-	pe.player.Friends = append(pe.player.Friends, target)
-	pe.mu.Unlock()
-
-	// find the target player, if they are online
-	var targetPlayer *playerEntity
-	for _, tpe := range g.players {
-		if strings.ToLower(tpe.player.Username) == target {
-			targetPlayer = tpe
-			break
-		}
-	}
-
-	// send a status update about the player that was just added and vice versa
-	g.broadcastPlayerStatus(pe, target)
-	if targetPlayer != nil {
-		g.broadcastPlayerStatus(targetPlayer, pe.player.Username)
-	}
+	g.addToList(p, username, true)
 }
 
 // RemoveFriend removes another player from the player's friends list.
 func (g *Game) RemoveFriend(p *model.Player, username string) {
-	// only lock the game state temporarily
-	g.mu.Lock()
-	pe := g.findPlayer(p)
-	g.mu.Unlock()
+	g.removeFromList(p, username, true)
+}
 
-	if pe == nil {
-		return
-	}
+// AddIgnored attempts to add another player to the player's ignored list.
+func (g *Game) AddIgnored(p *model.Player, username string) {
+	g.addToList(p, username, false)
+}
 
-	pe.mu.Lock()
-
-	// remove the player from the friends list
-	removed := false
-	target := strings.Trim(strings.ToLower(username), " ")
-	for i, other := range pe.player.Friends {
-		if strings.ToLower(other) == target {
-			pe.player.Friends = append(pe.player.Friends[:i], pe.player.Friends[i+1:]...)
-			removed = true
-			break
-		}
-	}
-
-	// the client automatically removes players so we don't need to send an explicit update
-	pe.mu.Unlock()
-
-	// if the player's private chat is set to friends-only, we need to broadcast their status in case the removed
-	// player should no longer see them online
-	if removed {
-		g.broadcastPlayerStatus(pe, target)
-	}
+// RemoveIgnored removes another player from the player's ignored list.
+func (g *Game) RemoveIgnored(p *model.Player, username string) {
+	g.removeFromList(p, username, false)
 }
 
 // SetPlayerModes updates the chat and interaction modes for a player.
@@ -267,8 +203,9 @@ func (g *Game) DoPlayerPrivateChat(p *model.Player, recipient string, text strin
 	}()
 
 	// if the target player has their private chat off or if it's in friends-only mode and this player is not on their
-	// friends list, then don't send the message
-	if target.player.Modes.PrivateChat == model.ChatModeOff ||
+	// friends list, then don't send the message. also don't send messages to a player if the sending player is on
+	// their ignored list.
+	if target.player.Modes.PrivateChat == model.ChatModeOff || target.player.IsIgnored(pe.player.Username) ||
 		(target.player.Modes.PrivateChat == model.ChatModeFriends && !(target.player.HasFriend(pe.player.Username))) {
 		return
 	}
@@ -444,12 +381,14 @@ func (g *Game) broadcastPlayerStatus(pe *playerEntity, targets ...string) {
 
 		other.mu.Lock()
 
-		// check if the other player has this player on their friends list
+		// check if the other player has this player on their friends list, and that this player does not have the
+		// other on their ignored list
 		if other.player.HasFriend(pe.player.Username) {
 			// if the player's private chat mode is friends-only, then we only show them online if the two are mutual
-			// friends
+			// friends and if the other player is not on their ignored list
 			onlineForOther := online
-			if pe.player.Modes.PrivateChat == model.ChatModeFriends && !pe.player.HasFriend(other.player.Username) {
+			if (pe.player.Modes.PrivateChat == model.ChatModeFriends && !pe.player.HasFriend(other.player.Username)) ||
+				pe.player.IsIgnored(other.player.Username) {
 				onlineForOther = false
 			}
 
@@ -625,6 +564,110 @@ func (g *Game) loadAssets(assetDir string) error {
 	return nil
 }
 
+// addToList adds another player to the player's friends or ignore list. No mutexes should be locked when calling this
+// method.
+func (g *Game) addToList(p *model.Player, username string, friend bool) {
+	target := strings.Trim(strings.ToLower(username), " ")
+
+	// TODO: validate if target player exists in persistent storage and get their properly cased name
+
+	// TODO: update list in persistent storage
+
+	// we need to manually control the player's lock
+	pe, unlockFunc := g.findPlayerAndLockGame(p)
+	defer unlockFunc()
+	if pe == nil {
+		return
+	}
+
+	pe.mu.Lock()
+
+	// is this player already in their friend's list
+	exists := false
+	if friend {
+		exists = pe.player.HasFriend(username)
+	} else {
+		exists = pe.player.IsIgnored(username)
+	}
+
+	// avoid adding duplicates
+	if exists {
+		pe.mu.Unlock()
+		return
+	}
+
+	if friend {
+		pe.player.Friends = append(pe.player.Friends, target)
+	} else {
+		pe.player.Ignored = append(pe.player.Ignored, target)
+	}
+
+	pe.mu.Unlock()
+
+	// find the target player, if they are online
+	var targetPlayer *playerEntity
+	for _, tpe := range g.players {
+		if strings.ToLower(tpe.player.Username) == target {
+			targetPlayer = tpe
+			break
+		}
+	}
+
+	// send a status update about the player that was just added and vice versa
+	g.broadcastPlayerStatus(pe, target)
+	if targetPlayer != nil {
+		g.broadcastPlayerStatus(targetPlayer, pe.player.Username)
+	}
+}
+
+// removeFromList removes another player from the player's friends or ignored list. No mutexes should be locked when
+// calling this method.
+func (g *Game) removeFromList(p *model.Player, username string, friend bool) {
+	// only lock the game state temporarily
+	g.mu.Lock()
+	pe := g.findPlayer(p)
+	g.mu.Unlock()
+
+	if pe == nil {
+		return
+	}
+
+	pe.mu.Lock()
+
+	// remove the player from the appropriate list
+	var list []string
+	if friend {
+		list = pe.player.Friends
+	} else {
+		list = pe.player.Ignored
+	}
+
+	removed := false
+	target := strings.Trim(strings.ToLower(username), " ")
+	for i, other := range list {
+		if strings.ToLower(other) == target {
+			list = append(list[:i], list[i+1:]...)
+			removed = true
+			break
+		}
+	}
+
+	if friend {
+		pe.player.Friends = list
+	} else {
+		pe.player.Ignored = list
+	}
+
+	// the client automatically removes players, so we don't need to send an explicit update
+	pe.mu.Unlock()
+
+	// if the player's private chat is set to friends-only, we need to broadcast their status in case the removed
+	// player should no longer see them online
+	if removed {
+		g.broadcastPlayerStatus(pe, target)
+	}
+}
+
 // handleGameUpdate performs a game state update.
 func (g *Game) handleGameUpdate() error {
 	g.mu.Lock()
@@ -691,7 +734,8 @@ func (g *Game) handleGameUpdate() error {
 
 			// if the other player has posted a chat message, determine if this player should receive it
 			if other.lastChatTime.After(pe.chatHighWater) && other.lastChatMessage != nil {
-				receive := true
+				// only receive messages if the other player has not ignored the sending player
+				receive := !other.player.IsIgnored(pe.player.Username)
 
 				switch pe.player.Modes.PublicChat {
 				case model.ChatModePublic, model.ChatModeHide:

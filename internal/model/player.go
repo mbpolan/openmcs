@@ -22,6 +22,7 @@ type Player struct {
 	Appearance *EntityAppearance
 	Modes      PlayerModes
 	Friends    []string
+	Ignored    []string
 }
 
 // PlayerModes indicates what types of chat and interactions a player wishes to receive.
@@ -86,8 +87,20 @@ func NewPlayer(id int, username, password string, pType PlayerType, flagged bool
 // HasFriend determines if the given player username is on this player's friends list.
 func (p *Player) HasFriend(username string) bool {
 	target := strings.ToLower(username)
-	for _, friend := range p.Friends {
+	for _, friend := range p.Ignored {
 		if strings.ToLower(friend) == target {
+			return true
+		}
+	}
+
+	return false
+}
+
+// IsIgnored determines if the given player username is on this player's ignore list.
+func (p *Player) IsIgnored(username string) bool {
+	target := strings.ToLower(username)
+	for _, ignored := range p.Ignored {
+		if strings.ToLower(ignored) == target {
 			return true
 		}
 	}

@@ -253,6 +253,20 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 			c.game.RemoveFriend(c.player, req.Username)
 		}
 
+	case request.AddIgnoreRequestHeader:
+		// the player requested another player be added to their ignore list
+		req, err := request.ReadModifyIgnoreRequest(c.reader)
+		if err == nil {
+			c.game.AddIgnored(c.player, req.Username)
+		}
+
+	case request.RemoveIgnoreRequestHeader:
+		// the player requested another player be removed from their ignore list
+		req, err := request.ReadModifyIgnoreRequest(c.reader)
+		if err == nil {
+			c.game.RemoveIgnored(c.player, req.Username)
+		}
+
 	case request.LogoutRequestHeader:
 		// the player has requested to log out
 		req, err := request.ReadLogoutRequest(c.reader)
