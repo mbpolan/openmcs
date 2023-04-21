@@ -297,6 +297,7 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	// TODO: these ids should not be hardcoded
 	pe.tabInterfaces = map[model.ClientTab]int{
 		model.ClientTabFriendsList: 5065,
+		model.ClientTabIgnoreList:  5715,
 		model.ClientTabLogout:      2449,
 	}
 
@@ -333,6 +334,10 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 
 	// plan an update to the player's friends list
 	pe.PlanEvent(NewEventWithType(EventFriendList, time.Now()))
+
+	// plan an update to the player's ignored list
+	ignored := response.NewIgnoredListResponse(pe.player.Ignored)
+	pe.PlanEvent(NewSendResponseEvent(ignored, time.Now()))
 
 	// plan the first continuous idle check event
 	pe.PlanEvent(NewEventWithType(EventCheckIdle, time.Now().Add(playerMaxIdleInterval)))
@@ -387,7 +392,7 @@ func (g *Game) broadcastPlayerStatus(pe *playerEntity, targets ...string) {
 			// if the player's private chat mode is friends-only, then we only show them online if the two are mutual
 			// friends and if the other player is not on their ignored list
 			onlineForOther := online
-			if (pe.player.Modes.PrivateChat == model.ChatModeFriends && !pe.player.HasFriend(other.player.Username)) ||
+			if pe.player.Modes.PrivateChat == model.ChatModeFriends && !pe.player.HasFriend(other.player.Username) ||
 				pe.player.IsIgnored(other.player.Username) {
 				onlineForOther = false
 			}
@@ -585,9 +590,9 @@ func (g *Game) addToList(p *model.Player, username string, friend bool) {
 	// is this player already in their friend's list
 	exists := false
 	if friend {
-		exists = pe.player.HasFriend(username)
+		exists = pe.player.HasFriend(target)
 	} else {
-		exists = pe.player.IsIgnored(username)
+		exists = pe.player.IsIgnored(target)
 	}
 
 	// avoid adding duplicates
