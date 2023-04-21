@@ -87,7 +87,7 @@ func NewPlayer(id int, username, password string, pType PlayerType, flagged bool
 // HasFriend determines if the given player username is on this player's friends list.
 func (p *Player) HasFriend(username string) bool {
 	target := strings.ToLower(username)
-	for _, friend := range p.Ignored {
+	for _, friend := range p.Friends {
 		if strings.ToLower(friend) == target {
 			return true
 		}
