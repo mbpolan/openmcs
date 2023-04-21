@@ -2,6 +2,7 @@ package game
 
 import (
 	"github.com/mbpolan/openmcs/internal/asset"
+	"github.com/mbpolan/openmcs/internal/config"
 	"github.com/mbpolan/openmcs/internal/logger"
 	"github.com/mbpolan/openmcs/internal/model"
 	"github.com/mbpolan/openmcs/internal/network"
@@ -34,16 +35,18 @@ type Game struct {
 	lastPlayerUpdate time.Time
 	worldMap         *model.Map
 	mu               sync.RWMutex
+	welcomeMessage   string
 }
 
-// NewGame creates a new game engine using game assets located at the given assetDir.
-func NewGame(assetDir string) (*Game, error) {
+// NewGame creates a new game engine using the given configuration.
+func NewGame(cfg *config.Config) (*Game, error) {
 	g := &Game{
-		doneChan: make(chan bool, 1),
+		doneChan:       make(chan bool, 1),
+		welcomeMessage: cfg.Server.WelcomeMessage,
 	}
 
 	// load game asset
-	err := g.loadAssets(assetDir)
+	err := g.loadAssets(cfg.Server.AssetDir)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load game asset")
 	}
@@ -338,6 +341,10 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	// plan an update to the player's ignored list
 	ignored := response.NewIgnoredListResponse(pe.player.Ignored)
 	pe.PlanEvent(NewSendResponseEvent(ignored, time.Now()))
+
+	// plan a welcome message
+	msg := response.NewServerMessageResponse(g.welcomeMessage)
+	pe.PlanEvent(NewSendResponseEvent(msg, time.Now()))
 
 	// plan the first continuous idle check event
 	pe.PlanEvent(NewEventWithType(EventCheckIdle, time.Now().Add(playerMaxIdleInterval)))

@@ -2,7 +2,6 @@ package asset
 
 import (
 	"github.com/mbpolan/openmcs/internal/model"
-	"path"
 )
 
 const (
@@ -25,11 +24,8 @@ type Manager struct {
 // NewManager returns a new asset Manager instance with game assets located at the given baseDir. You should call
 // the Close() method once all assets have been loaded to free up resources.
 func NewManager(baseDir string) *Manager {
-	// get a handle to the cache files
-	dir := path.Join(baseDir, "data")
-
 	return &Manager{
-		baseDir:  dir,
+		baseDir:  baseDir,
 		archives: map[int]*Archive{},
 		caches:   map[int]*CacheFile{},
 	}

@@ -37,11 +37,7 @@ func main() {
 	}
 
 	// ser up game server
-	srv, err := server.New(server.Options{
-		AssetDir: cfg.Server.AssetDir,
-		Address:  cfg.Server.Host,
-		Port:     cfg.Server.Port,
-	})
+	srv, err := server.New(cfg)
 	if err != nil {
 		logger.Fatalf("failed to prepare server: %s", err)
 	}

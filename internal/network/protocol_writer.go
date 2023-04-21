@@ -125,3 +125,22 @@ func (w *ProtocolWriter) WriteUint64(n uint64) error {
 
 	return nil
 }
+
+// WriteString writes a variable-length string.
+func (w *ProtocolWriter) WriteString(s string) error {
+	// write each character as a single byte
+	for _, ch := range s {
+		err := w.WriteUint8(byte(ch))
+		if err != nil {
+			return err
+		}
+	}
+
+	// write a byte to indicate the end of the string
+	err := w.WriteUint8(0x0A)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/mbpolan/openmcs/internal/config"
 	"github.com/mbpolan/openmcs/internal/game"
 	"github.com/mbpolan/openmcs/internal/logger"
 	"github.com/mbpolan/openmcs/internal/util"
@@ -13,7 +14,7 @@ import (
 
 // Server provides the network infrastructure for a game and login server.
 type Server struct {
-	assetDir    string
+	config      *config.Config
 	bindAddress string
 	clients     []*ClientHandler
 	closeChan   chan *ClientHandler
@@ -25,19 +26,13 @@ type Server struct {
 	sessionKey  uint64
 }
 
-// Options are configuration parameters that can be used to customize a server.
-type Options struct {
-	AssetDir string
-	Address  string
-	Port     int
-}
-
-// New creates a server instance with options..
-func New(opts Options) (*Server, error) {
+// New creates a server instance with a configuration.
+func New(cfg *config.Config) (*Server, error) {
 	return &Server{
-		bindAddress: fmt.Sprintf("%s:%d", opts.Address, opts.Port),
+		bindAddress: fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
 		clients:     nil,
 		closeChan:   make(chan *ClientHandler),
+		config:      cfg,
 		db:          game.NewDatabase(),
 		doneChan:    make(chan bool, 1),
 		mu:          sync.Mutex{},
@@ -56,7 +51,7 @@ func (s *Server) Run() error {
 	var err error
 
 	// create a new game engine instance
-	s.game, err = game.NewGame(s.assetDir)
+	s.game, err = game.NewGame(s.config)
 	if err != nil {
 		return err
 	}
