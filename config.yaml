@@ -12,3 +12,12 @@ server:
   welcomeMessage: Welcome to OpenMCS!
   # verbosity for logging (debug, info, error)
   logLevel: info
+
+# configuration for persistent storage
+store:
+  # the type of storage driver (sqlite3)
+  driver: sqlite3
+  # configuration for a SQLite3 database
+  sqlite3:
+    # the URI for the database connection
+    uri: sqlite3://./data/game.db

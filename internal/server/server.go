@@ -6,6 +6,7 @@ import (
 	"github.com/mbpolan/openmcs/internal/config"
 	"github.com/mbpolan/openmcs/internal/game"
 	"github.com/mbpolan/openmcs/internal/logger"
+	"github.com/mbpolan/openmcs/internal/store"
 	"github.com/mbpolan/openmcs/internal/util"
 	"github.com/pkg/errors"
 	"net"
@@ -18,7 +19,7 @@ type Server struct {
 	bindAddress string
 	clients     []*ClientHandler
 	closeChan   chan *ClientHandler
-	db          *game.Database
+	store       *store.Store
 	doneChan    chan bool
 	listener    net.Listener
 	game        *game.Game
@@ -33,7 +34,6 @@ func New(cfg *config.Config) (*Server, error) {
 		clients:     nil,
 		closeChan:   make(chan *ClientHandler),
 		config:      cfg,
-		db:          game.NewDatabase(),
 		doneChan:    make(chan bool, 1),
 		mu:          sync.Mutex{},
 		sessionKey:  0,
@@ -49,6 +49,14 @@ func (s *Server) Stop() {
 // Run begins listening for connections and spawning request handlers.
 func (s *Server) Run() error {
 	var err error
+
+	// prepare the persistent store
+	s.store, err = store.New(s.config)
+	if err != nil {
+		return err
+	}
+
+	defer s.store.Close()
 
 	// create a new game engine instance
 	s.game, err = game.NewGame(s.config)
@@ -86,7 +94,7 @@ func (s *Server) Run() error {
 			}
 		}
 
-		client := NewClientHandler(conn, s.closeChan, s.db, s.game, s.sessionKey)
+		client := NewClientHandler(conn, s.closeChan, s.store, s.game, s.sessionKey)
 
 		s.mu.Lock()
 		s.clients = append(s.clients, client)

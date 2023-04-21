@@ -8,6 +8,7 @@ import (
 	"github.com/mbpolan/openmcs/internal/network"
 	"github.com/mbpolan/openmcs/internal/network/request"
 	"github.com/mbpolan/openmcs/internal/network/response"
+	"github.com/mbpolan/openmcs/internal/store"
 	"github.com/pkg/errors"
 	"net"
 	"time"
@@ -25,24 +26,24 @@ const (
 // ClientHandler is responsible for managing the state and communications for a single client.
 type ClientHandler struct {
 	conn          net.Conn
-	db            *game.Database
 	game          *game.Game
 	reader        *network.ProtocolReader
 	writer        *network.ProtocolWriter
 	closeChan     chan *ClientHandler
 	lastHeartbeat time.Time
 	player        *model.Player
+	store         *store.Store
 	sessionKey    uint64
 	state         clientState
 }
 
 // NewClientHandler returns a new handler for a client connection. When the handler terminates, it will write to the
 // provided closeChan to indicate its work is complete.
-func NewClientHandler(conn net.Conn, closeChan chan *ClientHandler, db *game.Database, game *game.Game, sessionKey uint64) *ClientHandler {
+func NewClientHandler(conn net.Conn, closeChan chan *ClientHandler, store *store.Store, game *game.Game, sessionKey uint64) *ClientHandler {
 	return &ClientHandler{
 		conn:       conn,
-		db:         db,
 		game:       game,
+		store:      store,
 		reader:     network.NewReader(conn),
 		writer:     network.NewWriter(conn),
 		closeChan:  closeChan,
@@ -139,7 +140,7 @@ func (c *ClientHandler) handleLogin() (clientState, error) {
 	}
 
 	// load the player's data, if it exists
-	c.player, err = c.db.LoadPlayer(req.Username)
+	c.player, err = c.store.LoadPlayer(req.Username)
 
 	// authenticate the player
 	if c.player == nil || c.player.Password != req.Password {

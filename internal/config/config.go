@@ -4,6 +4,7 @@ import "github.com/spf13/viper"
 
 // Config is the top-level configuration for the server and world.
 type Config struct {
+	Store  StoreConfig  `mapstructure:"store"`
 	Server ServerConfig `mapstructure:"server"`
 }
 
@@ -15,6 +16,17 @@ type ServerConfig struct {
 	AssetDir       string `mapstructure:"assetDir"`
 	LogLevel       string `mapstructure:"logLevel"`
 	WelcomeMessage string `mapstructure:"welcomeMessage"`
+}
+
+// StoreConfig contains parameters for the backend database.
+type StoreConfig struct {
+	Driver  string                 `mapstructure:"driver"`
+	SQLite3 *SQLite3DatabaseConfig `mapstructure:"sqlite3"`
+}
+
+// SQLite3DatabaseConfig contains parameters for a SQLIte3 database.
+type SQLite3DatabaseConfig struct {
+	URI string `mapstructure:"uri"`
 }
 
 // Load reads the game server configuration file from the given path.
