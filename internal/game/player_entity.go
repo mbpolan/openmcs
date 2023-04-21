@@ -10,36 +10,38 @@ import (
 
 // playerEntity represents a player and their state while they are logged into the game world.
 type playerEntity struct {
-	lastInteraction time.Time
-	player          *model.Player
-	tracking        map[int]*playerEntity
-	resetChan       chan bool
-	doneChan        chan bool
-	updateChan      chan *response.PlayerUpdateResponse
-	path            []model.Vector2D
-	nextPathIdx     int
-	scheduler       *Scheduler
-	writer          *network.ProtocolWriter
-	lastWalkTime    time.Time
-	lastChatMessage *model.ChatMessage
-	lastChatTime    time.Time
-	chatHighWater   time.Time
-	tabInterfaces   map[model.ClientTab]int
-	nextUpdate      *response.PlayerUpdateResponse
-	mu              sync.Mutex
+	lastInteraction  time.Time
+	player           *model.Player
+	tracking         map[int]*playerEntity
+	resetChan        chan bool
+	doneChan         chan bool
+	updateChan       chan *response.PlayerUpdateResponse
+	path             []model.Vector2D
+	nextPathIdx      int
+	scheduler        *Scheduler
+	writer           *network.ProtocolWriter
+	lastWalkTime     time.Time
+	lastChatMessage  *model.ChatMessage
+	lastChatTime     time.Time
+	chatHighWater    time.Time
+	tabInterfaces    map[model.ClientTab]int
+	privateMessageID int
+	nextUpdate       *response.PlayerUpdateResponse
+	mu               sync.Mutex
 }
 
 // newPlayerEntity creates a new player entity.
 func newPlayerEntity(p *model.Player, w *network.ProtocolWriter) *playerEntity {
 	return &playerEntity{
-		lastInteraction: time.Now(),
-		player:          p,
-		tracking:        map[int]*playerEntity{},
-		resetChan:       make(chan bool),
-		doneChan:        make(chan bool, 1),
-		updateChan:      make(chan *response.PlayerUpdateResponse),
-		scheduler:       NewScheduler(),
-		writer:          w,
+		lastInteraction:  time.Now(),
+		player:           p,
+		tracking:         map[int]*playerEntity{},
+		resetChan:        make(chan bool),
+		doneChan:         make(chan bool, 1),
+		updateChan:       make(chan *response.PlayerUpdateResponse),
+		scheduler:        NewScheduler(),
+		privateMessageID: 1,
+		writer:           w,
 	}
 }
 

@@ -3,6 +3,7 @@ package response
 import (
 	"github.com/mbpolan/openmcs/internal/model"
 	"github.com/mbpolan/openmcs/internal/network"
+	"github.com/mbpolan/openmcs/internal/network/common"
 )
 
 const initAccepted byte = 0x00
@@ -54,15 +55,7 @@ func NewLoggedInInitResponse(playerType model.PlayerType, playerFlagged bool) *I
 		flagged = 0x01
 	}
 
-	var pType byte
-	switch playerType {
-	case model.PlayerNormal:
-		pType = 0x00
-	case model.PlayerModerator:
-		pType = 0x01
-	case model.PlayerAdmin:
-		pType = 0x02
-	}
+	pType := common.PlayerTypeCode(playerType)
 
 	return &InitResponse{
 		code:          initLoggedIn,

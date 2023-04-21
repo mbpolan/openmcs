@@ -231,6 +231,54 @@ func (g *Game) DoPlayerChat(p *model.Player, effect model.ChatEffect, color mode
 	pe.lastChatTime = time.Now()
 }
 
+// DoPlayerPrivateChat sends a private chat message from one player to a recipient player.
+func (g *Game) DoPlayerPrivateChat(p *model.Player, recipient string, text string) {
+	// find the player, locking only the game
+	pe, unlockFunc := g.findPlayerAndLockGame(p)
+	if pe == nil {
+		unlockFunc()
+		return
+	}
+
+	// find the target player
+	recipient = strings.ToLower(recipient)
+	var target *playerEntity
+	for _, other := range g.players {
+		if strings.ToLower(other.player.Username) == recipient {
+			target = other
+			break
+		}
+	}
+
+	// unlock the game at this point
+	unlockFunc()
+
+	// if the target player is not online, we don't need to do anything
+	if target == nil {
+		return
+	}
+
+	// lock both players and defer unlocking them until later
+	pe.mu.Lock()
+	target.mu.Lock()
+	defer func() {
+		pe.mu.Unlock()
+		target.mu.Unlock()
+	}()
+
+	// if the target player has their private chat off or if it's in friends-only mode and this player is not on their
+	// friends list, then don't send the message
+	if target.player.Modes.PrivateChat == model.ChatModeOff ||
+		(target.player.Modes.PrivateChat == model.ChatModeFriends && !(target.player.HasFriend(pe.player.Username))) {
+		return
+	}
+
+	// all good; plan sending the message to the other player
+	pm := response.NewPrivateChatResponse(target.privateMessageID, pe.player.Username, pe.player.Type, text)
+	target.PlanEvent(NewSendResponseEvent(pm, time.Now()))
+	target.privateMessageID++
+}
+
 // WalkPlayer starts moving the player to a destination from a start position then following a set of waypoints. The
 // slice of waypoints are deltas relative to start.
 func (g *Game) WalkPlayer(p *model.Player, start model.Vector2D, waypoints []model.Vector2D) {

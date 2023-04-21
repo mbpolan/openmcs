@@ -116,7 +116,6 @@ func DecodeChat(raw []byte) (string, error) {
 		ch := raw[i]
 
 		// each byte contains up to two distinct characters
-		ch -= 0x80
 		hi := ch >> 4
 		lo := ch & 0x0F
 

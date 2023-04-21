@@ -51,13 +51,18 @@ func ReadPlayerChatRequest(r *network.ProtocolReader) (*PlayerChatRequest, error
 	length := int(size - 2)
 	rawText := make([]byte, length)
 	for i := length - 1; i >= 0; i-- {
-		rawText[i], err = r.Uint8()
+		b, err := r.Uint8()
 		if err != nil {
 			return nil, err
 		}
+
+		rawText[i] = b - 0x80
 	}
 
 	text, err := util.DecodeChat(rawText)
+	if err != nil {
+		return nil, err
+	}
 
 	return &PlayerChatRequest{
 		Effect: effect,

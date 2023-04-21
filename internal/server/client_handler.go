@@ -218,6 +218,13 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 			c.game.DoPlayerChat(c.player, req.Effect, req.Color, req.Text)
 		}
 
+	case request.PrivateChatRequestHeader:
+		// the player sent a private chat message
+		req, err := request.ReadPrivateChatRequest(c.reader)
+		if err == nil {
+			c.game.DoPlayerPrivateChat(c.player, req.Recipient, req.Text)
+		}
+
 	case request.ChangeModesRequestHeader:
 		// the player changed one or more chat or interaction modes
 		req, err := request.ReadChangeModesRequest(c.reader)
