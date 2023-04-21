@@ -1,0 +1,14 @@
+# configuration for the game server
+server:
+  # the hostname or IP address the server will listen on
+  host: 127.0.0.1
+  # the port number the server will listen on
+  port: 43594
+  # unique game world identifier
+  worldId: 69
+  # directory where game assets are located
+  assetDir: data
+  # message sent to players when they log in
+  welcomeMessage: Welcome to OpenMCS!
+  # verbosity for logging (debug, info, error)
+  logLevel: info

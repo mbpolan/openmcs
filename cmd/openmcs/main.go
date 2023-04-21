@@ -1,7 +1,9 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"github.com/mbpolan/openmcs/internal/config"
 	"github.com/mbpolan/openmcs/internal/logger"
 	"github.com/mbpolan/openmcs/internal/server"
 	"os"
@@ -9,17 +11,36 @@ import (
 )
 
 func main() {
-	err := logger.Setup()
+	var configPath string
+	flag.StringVar(&configPath, "config-dir", ".", "directory where server config.yaml is located")
+	flag.Parse()
+
+	if configPath == "" {
+		fmt.Printf("-config-dir is required")
+		os.Exit(1)
+	}
+
+	// load server configuration
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		fmt.Printf("failed to load configuration: %s", err)
+		os.Exit(1)
+	}
+
+	// set up logging
+	err = logger.Setup(logger.Options{
+		LogLevel: cfg.Server.LogLevel,
+	})
 	if err != nil {
 		fmt.Printf("failed to initialize logger: %s", err)
 		os.Exit(1)
 	}
 
-	// TODO: provide these parameters via flags
+	// ser up game server
 	srv, err := server.New(server.Options{
-		AssetDir: "data",
-		Address:  "127.0.0.1",
-		Port:     43594,
+		AssetDir: cfg.Server.AssetDir,
+		Address:  cfg.Server.Host,
+		Port:     cfg.Server.Port,
 	})
 	if err != nil {
 		logger.Fatalf("failed to prepare server: %s", err)
@@ -35,6 +56,7 @@ func main() {
 		srv.Stop()
 	}()
 
+	// start the server
 	err = srv.Run()
 	if err != nil {
 		logger.Fatalf("failed to start server: %s", err)

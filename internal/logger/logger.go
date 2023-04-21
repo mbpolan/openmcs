@@ -6,9 +6,16 @@ import (
 
 var log *zap.SugaredLogger
 
+type Options struct {
+	LogLevel string
+}
+
 // Setup prepares the logging infrastructure for the server.
-func Setup() error {
-	level, _ := zap.ParseAtomicLevel("info")
+func Setup(opts Options) error {
+	level, err := zap.ParseAtomicLevel(opts.LogLevel)
+	if err != nil {
+		return err
+	}
 
 	cfg := zap.NewProductionConfig()
 	cfg.Level = level
