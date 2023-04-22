@@ -38,8 +38,41 @@ func (s *SQLite3Driver) Migration() (database.Driver, error) {
 
 // LoadPlayer loads information about a player from a SQLite3 database.
 func (s *SQLite3Driver) LoadPlayer(username string) (*model.Player, error) {
+	// prepare a player model for populating
+	p := model.NewPlayer(username)
+
+	// load their basic information first
+	err := s.loadPlayerInfo(username, p)
+	if err != nil {
+		return nil, err
+	}
+
+	// load their equipped items
+	err = s.loadPlayerEquipment(p.ID, p)
+	if err != nil {
+		return nil, err
+	}
+
+	// load their appearance
+	err = s.loadPlayerAppearance(p.ID, p)
+	if err != nil {
+		return nil, err
+	}
+
+	return p, nil
+}
+
+// Close cleans up resources used by the SQLite3 driver.
+func (s *SQLite3Driver) Close() error {
+	return s.db.Close()
+}
+
+// loadPlayerInfo loads a player's basic information.
+func (s *SQLite3Driver) loadPlayerInfo(username string, p *model.Player) error {
+	// query the player's basic information
 	stmt, err := s.db.Prepare(`
 		SELECT
+		    ID,
 		    USERNAME,
 		    PASSWORD_HASH,
 		    GLOBAL_X,
@@ -59,21 +92,20 @@ func (s *SQLite3Driver) LoadPlayer(username string) (*model.Player, error) {
 		    USERNAME = ? COLLATE NOCASE
 	`)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	defer stmt.Close()
 
-	p := &model.Player{
-		Appearance: &model.EntityAppearance{},
-	}
-
+	// expect exactly zero or one row
 	row := stmt.QueryRow(username)
 
+	// extract their data into their model
 	var lastLoginDttm string
 	err = row.Scan(
+		&p.ID,
 		&p.Username,
-		&p.Password,
+		&p.PasswordHash,
 		&p.GlobalPos.X,
 		&p.GlobalPos.Y,
 		&p.GlobalPos.Z,
@@ -86,22 +118,96 @@ func (s *SQLite3Driver) LoadPlayer(username string) (*model.Player, error) {
 		&p.Type,
 		&lastLoginDttm)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return p, nil
-	//
-	//// TODO: maintain player position
-	//globalPos := model.Vector3D{
-	//	X: 3116 + x,
-	//	Y: 3116 + y,
-	//	Z: 0,
-	//}
-
-	//return model.NewPlayer(int(username[0]), username, "", model.PlayerNormal, false, globalPos), nil
+	return nil
 }
 
-// Close cleans up resources used by the SQLite3 driver.
-func (s *SQLite3Driver) Close() error {
-	return s.db.Close()
+// loadPlayerEquipment loads a player's equipped items.
+func (s *SQLite3Driver) loadPlayerEquipment(id int, p *model.Player) error {
+	// query for each slot the player has an equipped item
+	stmt, err := s.db.Prepare(`
+		SELECT
+		    SLOT_ID,
+		    ITEM_ID
+		FROM
+		    PLAYER_EQUIPMENT
+		WHERE
+		    PLAYER_ID = ?
+	`)
+	if err != nil {
+		return err
+	}
+
+	rows, err := stmt.Query(id)
+	if err != nil {
+		return err
+	}
+
+	defer rows.Close()
+	for rows.Next() {
+		var slotID, itemID int
+		err := rows.Scan(&slotID, &itemID)
+		if err != nil {
+			return err
+		}
+
+		if slotID < 0 || slotID >= len(p.Appearance.Equipment) {
+			return fmt.Errorf("slot ID out of bounds: %d", slotID)
+		}
+
+		p.Appearance.Equipment[slotID] = itemID
+	}
+
+	err = rows.Err()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// loadPlayerAppearance loads a player's body appearance.
+func (s *SQLite3Driver) loadPlayerAppearance(id int, p *model.Player) error {
+	// query for each body the player has an appearance attribute
+	stmt, err := s.db.Prepare(`
+		SELECT
+		    BODY_ID,
+		    APPEARANCE_ID
+		FROM
+		    PLAYER_APPEARANCE
+		WHERE
+		    PLAYER_ID = ?
+	`)
+	if err != nil {
+		return err
+	}
+
+	rows, err := stmt.Query(id)
+	if err != nil {
+		return err
+	}
+
+	defer rows.Close()
+	for rows.Next() {
+		var bodyID, itemID int
+		err := rows.Scan(&bodyID, &itemID)
+		if err != nil {
+			return err
+		}
+
+		if bodyID < 0 || bodyID >= len(p.Appearance.Body) {
+			return fmt.Errorf("body ID out of bounds: %d", bodyID)
+		}
+
+		p.Appearance.Body[bodyID] = itemID
+	}
+
+	err = rows.Err()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

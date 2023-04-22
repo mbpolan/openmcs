@@ -13,16 +13,17 @@ const (
 // Player is a human player connected to the game server. This struct stores a player's persistent data, including
 // various preferences, game world properties and other such attributes.
 type Player struct {
-	ID         int
-	Username   string
-	Password   string
-	Type       PlayerType
-	Flagged    bool
-	GlobalPos  Vector3D
-	Appearance *EntityAppearance
-	Modes      PlayerModes
-	Friends    []string
-	Ignored    []string
+	ID           int
+	Username     string
+	PasswordHash string
+	Type         PlayerType
+	Flagged      bool
+	GlobalPos    Vector3D
+	Appearance   *EntityAppearance
+	Modes        PlayerModes
+	Muted        bool
+	Friends      []string
+	Ignored      []string
 }
 
 // PlayerModes indicates what types of chat and interactions a player wishes to receive.
@@ -33,30 +34,11 @@ type PlayerModes struct {
 }
 
 // NewPlayer returns a new player model.
-func NewPlayer(id int, username, password string, pType PlayerType, flagged bool, globalPos Vector3D) *Player {
+func NewPlayer(username string) *Player {
 	// define a default appearance
 	appearance := &EntityAppearance{
-		Equipment: [12]int{
-			256,  // head (256 - 265)
-			266,  // beard (266 - 273)
-			274,  // torso (274 - 281)
-			282,  // arms (282 - 288)
-			292,  // legs (292 - 297)
-			298,  // boots (298 - ???)
-			289,  // hands (289 - 291)
-			1564, // worn item (l cape)
-			1552, // head accessory (y phat)
-			1699, // shield (d sq)
-			1817, // weapon (d long)
-			2216, // necklace (aog)
-		},
-		Body: [5]int{
-			0,
-			0,
-			0,
-			0,
-			0,
-		},
+		Equipment: [12]int{},
+		Body:      [5]int{},
 		Animations: map[AnimationID]int{
 			AnimationStand:     0x080D, // standing
 			AnimationStandTurn: 0xFFFF, // turning
@@ -74,12 +56,7 @@ func NewPlayer(id int, username, password string, pType PlayerType, flagged bool
 	}
 
 	return &Player{
-		ID:         id,
 		Username:   username,
-		Password:   password,
-		Type:       pType,
-		Flagged:    flagged,
-		GlobalPos:  globalPos,
 		Appearance: appearance,
 	}
 }

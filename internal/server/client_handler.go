@@ -1,6 +1,8 @@
 package server
 
 import (
+	"crypto/sha512"
+	"encoding/hex"
 	"fmt"
 	"github.com/mbpolan/openmcs/internal/game"
 	"github.com/mbpolan/openmcs/internal/logger"
@@ -11,6 +13,7 @@ import (
 	"github.com/mbpolan/openmcs/internal/store"
 	"github.com/pkg/errors"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -142,8 +145,11 @@ func (c *ClientHandler) handleLogin() (clientState, error) {
 	// load the player's data, if it exists
 	c.player, err = c.store.LoadPlayer(req.Username)
 
+	// hash their password for comparison
+	passwordHash := c.hashPassword(req.Password)
+
 	// authenticate the player
-	if c.player == nil || c.player.Password != req.Password {
+	if c.player == nil || c.player.PasswordHash != passwordHash {
 		resp := response.NewFailedInitResponse(response.InitInvalidUsername)
 		err := resp.Write(c.writer)
 		return failed, err
@@ -161,6 +167,13 @@ func (c *ClientHandler) handleLogin() (clientState, error) {
 	logger.Infof("connected new player: %s", c.player.Username)
 
 	return active, nil
+}
+
+// hashPassword computes a hash of the player's password.
+func (c *ClientHandler) hashPassword(password string) string {
+	// use a sha512/256 hash algorithm for passwords
+	hash := sha512.Sum512_256([]byte(password))
+	return strings.ToLower(hex.EncodeToString(hash[:]))
 }
 
 func (c *ClientHandler) handleLoop() (clientState, error) {
