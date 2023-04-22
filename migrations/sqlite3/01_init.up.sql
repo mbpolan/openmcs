@@ -28,16 +28,19 @@ CREATE TABLE PLAYER (
     -- mode for player's private chat
     PRIVATE_CHAT_MODE INTEGER NOT NULL,
     -- mode for player's INTEGEReractions
-    INTEGERERACTION_MODE INTEGER NOT NULL,
+    INTERACTION_MODE INTEGER NOT NULL,
     -- access rights of the player (normal, mod, admin, etc.)
     TYPE INTEGER NOT NULL,
     -- date time when the player last logged in
-    LAST_LOGIN TEXT NULL,
+    LAST_LOGIN_DTTM TEXT NULL,
     -- date time when the row was inserted
     CREATED_DTTM TEXT NOT NULL,
     -- date time when the row was updated
     UPDATED_DTTM TEXT NULL
 );
+
+-- create an index on player.username since it will be queried on login
+CREATE INDEX IDX_PLAYER_USERNAME ON PLAYER (USERNAME);
 
 -- create table for storing a player's equipped items
 CREATE TABLE PLAYER_EQUIPMENT (
