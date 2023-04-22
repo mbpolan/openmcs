@@ -36,6 +36,40 @@ func (s *SQLite3Driver) Migration() (database.Driver, error) {
 	return sqlite3.WithInstance(s.db, &sqlite3.Config{})
 }
 
+// SavePlayer updates a player's information in a SQLite3 database.
+func (s *SQLite3Driver) SavePlayer(p *model.Player) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// save the player's basic information
+	err = s.savePlayerInfo(p)
+	if err != nil {
+		return err
+	}
+
+	// save their equipment
+	err = s.savePlayerEquipment(p)
+	if err != nil {
+		return err
+	}
+
+	// save their appearance
+	err = s.savePlayerAppearance(p)
+	if err != nil {
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // LoadPlayer loads information about a player from a SQLite3 database.
 func (s *SQLite3Driver) LoadPlayer(username string) (*model.Player, error) {
 	// prepare a player model for populating
@@ -207,6 +241,130 @@ func (s *SQLite3Driver) loadPlayerAppearance(id int, p *model.Player) error {
 	err = rows.Err()
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// savePlayerInfo updates a player's basic information.
+func (s *SQLite3Driver) savePlayerInfo(p *model.Player) error {
+	stmt, err := s.db.Prepare(`
+		UPDATE
+			PLAYER
+		SET
+			GLOBAL_X = ?,
+			GLOBAL_Y = ?,
+			GLOBAL_Z = ?,
+			GENDER = ?,
+			FLAGGED = ?,
+			MUTED = ?,
+			PUBLIC_CHAT_MODE =  ?,
+			PRIVATE_CHAT_MODE = ?,
+			INTERACTION_MODE = ?,
+			LAST_LOGIN_DTTM = DATETIME('NOW')
+		WHERE
+		    ID = ?
+	`)
+	if err != nil {
+		return err
+	}
+
+	defer stmt.Close()
+
+	rs, err := stmt.Exec(
+		p.GlobalPos.X,
+		p.GlobalPos.Y,
+		p.GlobalPos.Z,
+		p.Appearance.Gender,
+		p.Flagged,
+		p.Muted,
+		p.Modes.PublicChat,
+		p.Modes.PrivateChat,
+		p.Modes.Interaction,
+		p.ID)
+	if err != nil {
+		return err
+	}
+
+	count, err := rs.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if count != 1 {
+		return fmt.Errorf("expected 1 row update, got %d", count)
+	}
+
+	return nil
+}
+
+// savePlayerEquipment saves a player's equipment.
+func (s *SQLite3Driver) savePlayerEquipment(p *model.Player) error {
+	stmt, err := s.db.Prepare(`
+		UPDATE
+			PLAYER_EQUIPMENT
+		SET
+		    ITEM_ID = ?
+		WHERE
+		    PLAYER_ID = ? AND
+		    SLOT_ID = ?
+	`)
+	if err != nil {
+		return err
+	}
+
+	defer stmt.Close()
+
+	for slotID, itemID := range p.Appearance.Equipment {
+		rs, err := stmt.Exec(itemID, p.ID, slotID)
+		if err != nil {
+			return err
+		}
+
+		count, err := rs.RowsAffected()
+		if err != nil {
+			return err
+		}
+
+		if count != 1 {
+			return fmt.Errorf("expected 1 row for slot ID %d and player ID %d, got %d", slotID, p.ID, count)
+		}
+	}
+
+	return nil
+}
+
+// savePlayerAppearance saves a player's appearance information.
+func (s *SQLite3Driver) savePlayerAppearance(p *model.Player) error {
+	stmt, err := s.db.Prepare(`
+		UPDATE
+			PLAYER_APPEARANCE
+		SET
+		    APPEARANCE_ID = ?
+		WHERE
+		    PLAYER_ID = ? AND
+		    BODY_ID = ?
+	`)
+	if err != nil {
+		return err
+	}
+
+	defer stmt.Close()
+
+	for bodyID, appearanceID := range p.Appearance.Body {
+		rs, err := stmt.Exec(appearanceID, p.ID, bodyID)
+		if err != nil {
+			return err
+		}
+
+		count, err := rs.RowsAffected()
+		if err != nil {
+			return err
+		}
+
+		if count != 1 {
+			return fmt.Errorf("expected 1 row for appearance ID %d and player ID %d, got %d", appearanceID, p.ID, count)
+		}
 	}
 
 	return nil

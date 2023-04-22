@@ -78,6 +78,11 @@ func (s *Store) Close() error {
 	return s.driver.Close()
 }
 
+// SavePlayer saves data about a player.
+func (s *Store) SavePlayer(p *model.Player) error {
+	return s.driver.SavePlayer(p)
+}
+
 // LoadPlayer loads information about a player.
 func (s *Store) LoadPlayer(username string) (*model.Player, error) {
 	return s.driver.LoadPlayer(username)

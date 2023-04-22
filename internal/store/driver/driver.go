@@ -10,6 +10,9 @@ type Driver interface {
 	// Migration returns a handle to the underlying store for use with migrations.
 	Migration() (database.Driver, error)
 
+	// SavePlayer saves data about a player.
+	SavePlayer(p *model.Player) error
+
 	// LoadPlayer loads data about a player with a username.
 	LoadPlayer(username string) (*model.Player, error)
 

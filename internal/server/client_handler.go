@@ -89,6 +89,12 @@ func (c *ClientHandler) Handle() {
 
 	// indicate this client handler can be cleaned up
 	c.closeChan <- c
+
+	// save the player's persistent data
+	err := c.store.SavePlayer(c.player)
+	if err != nil {
+		logger.Errorf("failed to save player %d: %s", c.player.ID, err)
+	}
 }
 
 func (c *ClientHandler) handleInitialization() (clientState, error) {
