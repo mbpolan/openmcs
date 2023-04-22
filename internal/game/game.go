@@ -36,6 +36,7 @@ type Game struct {
 	worldMap         *model.Map
 	mu               sync.RWMutex
 	welcomeMessage   string
+	removePlayers    []*playerEntity
 }
 
 // NewGame creates a new game engine using the given configuration.
@@ -54,11 +55,14 @@ func NewGame(cfg *config.Config) (*Game, error) {
 	return g, nil
 }
 
+// Stop gracefully terminates the game loop.
 func (g *Game) Stop() {
 	g.ticker.Stop()
 	g.doneChan <- true
 }
 
+// Run starts the game loop and begins processing events. You need to call this method before players can connect
+// and interact with the game.
 func (g *Game) Run() {
 	g.ticker = time.NewTicker(50 * time.Millisecond)
 	go g.loop()
@@ -96,21 +100,18 @@ func (g *Game) SetPlayerModes(p *model.Player, publicChat model.ChatMode, privat
 
 	// lock the player while we update their modes
 	pe.mu.Lock()
+	defer pe.mu.Unlock()
 
 	// if this player's private chat mode has changed to be more or less restrictive, we need to broadcast their
 	// online status again
-	broadcast := pe.player.Modes.PrivateChat != privateChat
+	if pe.player.Modes.PrivateChat != privateChat {
+		pe.MarkStatusBroadcast()
+	}
 
 	pe.player.Modes = model.PlayerModes{
 		PublicChat:  publicChat,
 		PrivateChat: privateChat,
 		Interaction: interaction,
-	}
-
-	// unlock the player before broadcasting their status, if needed
-	pe.mu.Unlock()
-	if broadcast {
-		g.broadcastPlayerStatus(pe)
 	}
 }
 
@@ -309,11 +310,11 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	// add the player to the player list
 	g.players = append(g.players, pe)
 
-	// mark the player as being online and broadcast their status. the game state needs to be locked up front.
-	g.playersOnline.Store(pe.player.Username, true)
-	g.broadcastPlayerStatus(pe)
-
 	g.mu.Unlock()
+
+	// mark the player as being online and broadcast their status
+	g.playersOnline.Store(pe.player.Username, true)
+	pe.MarkStatusBroadcast()
 
 	// start the player's event loop
 	go g.playerLoop(pe)
@@ -352,30 +353,21 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 
 // RemovePlayer removes a previously joined player from the world.
 func (g *Game) RemovePlayer(p *model.Player) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	pe, unlockFunc := g.findPlayerAndLockGame(p)
+	defer unlockFunc()
 
-	// remove the player from the game
-	for i, pe := range g.players {
-		if pe.player.ID == p.ID {
-			// drop the player from the player list
-			g.players = append(g.players[:i], g.players[i+1:]...)
-
-			// mark the player as offline and broadcast their status
-			g.playersOnline.Delete(pe.player.Username)
-			g.broadcastPlayerStatus(pe)
-
-			// flag the player's event loop to stop
-			pe.doneChan <- true
-		} else {
-			delete(pe.tracking, p.ID)
-		}
+	if pe == nil {
+		return
 	}
+
+	// add this player to the removal list, and let the next state update actually remove them
+	g.removePlayers = append(g.removePlayers, pe)
 }
 
 // broadcastPlayerStatus sends updates to other players that have them on their friends lists. An optional list of
-// target player usernames can be passed to limit who receives the update. The game state should be locked before
-// calling this method.
+// target player usernames can be passed to limit who receives the update.
+//
+// Concurrency requirements: (a) game state should be locked and (b) all players should be locked.
 func (g *Game) broadcastPlayerStatus(pe *playerEntity, targets ...string) {
 	_, online := g.playersOnline.Load(pe.player.Username)
 
@@ -390,8 +382,6 @@ func (g *Game) broadcastPlayerStatus(pe *playerEntity, targets ...string) {
 		if pe == other || (len(targets) > 0 && !util.Contains(targets, other.player.Username)) {
 			continue
 		}
-
-		other.mu.Lock()
 
 		// check if the other player has this player on their friends list, and that this player does not have the
 		// other on their ignored list
@@ -417,12 +407,11 @@ func (g *Game) broadcastPlayerStatus(pe *playerEntity, targets ...string) {
 				logger.Debugf("failed to send friend status update for %s to %s: %s", pe.player.Username, other.player.Username, err)
 			}
 		}
-
-		other.mu.Unlock()
 	}
 }
 
 // findSpectators returns a slice of players that are within visual distance of a given player.
+// Concurrency requirements: (a) game state should be locked and (b) all players should be locked.
 func (g *Game) findSpectators(pe *playerEntity) []*playerEntity {
 	var others []*playerEntity
 	for _, tpe := range g.players {
@@ -445,6 +434,7 @@ func (g *Game) findSpectators(pe *playerEntity) []*playerEntity {
 
 // findPlayerAndLockGame returns the playerEntity for the corresponding player, locking only the game mutex. You must
 // call the returned function to properly unlock the mutex.
+// Concurrency requirements: (a) game state should NOT be locked and (b) all players should NOT be locked.
 func (g *Game) findPlayerAndLockGame(p *model.Player) (*playerEntity, func()) {
 	g.mu.RLock()
 
@@ -462,6 +452,7 @@ func (g *Game) findPlayerAndLockGame(p *model.Player) (*playerEntity, func()) {
 
 // findPlayerAndLockAll returns the playerEntity for the corresponding player, locking the game and playerEntity mutexes
 // along the way. You must call the returned function to properly unlock all mutexes.
+// Concurrency requirements: (a) game state should NOT be locked and (b) all players should NOT be locked.
 func (g *Game) findPlayerAndLockAll(p *model.Player) (*playerEntity, func()) {
 	g.mu.RLock()
 
@@ -482,6 +473,7 @@ func (g *Game) findPlayerAndLockAll(p *model.Player) (*playerEntity, func()) {
 
 // findPlayer returns the playerEntity for the corresponding player. This method does not lock; if you need thread
 // safety, use the findPlayerAndLockAll method instead.
+// Concurrency requirements: (a) game state should be locked and (b) all players should not be locked.
 func (g *Game) findPlayer(p *model.Player) *playerEntity {
 	var tpe *playerEntity
 	for _, pe := range g.players {
@@ -495,6 +487,7 @@ func (g *Game) findPlayer(p *model.Player) *playerEntity {
 }
 
 // disconnect tells a player's client to disconnect from the server and terminates their connection.
+// Concurrency requirements: none (any locks may be held).
 func (g *Game) disconnect(pe *playerEntity) error {
 	err := pe.writer.WriteUint8(response.DisconnectResponseHeader)
 	pe.doneChan <- true
@@ -520,6 +513,7 @@ func (g *Game) loop() {
 }
 
 // playerLoop continuously runs a game update cycle for a single player.
+// Concurrency requirements: (a) game state should NOT be locked and (b) this player should NOT be locked.
 func (g *Game) playerLoop(pe *playerEntity) {
 	for {
 		select {
@@ -551,6 +545,7 @@ func (g *Game) playerLoop(pe *playerEntity) {
 }
 
 // loadAssets reads and parses all game asset.
+// Concurrency requirements: none (any locks may be held).
 func (g *Game) loadAssets(assetDir string) error {
 	var err error
 	manager := asset.NewManager(assetDir)
@@ -578,6 +573,7 @@ func (g *Game) loadAssets(assetDir string) error {
 
 // addToList adds another player to the player's friends or ignore list. No mutexes should be locked when calling this
 // method.
+// Concurrency requirements: (a) game state should NOT be locked and (b) all players should NOT be locked.
 func (g *Game) addToList(p *model.Player, username string, friend bool) {
 	target := strings.Trim(strings.ToLower(username), " ")
 
@@ -593,6 +589,7 @@ func (g *Game) addToList(p *model.Player, username string, friend bool) {
 	}
 
 	pe.mu.Lock()
+	defer pe.mu.Unlock()
 
 	// is this player already in their friend's list
 	exists := false
@@ -604,7 +601,6 @@ func (g *Game) addToList(p *model.Player, username string, friend bool) {
 
 	// avoid adding duplicates
 	if exists {
-		pe.mu.Unlock()
 		return
 	}
 
@@ -613,8 +609,6 @@ func (g *Game) addToList(p *model.Player, username string, friend bool) {
 	} else {
 		pe.player.Ignored = append(pe.player.Ignored, target)
 	}
-
-	pe.mu.Unlock()
 
 	// find the target player, if they are online
 	var targetPlayer *playerEntity
@@ -626,14 +620,15 @@ func (g *Game) addToList(p *model.Player, username string, friend bool) {
 	}
 
 	// send a status update about the player that was just added and vice versa
-	g.broadcastPlayerStatus(pe, target)
+	pe.MarkStatusBroadcastTarget(target)
 	if targetPlayer != nil {
-		g.broadcastPlayerStatus(targetPlayer, pe.player.Username)
+		pe.MarkStatusBroadcastTarget(pe.player.Username)
 	}
 }
 
 // removeFromList removes another player from the player's friends or ignored list. No mutexes should be locked when
 // calling this method.
+// Concurrency requirements: (a) game state should NOT be locked and (b) all players should NOT be locked.
 func (g *Game) removeFromList(p *model.Player, username string, friend bool) {
 	// only lock the game state temporarily
 	g.mu.Lock()
@@ -645,6 +640,7 @@ func (g *Game) removeFromList(p *model.Player, username string, friend bool) {
 	}
 
 	pe.mu.Lock()
+	defer pe.mu.Unlock()
 
 	// remove the player from the appropriate list
 	var list []string
@@ -654,33 +650,28 @@ func (g *Game) removeFromList(p *model.Player, username string, friend bool) {
 		list = pe.player.Ignored
 	}
 
-	removed := false
 	target := strings.Trim(strings.ToLower(username), " ")
 	for i, other := range list {
 		if strings.ToLower(other) == target {
 			list = append(list[:i], list[i+1:]...)
-			removed = true
+
+			// if the player's private chat is set to friends-only, we need to broadcast their status in case the removed
+			// player should no longer see them online
+			pe.MarkStatusBroadcastTarget(target)
 			break
 		}
 	}
 
+	// the client automatically removes players, so we don't need to send an explicit list update
 	if friend {
 		pe.player.Friends = list
 	} else {
 		pe.player.Ignored = list
 	}
-
-	// the client automatically removes players, so we don't need to send an explicit update
-	pe.mu.Unlock()
-
-	// if the player's private chat is set to friends-only, we need to broadcast their status in case the removed
-	// player should no longer see them online
-	if removed {
-		g.broadcastPlayerStatus(pe, target)
-	}
 }
 
 // handleGameUpdate performs a game state update.
+// Concurrency requirements: (a) game state should NOT be locked and (b) all players should NOT be locked.
 func (g *Game) handleGameUpdate() error {
 	g.mu.Lock()
 
@@ -691,6 +682,34 @@ func (g *Game) handleGameUpdate() error {
 	for _, pe := range g.players {
 		pe.mu.Lock()
 	}
+
+	// remove any disconnected players first
+	for _, pe := range g.removePlayers {
+		idx := -1
+
+		// remove this player from the tracking lists of other players
+		for i, tpe := range g.players {
+			if tpe.player.ID == pe.player.ID {
+				idx = i
+			} else {
+				delete(tpe.tracking, pe.player.ID)
+			}
+		}
+
+		if idx > -1 {
+			// drop the player from the player list
+			g.players = append(g.players[:idx], g.players[idx+1:]...)
+
+			// mark the player as offline and broadcast their status
+			g.playersOnline.Delete(pe.player.Username)
+			g.broadcastPlayerStatus(pe)
+
+			// flag the player's event loop to stop
+			pe.doneChan <- true
+		}
+	}
+
+	g.removePlayers = nil
 
 	// update each player's own movements
 	for _, pe := range g.players {
@@ -715,6 +734,12 @@ func (g *Game) handleGameUpdate() error {
 			// move past this path segment and mark this as the last time the player was moved
 			pe.nextPathIdx++
 			pe.lastWalkTime = time.Now()
+		}
+
+		// broadcast this player's status to friends and other target players if required
+		if pe.nextStatusBroadcast != nil {
+			g.broadcastPlayerStatus(pe, pe.nextStatusBroadcast.targets...)
+			pe.nextStatusBroadcast = nil
 		}
 	}
 
@@ -787,6 +812,7 @@ func (g *Game) handleGameUpdate() error {
 }
 
 // handlePlayerEvent processes the next scheduled event for a player.
+// Concurrency requirements: (a) game state should NOT be locked and (b) this player should NOT be locked.
 func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 	// get the next scheduled event, if any
 	event := pe.scheduler.Next()
@@ -871,6 +897,7 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 }
 
 // sendPlayerUpdate sends a game state update to the player.
+// Concurrency requirements: (a) game state may be locked (b) this player should NOT be locked.
 func (g *Game) sendPlayerUpdate(pe *playerEntity) error {
 	pe.mu.Lock()
 	defer pe.mu.Unlock()

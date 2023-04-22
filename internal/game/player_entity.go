@@ -10,24 +10,29 @@ import (
 
 // playerEntity represents a player and their state while they are logged into the game world.
 type playerEntity struct {
-	lastInteraction  time.Time
-	player           *model.Player
-	tracking         map[int]*playerEntity
-	resetChan        chan bool
-	doneChan         chan bool
-	updateChan       chan *response.PlayerUpdateResponse
-	path             []model.Vector2D
-	nextPathIdx      int
-	scheduler        *Scheduler
-	writer           *network.ProtocolWriter
-	lastWalkTime     time.Time
-	lastChatMessage  *model.ChatMessage
-	lastChatTime     time.Time
-	chatHighWater    time.Time
-	tabInterfaces    map[model.ClientTab]int
-	privateMessageID int
-	nextUpdate       *response.PlayerUpdateResponse
-	mu               sync.Mutex
+	lastInteraction     time.Time
+	player              *model.Player
+	tracking            map[int]*playerEntity
+	resetChan           chan bool
+	doneChan            chan bool
+	updateChan          chan *response.PlayerUpdateResponse
+	path                []model.Vector2D
+	nextPathIdx         int
+	scheduler           *Scheduler
+	writer              *network.ProtocolWriter
+	lastWalkTime        time.Time
+	lastChatMessage     *model.ChatMessage
+	lastChatTime        time.Time
+	chatHighWater       time.Time
+	tabInterfaces       map[model.ClientTab]int
+	privateMessageID    int
+	nextStatusBroadcast *playerStatusBroadcast
+	nextUpdate          *response.PlayerUpdateResponse
+	mu                  sync.Mutex
+}
+
+type playerStatusBroadcast struct {
+	targets []string
 }
 
 // newPlayerEntity creates a new player entity.
@@ -43,6 +48,24 @@ func newPlayerEntity(p *model.Player, w *network.ProtocolWriter) *playerEntity {
 		privateMessageID: 1,
 		writer:           w,
 	}
+}
+
+// MarkStatusBroadcast marks that this player's online/offline status should be broadcast to everyone.
+func (pe *playerEntity) MarkStatusBroadcast() {
+	if pe.nextStatusBroadcast == nil {
+		pe.nextStatusBroadcast = &playerStatusBroadcast{}
+	}
+
+	pe.nextStatusBroadcast.targets = nil
+}
+
+// MarkStatusBroadcastTarget adds a target to receive this player's online/offline status.
+func (pe *playerEntity) MarkStatusBroadcastTarget(target string) {
+	if pe.nextStatusBroadcast == nil {
+		pe.nextStatusBroadcast = &playerStatusBroadcast{}
+	}
+
+	pe.nextStatusBroadcast.targets = append(pe.nextStatusBroadcast.targets, target)
 }
 
 // MoveDirection returns the direction the player is currently moving in. If the player is not moving, then
