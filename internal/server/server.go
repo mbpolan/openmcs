@@ -53,21 +53,27 @@ func (s *Server) Run() error {
 	// prepare the persistent store
 	s.store, err = store.New(s.config)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed creating persistent store")
 	}
 
 	defer s.store.Close()
 
+	// run migrations
+	err = s.store.Migrate()
+	if err != nil {
+		return errors.Wrap(err, "failed running persistent store migrations")
+	}
+
 	// create a new game engine instance
 	s.game, err = game.NewGame(s.config)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed creating game world")
 	}
 
 	// start listening for connections
 	s.listener, err = net.Listen("tcp", s.bindAddress)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to listen on socket")
 	}
 
 	// start the game engine loop

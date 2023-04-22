@@ -20,8 +20,9 @@ type ServerConfig struct {
 
 // StoreConfig contains parameters for the backend database.
 type StoreConfig struct {
-	Driver  string                 `mapstructure:"driver"`
-	SQLite3 *SQLite3DatabaseConfig `mapstructure:"sqlite3"`
+	Driver        string                 `mapstructure:"driver"`
+	MigrationsDir string                 `mapstructure:"migrationsDir"`
+	SQLite3       *SQLite3DatabaseConfig `mapstructure:"sqlite3"`
 }
 
 // SQLite3DatabaseConfig contains parameters for a SQLIte3 database.

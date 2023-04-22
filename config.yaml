@@ -15,9 +15,11 @@ server:
 
 # configuration for persistent storage
 store:
+  # directory containing schema migrations
+  migrationsDir: migrations/sqlite3
   # the type of storage driver (sqlite3)
   driver: sqlite3
   # configuration for a SQLite3 database
   sqlite3:
     # the URI for the database connection
-    uri: sqlite3://./data/game.db
+    uri: data/game.db

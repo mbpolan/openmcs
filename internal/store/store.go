@@ -2,7 +2,10 @@ package store
 
 import (
 	"fmt"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/mbpolan/openmcs/internal/config"
+	"github.com/mbpolan/openmcs/internal/logger"
 	"github.com/mbpolan/openmcs/internal/model"
 	"github.com/mbpolan/openmcs/internal/store/driver"
 	"github.com/pkg/errors"
@@ -11,6 +14,7 @@ import (
 
 // Store is a backend database used for persistent storage of game data.
 type Store struct {
+	config *config.Config
 	driver driver.Driver
 }
 
@@ -36,8 +40,37 @@ func New(cfg *config.Config) (*Store, error) {
 	}
 
 	return &Store{
+		config: cfg,
 		driver: dbDriver,
 	}, nil
+}
+
+// Migrate runs migrations against the backend persistent store.
+func (s *Store) Migrate() error {
+	logger.Debugf("running migrations from %s", s.config.Store.MigrationsDir)
+	sourceDir := fmt.Sprintf("file://%s", s.config.Store.MigrationsDir)
+
+	// get a handle to the driver for migrations
+	handle, err := s.driver.Migration()
+	if err != nil {
+		return errors.Wrap(err, "failed to get handle to migration driver")
+	}
+
+	// use the same driver as the persistent store uses
+	m, err := migrate.NewWithDatabaseInstance(sourceDir, s.config.Store.Driver, handle)
+	if err != nil {
+		return err
+	}
+
+	// run migrations, ignoring "error" reported when there are no detected changes
+	err = m.Up()
+	if err != migrate.ErrNoChange {
+		return err
+	}
+
+	logger.Infof("migrations successfully completed")
+
+	return nil
 }
 
 // Close cleans up resources used by the persistent store provider.

@@ -2,6 +2,8 @@ package driver
 
 import (
 	"database/sql"
+	"github.com/golang-migrate/migrate/v4/database"
+	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	"github.com/mbpolan/openmcs/internal/config"
 	"github.com/mbpolan/openmcs/internal/model"
 	_ "modernc.org/sqlite"
@@ -22,6 +24,11 @@ func NewSQLite3Driver(cfg *config.SQLite3DatabaseConfig) (Driver, error) {
 	return &SQLite3Driver{
 		db: db,
 	}, nil
+}
+
+// Migration returns a handle to the underlying store for use with SQLite3 migrations.
+func (s *SQLite3Driver) Migration() (database.Driver, error) {
+	return sqlite3.WithInstance(s.db, &sqlite3.Config{})
 }
 
 // LoadPlayer loads information about a player from a SQLite3 database.
