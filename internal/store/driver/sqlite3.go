@@ -2,6 +2,7 @@ package driver
 
 import (
 	"database/sql"
+	"fmt"
 	"github.com/golang-migrate/migrate/v4/database"
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	"github.com/mbpolan/openmcs/internal/config"
@@ -16,7 +17,11 @@ type SQLite3Driver struct {
 
 // NewSQLite3Driver creates a new SQLite3 database driver.
 func NewSQLite3Driver(cfg *config.SQLite3DatabaseConfig) (Driver, error) {
-	db, err := sql.Open("sqlite", cfg.URI)
+	// enable foreign keys
+	query := "_fk=true"
+	dsn := fmt.Sprintf("%s?%s", cfg.URI, query)
+
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
 	}
@@ -33,27 +38,67 @@ func (s *SQLite3Driver) Migration() (database.Driver, error) {
 
 // LoadPlayer loads information about a player from a SQLite3 database.
 func (s *SQLite3Driver) LoadPlayer(username string) (*model.Player, error) {
-	// TODO: use a real database
-	if username != "mike" && username != "hurz" {
-		return nil, nil
+	stmt, err := s.db.Prepare(`
+		SELECT
+		    USERNAME,
+		    PASSWORD_HASH,
+		    GLOBAL_X,
+		    GLOBAL_Y,
+		    GLOBAL_Z,
+		    GENDER,
+		    FLAGGED,
+		    MUTED,
+		    PUBLIC_CHAT_MODE,
+		    PRIVATE_CHAT_MODE,
+		    INTERACTION_MODE,
+		    TYPE,
+		    LAST_LOGIN_DTTM
+		FROM
+		    PLAYER
+		WHERE
+		    USERNAME = ? COLLATE NOCASE
+	`)
+	if err != nil {
+		return nil, err
 	}
 
-	// TODO: just for testing
-	x := 0
-	y := 0
-	if username == "hurz" {
-		x = 2
-		y = -2
+	defer stmt.Close()
+
+	p := &model.Player{
+		Appearance: &model.EntityAppearance{},
 	}
 
-	// TODO: maintain player position
-	globalPos := model.Vector3D{
-		X: 3116 + x,
-		Y: 3116 + y,
-		Z: 0,
+	row := stmt.QueryRow(username)
+
+	var lastLoginDttm string
+	err = row.Scan(
+		&p.Username,
+		&p.Password,
+		&p.GlobalPos.X,
+		&p.GlobalPos.Y,
+		&p.GlobalPos.Z,
+		&p.Appearance.Gender,
+		&p.Flagged,
+		&p.Muted,
+		&p.Modes.PublicChat,
+		&p.Modes.PrivateChat,
+		&p.Modes.Interaction,
+		&p.Type,
+		&lastLoginDttm)
+	if err != nil {
+		return nil, err
 	}
 
-	return model.NewPlayer(int(username[0]), username, "", model.PlayerNormal, false, globalPos), nil
+	return p, nil
+	//
+	//// TODO: maintain player position
+	//globalPos := model.Vector3D{
+	//	X: 3116 + x,
+	//	Y: 3116 + y,
+	//	Z: 0,
+	//}
+
+	//return model.NewPlayer(int(username[0]), username, "", model.PlayerNormal, false, globalPos), nil
 }
 
 // Close cleans up resources used by the SQLite3 driver.
