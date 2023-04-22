@@ -91,9 +91,11 @@ func (c *ClientHandler) Handle() {
 	c.closeChan <- c
 
 	// save the player's persistent data
-	err := c.store.SavePlayer(c.player)
-	if err != nil {
-		logger.Errorf("failed to save player %d: %s", c.player.ID, err)
+	if c.player != nil {
+		err := c.store.SavePlayer(c.player)
+		if err != nil {
+			logger.Errorf("failed to save player %d: %s", c.player.ID, err)
+		}
 	}
 }
 
@@ -149,17 +151,31 @@ func (c *ClientHandler) handleLogin() (clientState, error) {
 	}
 
 	// load the player's data, if it exists
-	c.player, err = c.store.LoadPlayer(req.Username)
+	player, err := c.store.LoadPlayer(req.Username)
+	if err != nil {
+		// fall through
+		logger.Errorf("failed to load player %s: %s", req.Username, err)
+		player = nil
+	}
 
-	// hash their password for comparison
-	passwordHash := c.hashPassword(req.Password)
-
-	// authenticate the player
-	if c.player == nil || c.player.PasswordHash != passwordHash {
+	// does a player with that username even exist?
+	if player == nil {
 		resp := response.NewFailedInitResponse(response.InitInvalidUsername)
 		err := resp.Write(c.writer)
 		return failed, err
 	}
+
+	// hash their password for comparison
+	passwordHash := c.hashPassword(req.Password)
+	if player.PasswordHash != passwordHash {
+		// TODO: track this as a failed login attempt
+		resp := response.NewFailedInitResponse(response.InitInvalidUsername)
+		err := resp.Write(c.writer)
+		return failed, err
+	}
+
+	// the player has now authenticated and can be added to the game
+	c.player = player
 
 	// send a confirmation to the client
 	resp := response.NewLoggedInInitResponse(c.player.Type, c.player.Flagged)
