@@ -12,6 +12,7 @@ import (
 	"github.com/mbpolan/openmcs/internal/network/response"
 	"github.com/mbpolan/openmcs/internal/store"
 	"github.com/pkg/errors"
+	"io"
 	"net"
 	"strings"
 	"time"
@@ -77,26 +78,44 @@ func (c *ClientHandler) Handle() {
 		}
 
 		if err != nil {
-			logger.Errorf("disconnecting player due to error: %s", err)
+			c.logDisconnectError(err)
 			c.state = failed
 		} else {
 			c.state = nextState
 		}
 	}
 
-	// remove the player from the game world
-	c.game.RemovePlayer(c.player)
-
 	// indicate this client handler can be cleaned up
 	c.closeChan <- c
 
-	// save the player's persistent data
+	// if the player was added to the game world, remove them and save their persistent data
 	if c.player != nil {
+		// remove the player from the game world
+		c.game.RemovePlayer(c.player)
+
 		err := c.store.SavePlayer(c.player)
 		if err != nil {
 			logger.Errorf("failed to save player %d: %s", c.player.ID, err)
 		}
 	}
+}
+
+// logDisconnectError possibly logs information about the player disconnecting.
+func (c *ClientHandler) logDisconnectError(err error) {
+	// if the underlying cause is an eof, don't log an error since that indicates the client disconnected from us
+	cause1 := errors.Unwrap(err)
+	cause2 := errors.Unwrap(cause1)
+	if cause1 == io.EOF || cause2 == io.EOF {
+		username := "(unknown)"
+		if c.player != nil && c.player.Username != "" {
+			username = c.player.Username
+		}
+
+		logger.Infof("disconnecting player: %s", username)
+		return
+	}
+
+	logger.Errorf("disconnecting player due to error: %s", err)
 }
 
 func (c *ClientHandler) handleInitialization() (clientState, error) {
@@ -186,7 +205,7 @@ func (c *ClientHandler) handleLogin() (clientState, error) {
 
 	// add the player to the game world
 	c.game.AddPlayer(c.player, c.writer)
-	logger.Infof("connected new player: %s", c.player.Username)
+	logger.Infof("connected new player: %s (%s)", c.player.Username, c.conn.RemoteAddr().String())
 
 	return active, nil
 }

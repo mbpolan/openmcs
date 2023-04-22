@@ -114,7 +114,7 @@ func (s *Server) cleanUpHandler(ctx context.Context) {
 	for {
 		select {
 		case h := <-s.closeChan:
-			logger.Infof("disconnecting player")
+			logger.Debugf("cleaning up player")
 
 			s.mu.Lock()
 			s.clients = util.Remove(s.clients, h)
