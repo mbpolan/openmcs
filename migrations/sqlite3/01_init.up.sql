@@ -34,7 +34,7 @@ CREATE TABLE PLAYER (
     -- date time when the player last logged in
     LAST_LOGIN_DTTM TEXT NULL,
     -- date time when the row was inserted
-    CREATED_DTTM TEXT NOT NULL,
+    CREATED_DTTM TEXT NOT NULL DEFAULT CURRENT_DATE,
     -- date time when the row was updated
     UPDATED_DTTM TEXT NULL
 );
@@ -53,7 +53,7 @@ CREATE TABLE PLAYER_EQUIPMENT (
     -- equipped item id
     ITEM_ID INTEGER NOT NULL,
     -- date time when the row was inserted
-    CREATED_DTTM TEXT NOT NULL,
+    CREATED_DTTM TEXT NOT NULL DEFAULT CURRENT_DATE,
     -- date time when the row was updated
     UPDATED_DTTM TEXT NULL
 );
@@ -69,7 +69,7 @@ CREATE TABLE PLAYER_APPEARANCE (
     -- appearance modifier id
     APPEARANCE_ID INTEGER NOT NULL,
     -- date time when the row was inserted
-    CREATED_DTTM TEXT NOT NULL,
+    CREATED_DTTM TEXT NOT NULL DEFAULT CURRENT_DATE,
     -- date time when the row was updated
     UPDATED_DTTM TEXT NULL
 );
@@ -83,7 +83,7 @@ CREATE TABLE FRIEND (
     -- friended player
     FRIEND_ID INTEGER NOT NULL REFERENCES USERS(ID) ON DELETE CASCADE,
     -- date time when the row was inserted
-    CREATED_DTTM TEXT NOT NULL,
+    CREATED_DTTM TEXT NOT NULL DEFAULT CURRENT_DATE,
     -- date time when the row was updated
     UPDATED_DTTM TEXT NULL
 );
@@ -97,7 +97,7 @@ CREATE TABLE IGNORED (
     -- ignored player
     IGNORED_ID INTEGER NOT NULL REFERENCES USERS(ID) ON DELETE CASCADE,
     -- date time when the row was inserted
-    CREATED_DTTM TEXT NOT NULL,
+    CREATED_DTTM TEXT NOT NULL DEFAULT CURRENT_DATE,
     -- date time when the row was updated
     UPDATED_DTTM TEXT NULL
 );
