@@ -161,90 +161,47 @@ BEGIN
         ID = NEW.ID;
 END;
 
--- create table for storing player friends lists
-CREATE TABLE FRIEND (
+-- create table for storing player friends and ignored lists
+CREATE TABLE PLAYER_LIST (
     -- primary key
     ID INTEGER PRIMARY KEY AUTOINCREMENT,
     -- owning player
     PLAYER_ID INTEGER NOT NULL REFERENCES USERS(ID) ON DELETE CASCADE,
-    -- friended player
-    FRIEND_ID INTEGER NOT NULL REFERENCES USERS(ID) ON DELETE CASCADE,
+    -- referenced player
+    OTHER_ID INTEGER NOT NULL REFERENCES USERS(ID) ON DELETE CASCADE,
+    -- friend or ignored
+    TYPE INTEGER NOT NULL,
     -- date time when the row was inserted
     CREATED_DTTM TEXT NOT NULL DEFAULT CURRENT_DATE,
     -- date time when the row was updated
     UPDATED_DTTM TEXT NULL
 );
 
--- create an index on friend.player_id since it will be queried on
-CREATE INDEX IDX_FRIEND_PLAYER_ID ON FRIEND(PLAYER_ID);
+-- create an index on player_list.player_id since it will be queried on
+CREATE INDEX IDX_PLAYER_LIST_PLAYER_ID ON PLAYER_LIST(PLAYER_ID);
 
--- create a trigger on friend to manage the CREATED_DTTM column
+-- create a trigger on player_list to manage the CREATED_DTTM column
 CREATE TRIGGER
-    FRIEND_CREATED_DTTM
+    PLAYER_LIST_CREATED_DTTM
 AFTER INSERT ON
-    FRIEND
+    PLAYER_LIST
 BEGIN
     UPDATE
-        FRIEND
+        PLAYER_LIST
     SET
         CREATED_DTTM = DATETIME('NOW')
     WHERE
         ID = NEW.ID;
 END;
 
--- create a trigger on friend to manage the UPDATED_DTTM column
+-- create a trigger on player_list to manage the UPDATED_DTTM column
 CREATE TRIGGER
-    FRIEND_UPDATED_DTTM
+    PLAYER_LIST_UPDATED_DTTM
 AFTER UPDATE ON
-    FRIEND
+    PLAYER_LIST
 BEGIN
     UPDATE
-        FRIEND
-    SET
-        UPDATED_DTTM = DATETIME('NOW')
-    WHERE
-        ID = NEW.ID;
-END;
-
--- create table for storing player ignore lists
-CREATE TABLE IGNORED (
-    -- primary key
-    ID INTEGER PRIMARY KEY AUTOINCREMENT,
-    -- owning player
-    PLAYER_ID INTEGER NOT NULL REFERENCES USERS(ID) ON DELETE CASCADE,
-    -- ignored player
-    IGNORED_ID INTEGER NOT NULL REFERENCES USERS(ID) ON DELETE CASCADE,
-    -- date time when the row was inserted
-    CREATED_DTTM TEXT NOT NULL DEFAULT CURRENT_DATE,
-    -- date time when the row was updated
-    UPDATED_DTTM TEXT NULL
-);
-
--- create an index on ignored.player_id since it will be queried on
-CREATE INDEX IDX_IGNORED_PLAYER_ID ON IGNORED(PLAYER_ID);
-
--- create a trigger on ignored to manage the CREATED_DTTM column
-CREATE TRIGGER
-    IGNORED_CREATED_DTTM
-AFTER INSERT ON
-    IGNORED
-BEGIN
-    UPDATE
-        IGNORED
-    SET
-        CREATED_DTTM = DATETIME('NOW')
-    WHERE
-        ID = NEW.ID;
-END;
-
--- create a trigger on ignored to manage the UPDATED_DTTM column
-CREATE TRIGGER
-    IGNORED_UPDATED_DTTM
-AFTER UPDATE ON
-    IGNORED
-BEGIN
-    UPDATE
-        IGNORED
+        PLAYER_LIST
     SET
         UPDATED_DTTM = DATETIME('NOW')
     WHERE

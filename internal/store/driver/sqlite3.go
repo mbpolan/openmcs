@@ -8,7 +8,11 @@ import (
 	"github.com/mbpolan/openmcs/internal/config"
 	"github.com/mbpolan/openmcs/internal/model"
 	_ "modernc.org/sqlite"
+	"strings"
 )
+
+const playerListTypeFriend int = 0
+const playerListTypeIgnored int = 1
 
 // SQLite3Driver is a driver that interfaces with a SQLite3 database.
 type SQLite3Driver struct {
@@ -62,6 +66,12 @@ func (s *SQLite3Driver) SavePlayer(p *model.Player) error {
 		return err
 	}
 
+	// save their friends and ignored lists
+	err = s.savePlayerLists(p)
+	if err != nil {
+		return err
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		return err
@@ -93,6 +103,9 @@ func (s *SQLite3Driver) LoadPlayer(username string) (*model.Player, error) {
 		return nil, err
 	}
 
+	// load their friends and ignored lists
+	err = s.loadPlayerLists(p)
+
 	return p, nil
 }
 
@@ -118,8 +131,7 @@ func (s *SQLite3Driver) loadPlayerInfo(username string, p *model.Player) error {
 		    PUBLIC_CHAT_MODE,
 		    PRIVATE_CHAT_MODE,
 		    INTERACTION_MODE,
-		    TYPE,
-		    LAST_LOGIN_DTTM
+		    TYPE
 		FROM
 		    PLAYER
 		WHERE
@@ -135,7 +147,6 @@ func (s *SQLite3Driver) loadPlayerInfo(username string, p *model.Player) error {
 	row := stmt.QueryRow(username)
 
 	// extract their data into their model
-	var lastLoginDttm string
 	err = row.Scan(
 		&p.ID,
 		&p.Username,
@@ -149,8 +160,7 @@ func (s *SQLite3Driver) loadPlayerInfo(username string, p *model.Player) error {
 		&p.Modes.PublicChat,
 		&p.Modes.PrivateChat,
 		&p.Modes.Interaction,
-		&p.Type,
-		&lastLoginDttm)
+		&p.Type)
 	if err != nil {
 		return err
 	}
@@ -241,6 +251,47 @@ func (s *SQLite3Driver) loadPlayerAppearance(id int, p *model.Player) error {
 	err = rows.Err()
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// loadPlayerLists loads a player's friends and ignored lists.
+func (s *SQLite3Driver) loadPlayerLists(p *model.Player) error {
+	stmt, err := s.db.Prepare(`
+		SELECT
+		    p.USERNAME, l.TYPE
+		FROM
+		    PLAYER_LIST l
+		JOIN
+			PLAYER p ON p.ID = l.OTHER_ID
+		WHERE
+		    l.PLAYER_ID = ?
+	`)
+	if err != nil {
+		return err
+	}
+
+	defer stmt.Close()
+
+	rows, err := stmt.Query(p.ID)
+	if err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		var username string
+		var entryType int
+		err := rows.Scan(&username, &entryType)
+		if err != nil {
+			return err
+		}
+
+		if entryType == playerListTypeFriend {
+			p.Friends = append(p.Friends, username)
+		} else if entryType == playerListTypeIgnored {
+			p.Ignored = append(p.Ignored, username)
+		}
 	}
 
 	return nil
@@ -365,6 +416,81 @@ func (s *SQLite3Driver) savePlayerAppearance(p *model.Player) error {
 		if count != 1 {
 			return fmt.Errorf("expected 1 row for appearance ID %d and player ID %d, got %d", appearanceID, p.ID, count)
 		}
+	}
+
+	return nil
+}
+
+// savePlayerLists saves a player's friends and ignored lists.
+func (s *SQLite3Driver) savePlayerLists(p *model.Player) error {
+	// prepare a delete to clear out the player's lists
+	delStmt, err := s.db.Prepare(`
+		DELETE FROM
+		    PLAYER_LIST
+		WHERE
+		    PLAYER_ID = ?
+	`)
+	if err != nil {
+		return err
+	}
+
+	defer delStmt.Close()
+
+	// delete all entries from the player's lists
+	_, err = delStmt.Exec(p.ID)
+	if err != nil {
+		return err
+	}
+
+	// if there's nothing to insert, bail out early
+	if len(p.Friends)+len(p.Ignored) == 0 {
+		return nil
+	}
+
+	// prepare a template to bulk insert all entries
+	insertTemplate := `
+		INSERT OR IGNORE INTO
+			PLAYER_LIST (
+				 PLAYER_ID,
+				 OTHER_ID,
+				 TYPE
+			)
+		VALUES %s
+	`
+
+	valueTemplate := "(?, (SELECT ID FROM PLAYER WHERE USERNAME = ? COLLATE NOCASE), ?)"
+
+	// prepare placeholders for each entry in the friends and ignored list
+	// the player list has a maximum size that is less than sqlite's parameter restrictions, so we don't need to
+	// explicitly limit it here
+	var bulk []string
+	var values []any
+	for _, username := range p.Friends {
+		bulk = append(bulk, valueTemplate)
+		values = append(values, p.ID)
+		values = append(values, username)
+		values = append(values, playerListTypeFriend)
+	}
+
+	for _, username := range p.Ignored {
+		bulk = append(bulk, valueTemplate)
+		values = append(values, p.ID)
+		values = append(values, username)
+		values = append(values, playerListTypeIgnored)
+	}
+
+	// prepare the final insert query
+	insert := fmt.Sprintf(insertTemplate, strings.Join(bulk, ","))
+	stmt, err := s.db.Prepare(insert)
+	if err != nil {
+		return err
+	}
+
+	defer stmt.Close()
+
+	_, err = stmt.Exec(values...)
+	if err != nil {
+		return err
 	}
 
 	return nil
