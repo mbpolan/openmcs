@@ -193,6 +193,22 @@ func (c *ClientHandler) handleLogin() (clientState, error) {
 		return failed, err
 	}
 
+	// check if the player can be added to the game
+	err = c.game.ValidatePlayer(player)
+	if err != nil {
+		var resp *response.InitResponse
+
+		// guard against players logging in multiple times on the same character
+		if err == game.ErrConflict {
+			resp = response.NewFailedInitResponse(response.InitAccountLoggedIn)
+		} else {
+			resp = response.NewFailedInitResponse(response.InitLoginFailed)
+		}
+
+		err := resp.Write(c.writer)
+		return failed, err
+	}
+
 	// the player has now authenticated and can be added to the game
 	c.player = player
 
@@ -204,7 +220,8 @@ func (c *ClientHandler) handleLogin() (clientState, error) {
 	}
 
 	// add the player to the game world
-	c.game.AddPlayer(c.player, c.writer)
+	c.game.AddPlayer(player, c.writer)
+
 	logger.Infof("connected new player: %s (%s)", c.player.Username, c.conn.RemoteAddr().String())
 
 	return active, nil
