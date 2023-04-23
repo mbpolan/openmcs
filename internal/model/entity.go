@@ -35,7 +35,7 @@ type EntityAppearance struct {
 	Gender         EntityGender
 	OverheadIconID int
 	CombatLevel    int
-	SkillLevel     int
+	TotalLevel     int
 	Updated        bool
 }
 

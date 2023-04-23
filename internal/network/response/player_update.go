@@ -585,7 +585,7 @@ func (p *PlayerUpdateResponse) writeAppearance(ea *entityAppearance, w *network.
 	}
 
 	// write 2 bytes for the skill level
-	err = bw.WriteUint16(uint16(a.SkillLevel))
+	err = bw.WriteUint16(uint16(a.TotalLevel))
 	if err != nil {
 		return err
 	}

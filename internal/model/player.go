@@ -1,6 +1,9 @@
 package model
 
-import "strings"
+import (
+	"math"
+	"strings"
+)
 
 type PlayerType int
 
@@ -62,6 +65,12 @@ func NewPlayer(username string) *Player {
 	}
 }
 
+// SetSkill sets the data for a player skill. This will recompute the player's derived levels (total and combat).
+func (p *Player) SetSkill(skill *Skill) {
+	p.Skills[skill.Type] = skill
+	p.recomputeSkills()
+}
+
 // HasFriend determines if the given player username is on this player's friends list.
 func (p *Player) HasFriend(username string) bool {
 	target := strings.ToLower(username)
@@ -84,4 +93,25 @@ func (p *Player) IsIgnored(username string) bool {
 	}
 
 	return false
+}
+
+// recomputeSkills updates the derived levels (total and combat) based on the player's current skills.
+func (p *Player) recomputeSkills() {
+	totalLevel := 0
+
+	// compute the total skill level
+	for _, skill := range p.Skills {
+		totalLevel += skill.Level
+	}
+
+	p.Appearance.TotalLevel = totalLevel
+
+	// compute each component of the combat level
+	base := 0.25 * (float64(p.Skills[SkillTypeDefense].Level+p.Skills[SkillTypeHitpoints].Level) + math.Floor(float64(p.Skills[SkillTypePrayer].Level)*0.5))
+	melee := 0.325 * (float64(p.Skills[SkillTypeAttack].Level + p.Skills[SkillTypeStrength].Level))
+	ranged := 0.325 * math.Floor(float64(p.Skills[SkillTypeRanged].Level)*1.5)
+	magic := 0.325 * math.Floor(float64(p.Skills[SkillTypeMagic].Level)*1.5)
+
+	// compute the final combat level
+	p.Appearance.CombatLevel = int(math.Floor(base + math.Max(math.Max(melee, ranged), magic)))
 }

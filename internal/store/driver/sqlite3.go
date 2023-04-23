@@ -72,6 +72,12 @@ func (s *SQLite3Driver) SavePlayer(p *model.Player) error {
 		return err
 	}
 
+	// save their skills
+	err = s.savePlayerSkills(p)
+	if err != nil {
+		return err
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		return err
@@ -109,6 +115,15 @@ func (s *SQLite3Driver) LoadPlayer(username string) (*model.Player, error) {
 
 	// load their friends and ignored lists
 	err = s.loadPlayerLists(p)
+	if err != nil {
+		return nil, err
+	}
+
+	// load their skills
+	err = s.loadPlayerSkills(p)
+	if err != nil {
+		return nil, err
+	}
 
 	return p, nil
 }
@@ -331,10 +346,11 @@ func (s *SQLite3Driver) loadPlayerSkills(p *model.Player) error {
 
 		// map the skill id to a skill type
 		skillType := model.SkillType(skillID)
-		p.Skills[skillType] = &model.Skill{
+		p.SetSkill(&model.Skill{
+			Type:       skillType,
 			Level:      level,
 			Experience: experience,
-		}
+		})
 	}
 
 	return nil
@@ -562,8 +578,8 @@ func (s *SQLite3Driver) savePlayerSkills(p *model.Player) error {
 	insertTemplate := `
 		INSERT INTO
 			PLAYER_SKILL (
-			    ID,
 			    PLAYER_ID,
+			    SKILL_ID,
 				LEVEL,
 				EXPERIENCE
 			)
@@ -578,8 +594,8 @@ func (s *SQLite3Driver) savePlayerSkills(p *model.Player) error {
 	// collect all of the player's skills into tuples
 	for _, v := range p.Skills {
 		bulk = append(bulk, valueTemplate)
-		values = append(values, int(v.Type))
 		values = append(values, p.ID)
+		values = append(values, int(v.Type))
 		values = append(values, v.Level)
 		values = append(values, v.Experience)
 	}
