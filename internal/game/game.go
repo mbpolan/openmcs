@@ -146,16 +146,20 @@ func (g *Game) MarkPlayerInactive(p *model.Player) {
 	pe.scheduler.Plan(NewEventWithType(EventCheckIdleImmediate, time.Now()))
 }
 
-// RequestLogout attempts to log out a player.
-func (g *Game) RequestLogout(p *model.Player, action int) {
+// DoInterfaceAction processes an action that a player performed on an interface.
+func (g *Game) DoInterfaceAction(p *model.Player, action int) {
 	pe, unlockFunc := g.findPlayerAndLockAll(p)
-	defer unlockFunc()
+	unlockFunc()
 	if pe == nil {
 		return
 	}
 
-	// TODO: check if player can be logged out (ie: are they in combat, etc.)
-	_ = g.disconnect(pe)
+	// TODO: these should be scriptable
+	// action on client logout button
+	if action == 2458 {
+		// TODO: check if player can be logged out (ie: are they in combat, etc.)
+		_ = g.disconnect(pe)
+	}
 }
 
 // DoPlayerChat broadcasts a player's chat message to nearby players.

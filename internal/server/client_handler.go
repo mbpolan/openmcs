@@ -339,11 +339,11 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 			c.game.RemoveIgnored(c.player, req.Username)
 		}
 
-	case request.LogoutRequestHeader:
-		// the player has requested to log out
-		req, err := request.ReadLogoutRequest(c.reader)
+	case request.InterfaceActionRequestHeader:
+		// the player has performed an action on an interface
+		req, err := request.ReadInterfaceActionRequest(c.reader)
 		if err == nil {
-			c.game.RequestLogout(c.player, req.Action)
+			c.game.DoInterfaceAction(c.player, req.Action)
 		}
 
 	default:
