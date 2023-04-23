@@ -207,3 +207,52 @@ BEGIN
     WHERE
         ID = NEW.ID;
 END;
+
+-- create table for storing player skill levels
+CREATE TABLE PLAYER_SKILL (
+    -- primary key
+    ID INTEGER PRIMARY KEY AUTOINCREMENT,
+    -- owning player
+    PLAYER_ID INTEGER NOT NULL REFERENCES PLAYER(ID) ON DELETE CASCADE,
+    -- skill id
+    SKILL_ID INT NOT NULL,
+    -- skill level
+    LEVEL INT NOT NULL,
+    -- skill experience
+    EXPERIENCE INT NOT NULL,
+    -- date time when the row was inserted
+    CREATED_DTTM TEXT NOT NULL DEFAULT CURRENT_DATE,
+    -- date time when the row was updated
+    UPDATED_DTTM TEXT NULL
+);
+
+-- create an index on player_skill.player_id since it will be queried on
+CREATE INDEX IDX_PLAYER_SKILL_PLAYER_ID ON PLAYER_LIST(PLAYER_ID);
+
+-- create a trigger on player_skill to manage the CREATED_DTTM column
+CREATE TRIGGER
+    PLAYER_SKILL_CREATED_DTTM
+AFTER INSERT ON
+    PLAYER_SKILL
+BEGIN
+    UPDATE
+        PLAYER_SKILL
+    SET
+        CREATED_DTTM = DATETIME('NOW')
+    WHERE
+        ID = NEW.ID;
+END;
+
+-- create a trigger on player_skill to manage the UPDATED_DTTM column
+CREATE TRIGGER
+    PLAYER_SKILL_UPDATED_DTTM
+AFTER UPDATE ON
+    PLAYER_SKILL
+BEGIN
+    UPDATE
+        PLAYER_SKILL
+    SET
+        UPDATED_DTTM = DATETIME('NOW')
+    WHERE
+        ID = NEW.ID;
+END;
