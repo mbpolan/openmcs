@@ -208,6 +208,45 @@ BEGIN
         ID = NEW.ID;
 END;
 
+-- create a reference table for storing skills
+CREATE TABLE SKILL_LOOKUP (
+   -- primary key
+   ID INTEGER PRIMARY KEY AUTOINCREMENT,
+   -- skill name
+   NAME TEXT NOT NULL,
+    -- date time when the row was inserted
+   CREATED_DTTM TEXT NOT NULL DEFAULT CURRENT_DATE,
+    -- date time when the row was updated
+   UPDATED_DTTM TEXT NULL
+);
+-- create a trigger on skill_lookup to manage the CREATED_DTTM column
+CREATE TRIGGER
+    SKILL_LOOKUP_CREATED_DTTM
+AFTER INSERT ON
+    SKILL_LOOKUP
+BEGIN
+    UPDATE
+        SKILL_LOOKUP
+    SET
+        CREATED_DTTM = DATETIME('NOW')
+    WHERE
+            ID = NEW.ID;
+END;
+
+-- create a trigger on skill_lookup to manage the UPDATED_DTTM column
+CREATE TRIGGER
+    SKILL_LOOKUP_UPDATED_DTTM
+AFTER UPDATE ON
+    SKILL_LOOKUP
+BEGIN
+    UPDATE
+        SKILL_LOOKUP
+    SET
+        UPDATED_DTTM = DATETIME('NOW')
+    WHERE
+        ID = NEW.ID;
+END;
+
 -- create table for storing player skill levels
 CREATE TABLE PLAYER_SKILL (
     -- primary key
@@ -215,7 +254,7 @@ CREATE TABLE PLAYER_SKILL (
     -- owning player
     PLAYER_ID INTEGER NOT NULL REFERENCES PLAYER(ID) ON DELETE CASCADE,
     -- skill id
-    SKILL_ID INT NOT NULL,
+    SKILL_ID INT NOT NULL REFERENCES SKILL_LOOKUP(ID) ON DELETE CASCADE ,
     -- skill level
     LEVEL INT NOT NULL,
     -- skill experience

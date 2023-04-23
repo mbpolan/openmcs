@@ -56,52 +56,37 @@ INSERT INTO PLAYER_EQUIPMENT (
     (2, 11, 2216)
 ;
 
--- initialize skills for players
-INSERT INTO PLAYER_SKILL (
-    PLAYER_ID, SKILL_ID, LEVEL, EXPERIENCE
+-- initialize skill lookup
+INSERT INTO SKILL_LOOKUP (
+    ID, NAME
 ) VALUES
-    -- mike
-    (1, 0, 1, 0),
-    (1, 1, 1, 0),
-    (1, 2, 1, 0),
-    (1, 3, 1, 0),
-    (1, 4, 1, 0),
-    (1, 5, 1, 0),
-    (1, 6, 1, 0),
-    (1, 7, 1, 0),
-    (1, 8, 1, 0),
-    (1, 9, 1, 0),
-    (1, 10, 1, 0),
-    (1, 11, 1, 0),
-    (1, 12, 1, 0),
-    (1, 13, 1, 0),
-    (1, 14, 1, 0),
-    (1, 15, 1, 0),
-    (1, 16, 1, 0),
-    (1, 17, 1, 0),
-    (1, 18, 1, 0),
-    (1, 19, 1, 0),
-    (1, 20, 1, 0),
-    -- mike
-    (2, 0, 1, 0),
-    (2, 1, 1, 0),
-    (2, 2, 1, 0),
-    (2, 3, 1, 0),
-    (2, 4, 1, 0),
-    (2, 5, 1, 0),
-    (2, 6, 1, 0),
-    (2, 7, 1, 0),
-    (2, 8, 1, 0),
-    (2, 9, 1, 0),
-    (2, 10, 1, 0),
-    (2, 11, 1, 0),
-    (2, 12, 1, 0),
-    (2, 13, 1, 0),
-    (2, 14, 1, 0),
-    (2, 15, 1, 0),
-    (2, 16, 1, 0),
-    (2, 17, 1, 0),
-    (2, 18, 1, 0),
-    (2, 19, 1, 0),
-    (2, 20, 1, 0)
+    (0, 'Attack'),
+    (1, 'Defense'),
+    (2, 'Strength'),
+    (3, 'Hitpoints'),
+    (4, 'Ranged'),
+    (5, 'Prayer'),
+    (6, 'Magic'),
+    (7, 'Cooking'),
+    (8, 'Woodcutting'),
+    (9, 'Fletching'),
+    (10, 'Fishing'),
+    (11, 'Firemaking'),
+    (12, 'Crafting'),
+    (13, 'Smithing'),
+    (14, 'Mining'),
+    (15, 'Herblore'),
+    (16, 'Agility'),
+    (17, 'Thieving'),
+    (18, 'Slayer'),
+    (19, 'Farming'),
+    (20, 'Runecraft')
 ;
+-- initialize skills for players
+INSERT INTO PLAYER_SKILL (PLAYER_ID, SKILL_ID, LEVEL, EXPERIENCE)
+SELECT 1, ID, 1, 0
+FROM SKILL_LOOKUP;
+
+INSERT INTO PLAYER_SKILL (PLAYER_ID, SKILL_ID, LEVEL, EXPERIENCE)
+SELECT 2, ID, 1, 0
+FROM SKILL_LOOKUP;
