@@ -318,6 +318,7 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	// set initial client tab interfaces
 	// TODO: these ids should not be hardcoded
 	pe.tabInterfaces = map[model.ClientTab]int{
+		model.ClientTabSkills:      3917,
 		model.ClientTabFriendsList: 5065,
 		model.ClientTabIgnoreList:  5715,
 		model.ClientTabLogout:      2449,
