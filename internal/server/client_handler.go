@@ -346,6 +346,13 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 			c.game.DoInterfaceAction(c.player, req.Action)
 		}
 
+	case request.InteractObjectRequestHeader:
+		// the player interacted with an object
+		req, err := request.ReadInteractObjectRequest(c.reader)
+		if err == nil {
+			c.game.DoInteractWithObject(c.player, req.Action, req.GlobalPos)
+		}
+
 	default:
 		// unknown packet
 		err = fmt.Errorf("unexpected packet header: %2x", b)

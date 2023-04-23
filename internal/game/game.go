@@ -162,6 +162,11 @@ func (g *Game) DoInterfaceAction(p *model.Player, action int) {
 	}
 }
 
+// DoInteractWithObject handles a player interaction with an object on the map.
+func (g *Game) DoInteractWithObject(p *model.Player, action int, globalPos model.Vector2D) {
+	// TODO
+}
+
 // DoPlayerChat broadcasts a player's chat message to nearby players.
 func (g *Game) DoPlayerChat(p *model.Player, effect model.ChatEffect, color model.ChatColor, text string) {
 	pe, unlockFunc := g.findPlayerAndLockAll(p)
