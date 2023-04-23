@@ -40,6 +40,7 @@ type Game struct {
 	mu               sync.RWMutex
 	welcomeMessage   string
 	removePlayers    []*playerEntity
+	worldID          int
 }
 
 // NewGame creates a new game engine using the given configuration.
@@ -47,6 +48,7 @@ func NewGame(cfg *config.Config) (*Game, error) {
 	g := &Game{
 		doneChan:       make(chan bool, 1),
 		welcomeMessage: cfg.Server.WelcomeMessage,
+		worldID:        cfg.Server.WorldID,
 	}
 
 	// load game asset
@@ -427,7 +429,7 @@ func (g *Game) broadcastPlayerStatus(pe *playerEntity, targets ...string) {
 
 			var update *response.FriendStatusResponse
 			if onlineForOther {
-				update = response.NewFriendStatusResponse(pe.player.Username, 69)
+				update = response.NewFriendStatusResponse(pe.player.Username, g.worldID)
 			} else {
 				update = response.NewOfflineFriendStatusResponse(pe.player.Username)
 			}
