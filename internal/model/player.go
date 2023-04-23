@@ -4,6 +4,9 @@ import "strings"
 
 type PlayerType int
 
+// NumPlayerSkills is the number of available player skills.
+const NumPlayerSkills = 21
+
 const (
 	PlayerNormal PlayerType = iota
 	PlayerModerator
@@ -24,6 +27,7 @@ type Player struct {
 	Muted        bool
 	Friends      []string
 	Ignored      []string
+	Skills       SkillMap
 }
 
 // PlayerModes indicates what types of chat and interactions a player wishes to receive.
@@ -37,8 +41,6 @@ type PlayerModes struct {
 func NewPlayer(username string) *Player {
 	// define a default appearance
 	appearance := &EntityAppearance{
-		Equipment: [12]int{},
-		Body:      [5]int{},
 		Animations: map[AnimationID]int{
 			AnimationStand:     0x080D, // standing
 			AnimationStandTurn: 0xFFFF, // turning
@@ -48,16 +50,15 @@ func NewPlayer(username string) *Player {
 			AnimationTurnLeft:  0xFFFF, // turn left
 			AnimationRun:       0x067D, // run
 		},
-		Gender:         EntityMale,
-		OverheadIconID: 0,
-		CombatLevel:    3,
-		SkillLevel:     200,
-		Updated:        false,
+		Equipment: make([]int, NumEquipmentSlots),
+		Body:      make([]int, NumBodyParts),
+		Updated:   false,
 	}
 
 	return &Player{
 		Username:   username,
 		Appearance: appearance,
+		Skills:     EmptySkillMap(),
 	}
 }
 

@@ -14,6 +14,31 @@ import (
 const playerListTypeFriend int = 0
 const playerListTypeIgnored int = 1
 
+// skillIdsToSkills maps database skill identifiers to skill types.
+var skillIDsToSkills = map[int]model.SkillType{
+	0:  model.SkillTypeAttack,
+	1:  model.SkillTypeDefense,
+	2:  model.SkillTypeStrength,
+	3:  model.SkillTypeHitpoints,
+	4:  model.SkillTypeRanged,
+	5:  model.SkillTypePrayer,
+	6:  model.SkillTypeMagic,
+	7:  model.SkillTypeCooking,
+	8:  model.SkillTypeWoodcutting,
+	9:  model.SkillTypeFletching,
+	10: model.SkillTypeFishing,
+	11: model.SkillTypeFiremaking,
+	12: model.SkillTypeCrafting,
+	13: model.SkillTypeSmithing,
+	14: model.SkillTypeMining,
+	15: model.SkillTypeHerblore,
+	16: model.SkillTypeAgility,
+	17: model.SkillTypeThieving,
+	18: model.SkillTypeSlayer,
+	19: model.SkillTypeFarming,
+	20: model.SkillTypeRunecraft,
+}
+
 // SQLite3Driver is a driver that interfaces with a SQLite3 database.
 type SQLite3Driver struct {
 	db *sql.DB
@@ -301,6 +326,49 @@ func (s *SQLite3Driver) loadPlayerLists(p *model.Player) error {
 	return nil
 }
 
+// loadPlayerSkills loads a player's skills.
+func (s *SQLite3Driver) loadPlayerSkills(p *model.Player) error {
+	stmt, err := s.db.Prepare(`
+		SELECT
+		    SKILL_ID,
+		    LEVEL,
+		    EXPERIENCE
+		FROM
+		    PLAYER_SKILL
+		WHERE
+		    PLAYER_ID = ?
+	`)
+	if err != nil {
+		return err
+	}
+
+	rows, err := stmt.Query(p.ID)
+	if err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		var skillID, level, experience int
+		err := rows.Scan(&skillID, &level, &experience)
+		if err != nil {
+			return err
+		}
+
+		// map the skill id to a skill type
+		skillType, ok := skillIDsToSkills[skillID]
+		if !ok {
+			return fmt.Errorf("unknown skill ID: %d", skillID)
+		}
+
+		p.Skills[skillType] = &model.Skill{
+			Level:      level,
+			Experience: experience,
+		}
+	}
+
+	return nil
+}
+
 // savePlayerInfo updates a player's basic information.
 func (s *SQLite3Driver) savePlayerInfo(p *model.Player) error {
 	stmt, err := s.db.Prepare(`
@@ -481,6 +549,76 @@ func (s *SQLite3Driver) savePlayerLists(p *model.Player) error {
 		values = append(values, p.ID)
 		values = append(values, username)
 		values = append(values, playerListTypeIgnored)
+	}
+
+	// prepare the final insert query
+	insert := fmt.Sprintf(insertTemplate, strings.Join(bulk, ","))
+	stmt, err := s.db.Prepare(insert)
+	if err != nil {
+		return err
+	}
+
+	defer stmt.Close()
+
+	_, err = stmt.Exec(values...)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *SQLite3Driver) savePlayerSkills(p *model.Player) error {
+	// prepare a delete to clear out the player's skills
+	delStmt, err := s.db.Prepare(`
+		DELETE FROM
+		    PLAYER_SKILL
+		WHERE
+		    PLAYER_ID = ?
+	`)
+	if err != nil {
+		return err
+	}
+
+	defer delStmt.Close()
+
+	// delete all entries from the player's skills
+	_, err = delStmt.Exec(p.ID)
+	if err != nil {
+		return err
+	}
+
+	insertTemplate := `
+		INSERT INTO
+			PLAYER_SKILL (
+			    ID,
+			    PLAYER_ID,
+				LEVEL,
+				EXPERIENCE
+			)
+		VALUES %s
+	`
+
+	valueTemplate := "(?, ?, ?, ?)"
+
+	var bulk []string
+	var values []any
+
+	// collect all of the player's skills into tuples
+	for k, v := range p.Skills {
+		skillID := -1
+		for sNum, skillType := range skillIDsToSkills {
+			if skillType == k {
+				skillID = sNum
+				break
+			}
+		}
+
+		bulk = append(bulk, valueTemplate)
+		values = append(values, skillID)
+		values = append(values, p.ID)
+		values = append(values, v.Level)
+		values = append(values, v.Experience)
 	}
 
 	// prepare the final insert query

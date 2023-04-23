@@ -1,3 +1,30 @@
+-- initialize skill lookup
+INSERT INTO SKILL_LOOKUP (
+    ID, NAME
+) VALUES
+      (0, 'Attack'),
+      (1, 'Defense'),
+      (2, 'Strength'),
+      (3, 'Hitpoints'),
+      (4, 'Ranged'),
+      (5, 'Prayer'),
+      (6, 'Magic'),
+      (7, 'Cooking'),
+      (8, 'Woodcutting'),
+      (9, 'Fletching'),
+      (10, 'Fishing'),
+      (11, 'Firemaking'),
+      (12, 'Crafting'),
+      (13, 'Smithing'),
+      (14, 'Mining'),
+      (15, 'Herblore'),
+      (16, 'Agility'),
+      (17, 'Thieving'),
+      (18, 'Slayer'),
+      (19, 'Farming'),
+      (20, 'Runecraft')
+;
+
 -- add a player with username "mike" and password "mike"
 INSERT INTO PLAYER (
     USERNAME, PASSWORD_HASH, EMAIL, GLOBAL_X, GLOBAL_Y, GLOBAL_Z, GENDER, FLAGGED, MUTED, PUBLIC_CHAT_MODE, PRIVATE_CHAT_MODE, INTERACTION_MODE, TYPE
@@ -56,32 +83,6 @@ INSERT INTO PLAYER_EQUIPMENT (
     (2, 11, 2216)
 ;
 
--- initialize skill lookup
-INSERT INTO SKILL_LOOKUP (
-    ID, NAME
-) VALUES
-    (0, 'Attack'),
-    (1, 'Defense'),
-    (2, 'Strength'),
-    (3, 'Hitpoints'),
-    (4, 'Ranged'),
-    (5, 'Prayer'),
-    (6, 'Magic'),
-    (7, 'Cooking'),
-    (8, 'Woodcutting'),
-    (9, 'Fletching'),
-    (10, 'Fishing'),
-    (11, 'Firemaking'),
-    (12, 'Crafting'),
-    (13, 'Smithing'),
-    (14, 'Mining'),
-    (15, 'Herblore'),
-    (16, 'Agility'),
-    (17, 'Thieving'),
-    (18, 'Slayer'),
-    (19, 'Farming'),
-    (20, 'Runecraft')
-;
 -- initialize skills for players
 INSERT INTO PLAYER_SKILL (PLAYER_ID, SKILL_ID, LEVEL, EXPERIENCE)
 SELECT 1, ID, 1, 0

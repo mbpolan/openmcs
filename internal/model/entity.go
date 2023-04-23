@@ -1,5 +1,11 @@
 package model
 
+// NumEquipmentSlots is the number of slots available for equipping items.
+const NumEquipmentSlots = 12
+
+// NumBodyParts is the number of customizable character body parts.
+const NumBodyParts = 5
+
 // EntityGender enumerates valid genders for players or NPCs.
 type EntityGender int
 
@@ -23,8 +29,8 @@ const (
 // EntityAppearance describes the properties of an entity such as a player or NPC.
 type EntityAppearance struct {
 	NPCAppearance  int
-	Equipment      [12]int
-	Body           [5]int
+	Equipment      []int
+	Body           []int
 	Animations     map[AnimationID]int
 	Gender         EntityGender
 	OverheadIconID int
