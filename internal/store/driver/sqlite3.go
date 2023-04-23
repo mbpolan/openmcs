@@ -14,31 +14,6 @@ import (
 const playerListTypeFriend int = 0
 const playerListTypeIgnored int = 1
 
-// skillIdsToSkills maps database skill identifiers to skill types.
-var skillIDsToSkills = map[int]model.SkillType{
-	0:  model.SkillTypeAttack,
-	1:  model.SkillTypeDefense,
-	2:  model.SkillTypeStrength,
-	3:  model.SkillTypeHitpoints,
-	4:  model.SkillTypeRanged,
-	5:  model.SkillTypePrayer,
-	6:  model.SkillTypeMagic,
-	7:  model.SkillTypeCooking,
-	8:  model.SkillTypeWoodcutting,
-	9:  model.SkillTypeFletching,
-	10: model.SkillTypeFishing,
-	11: model.SkillTypeFiremaking,
-	12: model.SkillTypeCrafting,
-	13: model.SkillTypeSmithing,
-	14: model.SkillTypeMining,
-	15: model.SkillTypeHerblore,
-	16: model.SkillTypeAgility,
-	17: model.SkillTypeThieving,
-	18: model.SkillTypeSlayer,
-	19: model.SkillTypeFarming,
-	20: model.SkillTypeRunecraft,
-}
-
 // SQLite3Driver is a driver that interfaces with a SQLite3 database.
 type SQLite3Driver struct {
 	db *sql.DB
@@ -355,11 +330,7 @@ func (s *SQLite3Driver) loadPlayerSkills(p *model.Player) error {
 		}
 
 		// map the skill id to a skill type
-		skillType, ok := skillIDsToSkills[skillID]
-		if !ok {
-			return fmt.Errorf("unknown skill ID: %d", skillID)
-		}
-
+		skillType := model.SkillType(skillID)
 		p.Skills[skillType] = &model.Skill{
 			Level:      level,
 			Experience: experience,
@@ -605,17 +576,9 @@ func (s *SQLite3Driver) savePlayerSkills(p *model.Player) error {
 	var values []any
 
 	// collect all of the player's skills into tuples
-	for k, v := range p.Skills {
-		skillID := -1
-		for sNum, skillType := range skillIDsToSkills {
-			if skillType == k {
-				skillID = sNum
-				break
-			}
-		}
-
+	for _, v := range p.Skills {
 		bulk = append(bulk, valueTemplate)
-		values = append(values, skillID)
+		values = append(values, int(v.Type))
 		values = append(values, p.ID)
 		values = append(values, v.Level)
 		values = append(values, v.Experience)

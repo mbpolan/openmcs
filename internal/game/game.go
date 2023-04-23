@@ -355,6 +355,9 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	modes := response.NewSetModesResponse(pe.player.Modes.PublicChat, pe.player.Modes.PrivateChat, pe.player.Modes.Interaction)
 	pe.PlanEvent(NewSendResponseEvent(modes, time.Now()))
 
+	// plan an update to the player's skills
+	pe.PlanEvent(NewEventWithType(EventSkills, time.Now()))
+
 	// plan an update to the player's friends list
 	pe.PlanEvent(NewEventWithType(EventFriendList, time.Now()))
 
@@ -899,6 +902,16 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 			}
 
 			err := r.Write(pe.writer)
+			if err != nil {
+				return err
+			}
+		}
+
+	case EventSkills:
+		// send each skill to the client
+		for _, skill := range pe.player.Skills {
+			resp := response.NewSkillDataResponse(skill)
+			err := resp.Write(pe.writer)
 			if err != nil {
 				return err
 			}

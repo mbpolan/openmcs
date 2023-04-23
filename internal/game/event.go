@@ -14,10 +14,12 @@ const (
 	EventCheckIdle
 	// EventCheckIdleImmediate is a one-off check for player inactivity.
 	EventCheckIdleImmediate
-	// EventUpdateTabInterfaces updates all of the player's client tab interfaces.
+	// EventUpdateTabInterfaces updates all the player's client tab interfaces.
 	EventUpdateTabInterfaces
 	// EventFriendList sends a player's entire friends list.
 	EventFriendList
+	// EventSkills sends data about all the player's skills.
+	EventSkills
 )
 
 // Event is an action that the game server should take at a specified time.
