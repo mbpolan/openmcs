@@ -26,6 +26,7 @@ type playerEntity struct {
 	chatHighWater       time.Time
 	tabInterfaces       map[model.ClientTab]int
 	privateMessageID    int
+	regionOrigin        model.Vector2D
 	nextStatusBroadcast *playerStatusBroadcast
 	nextUpdate          *response.PlayerUpdateResponse
 	mu                  sync.Mutex

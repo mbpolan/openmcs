@@ -245,8 +245,8 @@ func (g *Game) WalkPlayer(p *model.Player, start model.Vector2D, waypoints []mod
 
 	// the starting position is offset by 6 tiles from the region origin, and serves as the basis for waypoints
 	initial := model.Vector2D{
-		X: start.X + (util.MapScale3D.X * 6),
-		Y: start.Y + (util.MapScale3D.Y * 6),
+		X: start.X + (util.Chunk2D.X * 6),
+		Y: start.Y + (util.Chunk2D.Y * 6),
 	}
 
 	// convert each waypoint into global coordinates
@@ -350,13 +350,17 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	// start the player's event loop
 	go g.playerLoop(pe)
 
+	// compute the player's region and position
+	regionOrigin, regionRelative := g.playerRegionPosition(pe)
+	pe.regionOrigin = regionOrigin
+
 	// plan an initial map region load
-	region := response.NewLoadRegionResponse(util.GlobalToRegionOrigin(p.GlobalPos).To2D())
+	region := response.NewLoadRegionResponse(regionOrigin)
 	pe.PlanEvent(NewSendResponseEvent(region, time.Now()))
 
 	// plan an initial player update
 	update := response.NewPlayerUpdateResponse(p.ID)
-	update.SetLocalPlayerPosition(util.GlobalToRegionLocal(p.GlobalPos), true)
+	update.SetLocalPlayerPosition(regionRelative, true)
 	update.AddAppearanceUpdate(p.ID, p.Username, p.Appearance)
 	pe.PlanEvent(NewSendResponseEvent(update, time.Now()))
 
@@ -605,8 +609,33 @@ func (g *Game) loadAssets(assetDir string) error {
 	return nil
 }
 
-// addToList adds another player to the player's friends or ignore list. No mutexes should be locked when calling this
-// method.
+// playerRegionPosition returns the region origin and player position relative to that origin.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (p *Game) playerRegionPosition(pe *playerEntity) (model.Vector2D, model.Vector3D) {
+	// compute the current region origin and the player's position relative to its origin
+	regionOrigin := util.GlobalToRegionOrigin(pe.player.GlobalPos).To2D()
+	regionRelative := util.GlobalToRegionLocal(pe.player.GlobalPos)
+
+	// compute the boundary zone between regions, where new regions are to be loaded
+	boundaryX := util.Chunk2D.X + util.RegionBoundary2D.X
+	boundaryY := util.Chunk2D.Y + util.RegionBoundary2D.Y
+
+	// if the player is standing within the boundary between regions, adjust the region offset and position in such a
+	// way that the player is part of the preceding region.
+	if regionRelative.X < boundaryX {
+		regionOrigin.X -= util.Chunk2D.X
+		regionRelative.X += util.Region3D.X
+	}
+
+	if regionRelative.Y < boundaryY {
+		regionOrigin.Y -= util.Chunk2D.Y
+		regionRelative.Y += util.Region3D.Y
+	}
+
+	return regionOrigin, regionRelative
+}
+
+// addToList adds another player to the player's friends or ignore list.
 // Concurrency requirements: (a) game state should NOT be locked and (b) all players should NOT be locked.
 func (g *Game) addToList(p *model.Player, username string, friend bool) {
 	target := strings.Trim(strings.ToLower(username), " ")
@@ -768,6 +797,16 @@ func (g *Game) handleGameUpdate() error {
 			// move past this path segment and mark this as the last time the player was moved
 			pe.nextPathIdx++
 			pe.lastWalkTime = time.Now()
+
+			// check if the player has moved into a new map region, and schedule a map region load is that's the case
+			origin, _ := g.playerRegionPosition(pe)
+			if origin != pe.regionOrigin {
+				region := response.NewLoadRegionResponse(origin)
+				pe.PlanEvent(NewSendResponseEvent(region, time.Now()))
+
+				// mark this as the current region the player's client has loaded
+				pe.regionOrigin = origin
+			}
 		}
 
 		// broadcast this player's status to friends and other target players if required
