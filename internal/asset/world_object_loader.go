@@ -353,9 +353,6 @@ func (l *WorldObjectLoader) readObject(id int, r *DataReader) (*model.WorldObjec
 			object.Static = b == 0x01
 
 		case opObjectEndAttributeList:
-			// end of attribute list, continue reading additional object data
-			hasMoreAttributes = false
-
 			// unknown property?
 			variableID, err := r.Uint16()
 			if err != nil {
