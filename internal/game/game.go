@@ -588,14 +588,14 @@ func (g *Game) loadAssets(assetDir string) error {
 	var err error
 	manager := asset.NewManager(assetDir)
 
-	// load map data
-	g.worldMap, err = manager.Map()
+	// load world objects
+	g.objects, err = manager.WorldObjects()
 	if err != nil {
 		return err
 	}
 
-	// load world objects
-	g.objects, err = manager.WorldObjects()
+	// load map data
+	g.worldMap, err = manager.Map(g.objects)
 	if err != nil {
 		return err
 	}

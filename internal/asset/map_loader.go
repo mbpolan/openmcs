@@ -1,7 +1,12 @@
 package asset
 
 import (
+	"bytes"
+	"compress/gzip"
+	"fmt"
 	"github.com/mbpolan/openmcs/internal/model"
+	"github.com/mbpolan/openmcs/internal/util"
+	"io"
 )
 
 // MapLoader loads world map data from game asset files.
@@ -17,7 +22,7 @@ func NewMapLoader(archive *Archive, cache *CacheFile) *MapLoader {
 	}
 }
 
-func (l *MapLoader) Load() (*model.Map, error) {
+func (l *MapLoader) Load(objects []*model.WorldObject) (*model.Map, error) {
 	// extract the map index file
 	mapIndex, err := l.archive.File("map_index")
 	if err != nil {
@@ -66,43 +71,81 @@ func (l *MapLoader) Load() (*model.Map, error) {
 	}
 
 	objectCache := map[int][]*model.MapObject{}
+	m := model.NewMap()
 
 	// load map data for each region
-	regions := map[int]map[int]*model.MapRegion{}
 	for i := 0; i < len(coordinateIndices); i++ {
 		// unpack the region coordinates for this index
-		x := coordinateIndices[i] >> 8
-		y := coordinateIndices[i] & 0xFF
+		regionX := coordinateIndices[i] >> 8
+		regionY := coordinateIndices[i] & 0xFF
 
-		if regions[x] == nil {
-			regions[x] = map[int]*model.MapRegion{}
+		// convert the region origin to global coordinates
+		global := model.Vector3D{
+			X: regionX * util.Region3D.X,
+			Y: regionY * util.Region3D.Y,
+			Z: 0,
 		}
+
+		// initialize tiles in this region
+		for z := 0; z <= 4; z++ {
+			for x := global.X; x < global.X+util.Region3D.X; x++ {
+				for y := global.Y; y < global.Y+util.Region3D.Y; y++ {
+					m.PutTile(model.Vector3D{
+						X: x,
+						Y: y,
+						Z: z,
+					})
+				}
+			}
+		}
+
+		// TODO: terrain data
+		_ = terrainIndices[i]
 
 		// read the map objects that are location on this region
 		objectsID := objectIndices[i]
-		objects, ok := objectCache[objectsID]
+		regionObjects, ok := objectCache[objectsID]
 		if !ok {
-			objects, err = l.readObjects(objectsID)
+			regionObjects, err = l.readObjects(objectsID)
 			if err != nil {
 				return nil, err
 			}
 		}
 
-		regions[x][y] = &model.MapRegion{
-			TerrainID: terrainIndices[i],
-			Objects:   objects,
+		// connect the object ids to their objects and place them on tiles
+		for _, obj := range regionObjects {
+			tilePos := obj.Position.Add(global)
+			tile := m.Tile(tilePos)
+
+			// look up the object by its id
+			object := objects[obj.ID]
+			if object == nil {
+				return nil, fmt.Errorf("invalid object ID at %v: %d", tilePos, obj.ID)
+			}
+
+			tile.AddObject(object)
 		}
 	}
 
-	return &model.Map{
-		Regions: regions,
-	}, nil
+	return m, nil
 }
 
 // readObjects loads map object data.
 func (l *MapLoader) readObjects(id int) ([]*model.MapObject, error) {
-	data, err := l.cache.Data(id)
+	compressed, err := l.cache.Data(id)
 	if err != nil {
+		return nil, err
+	}
+
+	// decompress the data
+	gzipReader, err := gzip.NewReader(bytes.NewReader(compressed))
+	if err != nil {
+		return nil, err
+	}
+	defer gzipReader.Close()
+
+	data, err := io.ReadAll(gzipReader)
+	if err != io.ErrUnexpectedEOF {
 		return nil, err
 	}
 

@@ -37,15 +37,15 @@ func (m *Manager) Close() {
 	m.caches = map[int]*CacheFile{}
 }
 
-// Map returns the world map extracted from game assets.
-func (m *Manager) Map() (*model.Map, error) {
+// Map returns the world map extracted from game assets and populated with objects.
+func (m *Manager) Map(objects []*model.WorldObject) (*model.Map, error) {
 	versions, err := m.archive(cacheMain, archiveVersions)
 	if err != nil {
 		return nil, err
 	}
 
 	mapLoader := NewMapLoader(versions, m.cache(cacheMap))
-	worldMap, err := mapLoader.Load()
+	worldMap, err := mapLoader.Load(objects)
 	if err != nil {
 		return nil, err
 	}

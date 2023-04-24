@@ -20,6 +20,14 @@ func (v Vector2D) Sub(w Vector2D) Vector2D {
 	}
 }
 
+func (v Vector3D) Add(w Vector3D) Vector3D {
+	return Vector3D{
+		X: v.X + w.X,
+		Y: v.Y + w.Y,
+		Z: v.Z + w.Z,
+	}
+}
+
 func (v Vector3D) Sub(w Vector3D) Vector3D {
 	return Vector3D{
 		X: v.X - w.X,
