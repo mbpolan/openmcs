@@ -2,8 +2,11 @@ package model
 
 // Tile is the smallest unit of space on the world map.
 type Tile struct {
-	Objects   []*WorldObject
-	TerrainID int
+	Height     int
+	Objects    []*WorldObject
+	OverlayID  int
+	RenderFlag int
+	UnderlayID int
 }
 
 // AddObject places a world object on the tile.
@@ -24,20 +27,16 @@ func NewMap() *Map {
 	}
 }
 
-// PutTile initializes a tile at location on the world map.
-func (m *Map) PutTile(pos Vector3D) {
-	m.Tile(pos)
+// SetTile puts a tile at a location. Any existing tile will be replaced.
+func (m *Map) SetTile(pos Vector3D, tile *Tile) {
+	m.ensurePathToTile(pos)
+
+	m.Tiles[pos.Z][pos.X][pos.Y] = tile
 }
 
 // Tile returns a tile at a location on the world map. If there is no tile, a new one will be initialized.
 func (m *Map) Tile(pos Vector3D) *Tile {
-	if _, ok := m.Tiles[pos.Z]; !ok {
-		m.Tiles[pos.Z] = map[int]map[int]*Tile{}
-	}
-
-	if _, ok := m.Tiles[pos.Z][pos.X]; !ok {
-		m.Tiles[pos.Z][pos.X] = map[int]*Tile{}
-	}
+	m.ensurePathToTile(pos)
 
 	if _, ok := m.Tiles[pos.Z][pos.X][pos.Y]; !ok {
 		m.Tiles[pos.Z][pos.X][pos.Y] = &Tile{}
@@ -46,10 +45,13 @@ func (m *Map) Tile(pos Vector3D) *Tile {
 	return m.Tiles[pos.Z][pos.X][pos.Y]
 }
 
-// MapObject is an object that is located on the map.
-type MapObject struct {
-	ID          int
-	Position    Vector3D
-	ObjectType  int
-	Orientation int
+// ensurePathToTile initializes the tile map to a particular tile.
+func (m *Map) ensurePathToTile(pos Vector3D) {
+	if _, ok := m.Tiles[pos.Z]; !ok {
+		m.Tiles[pos.Z] = map[int]map[int]*Tile{}
+	}
+
+	if _, ok := m.Tiles[pos.Z][pos.X]; !ok {
+		m.Tiles[pos.Z][pos.X] = map[int]*Tile{}
+	}
 }

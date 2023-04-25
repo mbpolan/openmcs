@@ -9,6 +9,14 @@ import (
 	"io"
 )
 
+// mapObject is an object that is located on the map.
+type mapObject struct {
+	ID          int
+	Position    model.Vector3D
+	ObjectType  int
+	Orientation int
+}
+
 // MapLoader loads world map data from game asset files.
 type MapLoader struct {
 	archive *Archive
@@ -70,7 +78,7 @@ func (l *MapLoader) Load(objects []*model.WorldObject) (*model.Map, error) {
 		preloadRegions[i] = b == 0x01
 	}
 
-	objectCache := map[int][]*model.MapObject{}
+	objectCache := map[int][]*mapObject{}
 	m := model.NewMap()
 
 	// load map data for each region
@@ -86,21 +94,12 @@ func (l *MapLoader) Load(objects []*model.WorldObject) (*model.Map, error) {
 			Z: 0,
 		}
 
-		// initialize tiles in this region
-		for z := 0; z <= 4; z++ {
-			for x := global.X; x < global.X+util.Region3D.X; x++ {
-				for y := global.Y; y < global.Y+util.Region3D.Y; y++ {
-					m.PutTile(model.Vector3D{
-						X: x,
-						Y: y,
-						Z: z,
-					})
-				}
-			}
+		// read terrain data for this region
+		terrainID := terrainIndices[i]
+		err = l.readTerrainArea(terrainID, global, m)
+		if err != nil {
+			return nil, err
 		}
-
-		// TODO: terrain data
-		_ = terrainIndices[i]
 
 		// read the map objects that are location on this region
 		objectsID := objectIndices[i]
@@ -130,8 +129,8 @@ func (l *MapLoader) Load(objects []*model.WorldObject) (*model.Map, error) {
 	return m, nil
 }
 
-// readObjects loads map object data.
-func (l *MapLoader) readObjects(id int) ([]*model.MapObject, error) {
+// reader returns a DataReader for terrain or object data identified by an ID.
+func (l *MapLoader) reader(id int) (*DataReader, error) {
 	compressed, err := l.cache.Data(id)
 	if err != nil {
 		return nil, err
@@ -145,13 +144,122 @@ func (l *MapLoader) readObjects(id int) ([]*model.MapObject, error) {
 	defer gzipReader.Close()
 
 	data, err := io.ReadAll(gzipReader)
-	if err != io.ErrUnexpectedEOF {
+	if err != nil && err != io.ErrUnexpectedEOF {
 		return nil, err
 	}
 
-	r := NewDataReader(data)
+	return NewDataReader(data), nil
+}
 
-	var objects []*model.MapObject
+// readTerrainArea loads map terrain data for a region into a map.
+func (l *MapLoader) readTerrainArea(id int, regionGlobal model.Vector3D, m *model.Map) error {
+	r, err := l.reader(id)
+	if err != nil {
+		return err
+	}
+
+	// read terrain data for the entire prism encompassed by this region
+	for z := 0; z < 4; z++ {
+		for x := 0; x < util.Region3D.X; x++ {
+			for y := 0; y < util.Region3D.Y; y++ {
+				var below *model.Tile
+				if z > 0 {
+					below = m.Tile(model.Vector3D{
+						X: regionGlobal.X + x,
+						Y: regionGlobal.Y + y,
+						Z: z - 1,
+					})
+				}
+
+				tile, err := l.readTerrainTile(r, below)
+				m.SetTile(model.Vector3D{
+					X: regionGlobal.X + x,
+					Y: regionGlobal.Y + y,
+					Z: z,
+				}, tile)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// readTerrainTile loads a map tile.
+func (l *MapLoader) readTerrainTile(r *DataReader, below *model.Tile) (*model.Tile, error) {
+	tile := &model.Tile{}
+	hasMoreAttributes := true
+
+	for hasMoreAttributes {
+		// read 1 byte for the op code
+		op, err := r.Byte()
+		if err != nil {
+			return nil, err
+		}
+
+		switch op {
+		case 0x00:
+			// no explicit height; calculate it based on the tile's location
+			if below == nil {
+				// TODO
+				tile.Height = 0
+			} else {
+				tile.Height = below.Height - 0xF0
+			}
+
+			hasMoreAttributes = false
+
+		case 0x01:
+			// read 1 byte for the vertex height
+			height, err := r.Byte()
+			if err != nil {
+				return nil, err
+			}
+
+			// adjust the height
+			if height == 1 {
+				height = 0
+			}
+
+			// if there is no tile below this one, set the height explicitly otherwise derive it from the one below
+			if below == nil {
+				tile.Height = int(height) * -8
+			} else {
+				tile.Height = below.Height - (int(height) * 8)
+			}
+
+			hasMoreAttributes = false
+
+		default:
+			if op <= 0x31 {
+				// read 1 byte for the overlay ID
+				overlayID, err := r.Byte()
+				if err != nil {
+					return nil, err
+				}
+
+				tile.OverlayID = int(overlayID)
+			} else if op <= 0x51 {
+				tile.RenderFlag = int(op - 0x31)
+			} else {
+				tile.UnderlayID = int(op - 0x51)
+			}
+		}
+	}
+
+	return tile, nil
+}
+
+// readObjects loads map object data.
+func (l *MapLoader) readObjects(id int) ([]*mapObject, error) {
+	r, err := l.reader(id)
+	if err != nil {
+		return nil, err
+	}
+
+	var objects []*mapObject
 	hasMoreObjects := true
 	objectID := -1
 
@@ -200,7 +308,7 @@ func (l *MapLoader) readObjects(id int) ([]*model.MapObject, error) {
 			objType := attributes >> 2
 			objOrient := attributes & 0x03
 
-			objects = append(objects, &model.MapObject{
+			objects = append(objects, &mapObject{
 				ID: objectID,
 				Position: model.Vector3D{
 					X: tileX,
