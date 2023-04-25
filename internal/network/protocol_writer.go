@@ -56,6 +56,21 @@ func (w *ProtocolWriter) WriteUint8(n uint8) error {
 	return nil
 }
 
+// WriteUint16Alt2 writes an unsigned, 16-bit (short) integer using the alternative format.
+func (w *ProtocolWriter) WriteUint16Alt2(n uint16) error {
+	err := w.WriteUint8(byte(n + 0x80))
+	if err != nil {
+		return err
+	}
+
+	err = w.WriteUint8(byte(n >> 8))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // WriteUint16Alt writes an unsigned, 16-bit (short) integer using the alternative format.
 func (w *ProtocolWriter) WriteUint16Alt(n uint16) error {
 	err := w.WriteUint8(byte(n >> 8))
