@@ -4,6 +4,7 @@ package model
 type Tile struct {
 	Height     int
 	Objects    []*WorldObject
+	ItemIDs    []int
 	OverlayID  int
 	RenderFlag int
 	UnderlayID int
@@ -12,6 +13,11 @@ type Tile struct {
 // AddObject places a world object on the tile.
 func (t *Tile) AddObject(object *WorldObject) {
 	t.Objects = append(t.Objects, object)
+}
+
+// AddItem adds a ground item to the tile.
+func (t *Tile) AddItem(id int) {
+	t.ItemIDs = append([]int{id}, t.ItemIDs...)
 }
 
 // Map represents the game world map and its static objects.

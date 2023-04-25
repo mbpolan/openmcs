@@ -34,3 +34,12 @@ func GlobalToRegionOrigin(v model.Vector3D) model.Vector3D {
 		Z: v.Z,
 	}
 }
+
+// GlobalToRegionGlobal translates a position in global coordinates to region origin global coordinates.
+func GlobalToRegionGlobal(v model.Vector3D) model.Vector3D {
+	return model.Vector3D{
+		X: (v.X / Region3D.X) * Region3D.X,
+		Y: (v.Y / Region3D.Y) * Region3D.Y,
+		Z: v.Z,
+	}
+}

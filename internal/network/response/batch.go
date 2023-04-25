@@ -9,15 +9,16 @@ const BatchResponseHeader byte = 0x3C
 
 // BatchResponse is sent by the server to communicate multiple messages to the client.
 type BatchResponse struct {
-	playerRegionRelative model.Vector2D
-	responses            []Response
+	playerRegionLocal model.Vector2D
+	responses         []Response
 }
 
-// NewBatchResponse creates a response containing multiple batched responses.
-func NewBatchResponse(playerRegionRelative model.Vector2D, responses []Response) *BatchResponse {
+// NewBatchResponse creates a response containing multiple batched responses. A batch is generally pertaining to a
+// player, whose position should be specified in region local coordinates.
+func NewBatchResponse(playerRegionLocal model.Vector2D, responses []Response) *BatchResponse {
 	return &BatchResponse{
-		playerRegionRelative: playerRegionRelative,
-		responses:            responses,
+		playerRegionLocal: playerRegionLocal,
+		responses:         responses,
 	}
 }
 
@@ -27,13 +28,13 @@ func (p *BatchResponse) Write(w *network.ProtocolWriter) error {
 	bw := network.NewBufferedWriter()
 
 	// write 1 byte for the player y-coordinate
-	err := bw.WriteUint8(byte(p.playerRegionRelative.Y))
+	err := bw.WriteUint8(byte(p.playerRegionLocal.Y))
 	if err != nil {
 		return err
 	}
 
 	// write 1 byte for the player x-coordinate (inverted)
-	err = bw.WriteUint8(byte(p.playerRegionRelative.X * -1))
+	err = bw.WriteUint8(byte(p.playerRegionLocal.X * -1))
 	if err != nil {
 		return err
 	}

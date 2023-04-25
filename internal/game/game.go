@@ -364,6 +364,9 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	update.AddAppearanceUpdate(p.ID, p.Username, p.Appearance)
 	pe.PlanEvent(NewSendResponseEvent(update, time.Now()))
 
+	// describe the local region
+	pe.PlanEvent(NewSendResponseEvent(g.describeMapRegion(pe), time.Now()))
+
 	// plan an update to the client sidebar interfaces
 	pe.PlanEvent(NewEventWithType(EventUpdateTabInterfaces, time.Now()))
 
@@ -606,6 +609,17 @@ func (g *Game) loadAssets(assetDir string) error {
 		return err
 	}
 
+	// FIXME: spawn some ground items for testing
+	g.worldMap.Tile(model.Vector3D{X: 3116, Y: 3116}).AddItem(3140)
+	g.worldMap.Tile(model.Vector3D{X: 3117, Y: 3116}).AddItem(1052)
+	g.worldMap.Tile(model.Vector3D{X: 3117, Y: 3117}).AddItem(1187)
+	g.worldMap.Tile(model.Vector3D{X: 3116, Y: 3117}).AddItem(775)
+	g.worldMap.Tile(model.Vector3D{X: 3115, Y: 3117}).AddItem(861)
+	g.worldMap.Tile(model.Vector3D{X: 3115, Y: 3116}).AddItem(560)
+	g.worldMap.Tile(model.Vector3D{X: 3115, Y: 3115}).AddItem(962)
+	g.worldMap.Tile(model.Vector3D{X: 3116, Y: 3115}).AddItem(1053)
+	g.worldMap.Tile(model.Vector3D{X: 3117, Y: 3115}).AddItem(2550)
+
 	return nil
 }
 
@@ -731,6 +745,49 @@ func (g *Game) removeFromList(p *model.Player, username string, friend bool) {
 	} else {
 		pe.player.Ignored = list
 	}
+}
+
+// describeMapRegion builds a BatchResponse containing characteristics about a map region a player is in.
+func (g *Game) describeMapRegion(pe *playerEntity) *response.BatchResponse {
+	var batched []response.Response
+
+	chunkView := (util.Chunk2D.X / 2) - 1
+
+	// compute the origin of the chunk the player is on. this is half the length of a chunk in each direction.
+	chunk := util.GlobalToRegionLocal(pe.player.GlobalPos).To2D()
+	chunk.X = util.Max(chunk.X-chunkView, 0)
+	chunk.Y = util.Max(chunk.Y-chunkView, 0)
+
+	for x := -chunkView; x <= chunkView; x++ {
+		for y := -chunkView; y < chunkView; y++ {
+			// find the tile, if there is one, at this location in the player's region
+			tilePos := model.Vector3D{
+				X: pe.player.GlobalPos.X + x,
+				Y: pe.player.GlobalPos.Y + y,
+				Z: pe.player.GlobalPos.Z,
+			}
+
+			tile := g.worldMap.Tile(tilePos)
+			if tile == nil {
+				continue
+			}
+
+			// find the relative position of this tile with respect to the player's chunk origin. since the x- and y-
+			// coordinate offsets can be negative in this loop, we need to ensure that each is translated to be relative
+			// to the chunk origin.
+			relative := model.Vector2D{
+				X: x + chunkView,
+				Y: y + chunkView,
+			}
+
+			// describe ground items at this tile
+			for _, item := range tile.ItemIDs {
+				batched = append(batched, response.NewShowGroundItemResponse(item, 1, relative))
+			}
+		}
+	}
+
+	return response.NewBatchResponse(chunk, batched)
 }
 
 // handleGameUpdate performs a game state update.

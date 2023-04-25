@@ -43,9 +43,12 @@ func (p *ShowGroundItemResponse) Write(w *network.ProtocolWriter) error {
 		return err
 	}
 
-	// write 1 byte for the relative position
-	offset := byte(p.positionRelative.X)<<7 | byte(p.positionRelative.Y)
-	err = w.WriteUint8(offset)
+	// use 3 bits to represent the player's region x- and y-coordinates
+	x := byte(p.positionRelative.X) & 0x07
+	y := byte(p.positionRelative.Y) & 0x07
+
+	// write 1 byte for the relative position, where the x-coordinate is in the high bits
+	err = w.WriteUint8(x<<4 | y)
 	if err != nil {
 		return err
 	}
