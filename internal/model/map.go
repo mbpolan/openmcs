@@ -24,6 +24,10 @@ func (t *Tile) AddItem(id int) {
 type Map struct {
 	// Tiles are stored in (z, x, y) coordinates.
 	Tiles map[int]map[int]map[int]*Tile
+	// RegionOrigins enumerate all region origins in global coordinates that are on the map.
+	RegionOrigins []Vector3D
+	// MaxTile is the position of the tile the furthest on the x- and y-axes.
+	MaxTile Vector2D
 }
 
 // NewMap returns a new world map.
@@ -40,12 +44,18 @@ func (m *Map) SetTile(pos Vector3D, tile *Tile) {
 	m.Tiles[pos.Z][pos.X][pos.Y] = tile
 }
 
-// Tile returns a tile at a location on the world map. If there is no tile, a new one will be initialized.
+// Tile returns a tile at a location on the world map. If there is no tile, nil will be returned instead.
 func (m *Map) Tile(pos Vector3D) *Tile {
-	m.ensurePathToTile(pos)
+	if _, ok := m.Tiles[pos.Z]; !ok {
+		return nil
+	}
+	
+	if _, ok := m.Tiles[pos.Z][pos.X]; !ok {
+		return nil
+	}
 
 	if _, ok := m.Tiles[pos.Z][pos.X][pos.Y]; !ok {
-		m.Tiles[pos.Z][pos.X][pos.Y] = &Tile{}
+		return nil
 	}
 
 	return m.Tiles[pos.Z][pos.X][pos.Y]

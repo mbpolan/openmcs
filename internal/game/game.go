@@ -40,7 +40,9 @@ type Game struct {
 	mu               sync.RWMutex
 	welcomeMessage   string
 	removePlayers    []*playerEntity
+	regions          map[model.Vector2D]*RegionManager
 	worldID          int
+	mapManager       *MapManager
 }
 
 // NewGame creates a new game engine using the given configuration.
@@ -51,11 +53,22 @@ func NewGame(cfg *config.Config) (*Game, error) {
 		worldID:        cfg.Server.WorldID,
 	}
 
-	// load game asset
+	start := time.Now()
+
+	// load game assets
 	err := g.loadAssets(cfg.Server.AssetDir)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load game asset")
 	}
+
+	logger.Infof("loaded assets in: %s", time.Now().Sub(start))
+	start = time.Now()
+
+	// initialize the map manager and perform a warm-up for map regions
+	g.mapManager = NewMapManager(g.worldMap)
+	g.mapManager.WarmUp()
+
+	logger.Infof("finished map warm-up in: %s", time.Now().Sub(start))
 
 	return g, nil
 }
@@ -366,7 +379,7 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 
 	// describe the local region
 	// FIXME: this should be done in the game loop
-	pe.PlanEvent(NewSendMultipleResponsesEvent(g.describeMapRegion(pe), time.Now()))
+	pe.PlanEvent(NewSendMultipleResponsesEvent(g.mapManager.State(util.GlobalToRegionGlobal(pe.player.GlobalPos)), time.Now()))
 
 	// plan an update to the client sidebar interfaces
 	pe.PlanEvent(NewEventWithType(EventUpdateTabInterfaces, time.Now()))
@@ -748,78 +761,6 @@ func (g *Game) removeFromList(p *model.Player, username string, friend bool) {
 	}
 }
 
-// describeMapRegion builds a slice of BatchResponse messages describing the current state of a map region where a
-// player is located.
-// Concurrency requirements: (a) game state should be locked and (b) all players in the region should be locked.
-func (g *Game) describeMapRegion(pe *playerEntity) []response.Response {
-	var batches []response.Response
-
-	// find the region's origin in global coordinates
-	chunkOrigin := util.GlobalToRegionGlobal(pe.player.GlobalPos)
-
-	// compute batches for each chunk in this region
-	for x := 0; x < util.Region3D.X*util.Chunk2D.X; x += util.Chunk2D.X {
-		for y := 0; y < util.Region3D.Y*util.Chunk2D.Y; y += util.Chunk2D.Y {
-			chunkBatches := g.describeMapChunk(model.Vector3D{
-				X: chunkOrigin.X + x,
-				Y: chunkOrigin.Y + y,
-				Z: pe.player.GlobalPos.Z,
-			})
-
-			if chunkBatches != nil {
-				batches = append(batches, chunkBatches)
-			}
-		}
-	}
-
-	return batches
-}
-
-// describeMapChunk builds a BatchResponse containing the current state of a chunk in a region. The chunkOriginGlobal
-// should be the origin of the chunk in global coordinates. If there are no updates for this chunk, then a nil will
-// be returned instead.
-// Concurrency requirements: (a) game state should be locked and (b) all players in the chunk should be locked.
-func (g *Game) describeMapChunk(chunkOriginGlobal model.Vector3D) *response.BatchResponse {
-	var batched []response.Response
-
-	origin := util.GlobalToRegionLocal(chunkOriginGlobal)
-
-	for x := 0; x <= util.Chunk2D.X; x++ {
-		for y := 0; y < util.Chunk2D.Y; y++ {
-			// find the tile, if there is one, at this location
-			tilePos := model.Vector3D{
-				X: chunkOriginGlobal.X + x,
-				Y: chunkOriginGlobal.Y + y,
-				Z: chunkOriginGlobal.Z,
-			}
-
-			tile := g.worldMap.Tile(tilePos)
-			if tile == nil {
-				continue
-			}
-
-			// find the relative position of this tile with respect to the player's chunk origin. since the x- and y-
-			// coordinate offsets can be negative in this loop, we need to ensure that each is translated to be relative
-			// to the chunk origin.
-			relative := model.Vector2D{
-				X: x,
-				Y: y,
-			}
-
-			// describe ground items at this tile
-			for _, item := range tile.ItemIDs {
-				batched = append(batched, response.NewShowGroundItemResponse(item, 1, relative))
-			}
-		}
-	}
-
-	if batched == nil {
-		return nil
-	}
-
-	return response.NewBatchResponse(origin.To2D(), batched)
-}
-
 // handleGameUpdate performs a game state update.
 // Concurrency requirements: (a) game state should NOT be locked and (b) all players should NOT be locked.
 func (g *Game) handleGameUpdate() error {
@@ -832,6 +773,9 @@ func (g *Game) handleGameUpdate() error {
 	for _, pe := range g.players {
 		pe.mu.Lock()
 	}
+
+	// reconcile the map state
+	g.mapManager.Reconcile()
 
 	// remove any disconnected players first
 	for _, pe := range g.removePlayers {

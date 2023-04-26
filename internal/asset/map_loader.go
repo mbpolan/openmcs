@@ -80,6 +80,7 @@ func (l *MapLoader) Load(objects []*model.WorldObject) (*model.Map, error) {
 
 	objectCache := map[int][]*mapObject{}
 	m := model.NewMap()
+	maxX, maxY := 0, 0
 
 	// load map data for each region
 	for i := 0; i < len(coordinateIndices); i++ {
@@ -112,9 +113,21 @@ func (l *MapLoader) Load(objects []*model.WorldObject) (*model.Map, error) {
 		}
 
 		// connect the object ids to their objects and place them on tiles
+		zValues := map[int]bool{}
 		for _, obj := range regionObjects {
+			// get the tile at this location, or create one if this is the first time we've encountered this location
 			tilePos := obj.Position.Add(global)
 			tile := m.Tile(tilePos)
+			if tile == nil {
+				m.SetTile(tilePos, &model.Tile{})
+			}
+
+			// keep track of the maximum x- and y- coordinates on the map
+			maxX = util.Max(maxX, tilePos.X)
+			maxY = util.Max(maxY, tilePos.Y)
+
+			// mark that an object exists on this z-coordinate
+			zValues[tilePos.Z] = true
 
 			// look up the object by its id
 			object := objects[obj.ID]
@@ -124,6 +137,20 @@ func (l *MapLoader) Load(objects []*model.WorldObject) (*model.Map, error) {
 
 			tile.AddObject(object)
 		}
+
+		// add this region (accounting only for z-coordinates with data) to the map's known region origins
+		for z, _ := range zValues {
+			m.RegionOrigins = append(m.RegionOrigins, model.Vector3D{
+				X: global.X,
+				Y: global.Y,
+				Z: z,
+			})
+		}
+	}
+
+	m.MaxTile = model.Vector2D{
+		X: maxX,
+		Y: maxY,
 	}
 
 	return m, nil
