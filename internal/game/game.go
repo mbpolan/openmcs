@@ -182,18 +182,28 @@ func (g *Game) DoInteractWithObject(p *model.Player, action int, globalPos model
 	// TODO
 }
 
-// DoPlayerChat broadcasts a player's chat message to nearby players.
-func (g *Game) DoPlayerChat(p *model.Player, effect model.ChatEffect, color model.ChatColor, text string) {
+// DoPlayerChatCommand handles a chat command sent by a player.
+func (g *Game) DoPlayerChatCommand(p *model.Player, text string) {
 	pe, unlockFunc := g.findPlayerAndLockAll(p)
 	defer unlockFunc()
 	if pe == nil {
 		return
 	}
 
-	// determine if a chat command was sent
+	// determine if a valid and recognized chat command was sent
 	command := ParseChatCommand(text)
-	if command != nil {
-		g.handleChatCommand(pe, command)
+	if command == nil {
+		return
+	}
+
+	g.handleChatCommand(pe, command)
+}
+
+// DoPlayerChat broadcasts a player's chat message to nearby players.
+func (g *Game) DoPlayerChat(p *model.Player, effect model.ChatEffect, color model.ChatColor, text string) {
+	pe, unlockFunc := g.findPlayerAndLockAll(p)
+	defer unlockFunc()
+	if pe == nil {
 		return
 	}
 

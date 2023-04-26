@@ -23,18 +23,16 @@ type ChatCommand struct {
 	SpawnItem *ChatCommandSpawnItemParams
 }
 
-// ParseChatCommand attempts to parse a chat command from a string of text. If no command is found, nil is returned.
+// ParseChatCommand attempts to parse a chat command from a string of text. If no recognized command is found, then
+// nil is returned instead.
 func ParseChatCommand(text string) *ChatCommand {
-	if !strings.HasPrefix(text, "!") {
-		return nil
-	}
-
 	parts := strings.Split(strings.ToLower(text), " ")
 	if len(parts) == 0 {
 		return nil
 	}
 
-	command := strings.TrimPrefix(parts[0], "!")
+	// the command is the first element and optional arguments follow
+	command := parts[0]
 	args := parts[1:]
 
 	switch command {
@@ -44,6 +42,7 @@ func ParseChatCommand(text string) *ChatCommand {
 			return nil
 		}
 
+		// only argument is a numeric item id
 		itemID, err := strconv.Atoi(args[0])
 		if err != nil {
 			return nil
@@ -53,6 +52,7 @@ func ParseChatCommand(text string) *ChatCommand {
 			Type:      ChatCommandTypeSpawnItem,
 			SpawnItem: &ChatCommandSpawnItemParams{ItemID: itemID},
 		}
+
 	default:
 	}
 

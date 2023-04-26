@@ -290,6 +290,13 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 			c.game.DoPlayerChat(c.player, req.Effect, req.Color, req.Text)
 		}
 
+	case request.ChatCommandRequestHeader:
+		// the player sent a chat command
+		req, err := request.ReadChatCommandRequest(c.reader)
+		if err == nil {
+			c.game.DoPlayerChatCommand(c.player, req.Text)
+		}
+
 	case request.PrivateChatRequestHeader:
 		// the player sent a private chat message
 		req, err := request.ReadPrivateChatRequest(c.reader)
