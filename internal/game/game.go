@@ -365,7 +365,8 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	pe.PlanEvent(NewSendResponseEvent(update, time.Now()))
 
 	// describe the local region
-	pe.PlanEvent(NewSendResponseEvent(g.describeMapRegion(pe), time.Now()))
+	// FIXME: this should be done in the game loop
+	pe.PlanEvent(NewSendMultipleResponsesEvent(g.describeMapRegion(pe), time.Now()))
 
 	// plan an update to the client sidebar interfaces
 	pe.PlanEvent(NewEventWithType(EventUpdateTabInterfaces, time.Now()))
@@ -747,24 +748,49 @@ func (g *Game) removeFromList(p *model.Player, username string, friend bool) {
 	}
 }
 
-// describeMapRegion builds a BatchResponse containing characteristics about a map region a player is in.
-func (g *Game) describeMapRegion(pe *playerEntity) *response.BatchResponse {
+// describeMapRegion builds a slice of BatchResponse messages describing the current state of a map region where a
+// player is located.
+// Concurrency requirements: (a) game state should be locked and (b) all players in the region should be locked.
+func (g *Game) describeMapRegion(pe *playerEntity) []response.Response {
+	var batches []response.Response
+
+	// find the region's origin in global coordinates
+	chunkOrigin := util.GlobalToRegionGlobal(pe.player.GlobalPos)
+
+	// compute batches for each chunk in this region
+	for x := 0; x < util.Region3D.X*util.Chunk2D.X; x += util.Chunk2D.X {
+		for y := 0; y < util.Region3D.Y*util.Chunk2D.Y; y += util.Chunk2D.Y {
+			chunkBatches := g.describeMapChunk(model.Vector3D{
+				X: chunkOrigin.X + x,
+				Y: chunkOrigin.Y + y,
+				Z: pe.player.GlobalPos.Z,
+			})
+
+			if chunkBatches != nil {
+				batches = append(batches, chunkBatches)
+			}
+		}
+	}
+
+	return batches
+}
+
+// describeMapChunk builds a BatchResponse containing the current state of a chunk in a region. The chunkOriginGlobal
+// should be the origin of the chunk in global coordinates. If there are no updates for this chunk, then a nil will
+// be returned instead.
+// Concurrency requirements: (a) game state should be locked and (b) all players in the chunk should be locked.
+func (g *Game) describeMapChunk(chunkOriginGlobal model.Vector3D) *response.BatchResponse {
 	var batched []response.Response
 
-	chunkView := (util.Chunk2D.X / 2) - 1
+	origin := util.GlobalToRegionLocal(chunkOriginGlobal)
 
-	// compute the origin of the chunk the player is on. this is half the length of a chunk in each direction.
-	chunk := util.GlobalToRegionLocal(pe.player.GlobalPos).To2D()
-	chunk.X = util.Max(chunk.X-chunkView, 0)
-	chunk.Y = util.Max(chunk.Y-chunkView, 0)
-
-	for x := -chunkView; x <= chunkView; x++ {
-		for y := -chunkView; y < chunkView; y++ {
-			// find the tile, if there is one, at this location in the player's region
+	for x := 0; x <= util.Chunk2D.X; x++ {
+		for y := 0; y < util.Chunk2D.Y; y++ {
+			// find the tile, if there is one, at this location
 			tilePos := model.Vector3D{
-				X: pe.player.GlobalPos.X + x,
-				Y: pe.player.GlobalPos.Y + y,
-				Z: pe.player.GlobalPos.Z,
+				X: chunkOriginGlobal.X + x,
+				Y: chunkOriginGlobal.Y + y,
+				Z: chunkOriginGlobal.Z,
 			}
 
 			tile := g.worldMap.Tile(tilePos)
@@ -776,8 +802,8 @@ func (g *Game) describeMapRegion(pe *playerEntity) *response.BatchResponse {
 			// coordinate offsets can be negative in this loop, we need to ensure that each is translated to be relative
 			// to the chunk origin.
 			relative := model.Vector2D{
-				X: x + chunkView,
-				Y: y + chunkView,
+				X: x,
+				Y: y,
 			}
 
 			// describe ground items at this tile
@@ -787,7 +813,11 @@ func (g *Game) describeMapRegion(pe *playerEntity) *response.BatchResponse {
 		}
 	}
 
-	return response.NewBatchResponse(chunk, batched)
+	if batched == nil {
+		return nil
+	}
+
+	return response.NewBatchResponse(origin.To2D(), batched)
 }
 
 // handleGameUpdate performs a game state update.
@@ -1027,9 +1057,18 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 
 	case EventSendResponse:
 		// send a generic response to the client
-		err := event.Response.Write(pe.writer)
+		err := event.Responses[0].Write(pe.writer)
 		if err != nil {
 			return err
+		}
+
+	case EventSendManyResponses:
+		// send all responses to the client
+		for _, resp := range event.Responses {
+			err := resp.Write(pe.writer)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
