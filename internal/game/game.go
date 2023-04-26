@@ -190,6 +190,13 @@ func (g *Game) DoPlayerChat(p *model.Player, effect model.ChatEffect, color mode
 		return
 	}
 
+	// determine if a chat command was sent
+	command := ParseChatCommand(text)
+	if command != nil {
+		g.handleChatCommand(pe, command)
+		return
+	}
+
 	pe.lastChatMessage = &model.ChatMessage{
 		Color:  color,
 		Effect: effect,
@@ -663,6 +670,15 @@ func (p *Game) playerRegionPosition(pe *playerEntity) (model.Vector2D, model.Vec
 	return regionOrigin, regionRelative
 }
 
+// handleChatCommand processes a chat command sent by a player.
+// Concurrency requirements: (a) game state should NOT be locked and (b) this player should NOT be locked.
+func (g *Game) handleChatCommand(pe *playerEntity, command *ChatCommand) {
+	switch command.Type {
+	case ChatCommandTypeSpawnItem:
+		g.mapManager.AddGroundItem(command.SpawnItem.ItemID, pe.player.GlobalPos)
+	}
+}
+
 // addToList adds another player to the player's friends or ignore list.
 // Concurrency requirements: (a) game state should NOT be locked and (b) all players should NOT be locked.
 func (g *Game) addToList(p *model.Player, username string, friend bool) {
@@ -775,7 +791,7 @@ func (g *Game) handleGameUpdate() error {
 	}
 
 	// reconcile the map state
-	g.mapManager.Reconcile()
+	mapUpdates := g.mapManager.Reconcile()
 
 	// remove any disconnected players first
 	for _, pe := range g.removePlayers {
@@ -805,13 +821,16 @@ func (g *Game) handleGameUpdate() error {
 
 	g.removePlayers = nil
 
-	// update each player's own movements
+	// update each player's own movements and send related updates
 	for _, pe := range g.players {
 		// prepare a new player update or use the pending, existing one
 		if pe.nextUpdate == nil {
 			pe.nextUpdate = response.NewPlayerUpdateResponse(pe.player.ID)
 		}
 		update := pe.nextUpdate
+
+		// track if this player has moved to a new region
+		hasChangedRegions := false
 
 		// check if the player is walking, and it's time to move to the next waypoint
 		if pe.Walking() && time.Now().Sub(pe.lastWalkTime) >= playerWalkInterval {
@@ -837,6 +856,7 @@ func (g *Game) handleGameUpdate() error {
 
 				// mark this as the current region the player's client has loaded
 				pe.regionOrigin = origin
+				hasChangedRegions = true
 			}
 		}
 
@@ -844,6 +864,12 @@ func (g *Game) handleGameUpdate() error {
 		if pe.nextStatusBroadcast != nil {
 			g.broadcastPlayerStatus(pe, pe.nextStatusBroadcast.targets...)
 			pe.nextStatusBroadcast = nil
+		}
+
+		// is this player in a region that has map updates? only send updates if they have not left this region
+		regionGlobal := util.GlobalToRegionGlobal(pe.player.GlobalPos)
+		if updates, ok := mapUpdates[regionGlobal]; ok && !hasChangedRegions {
+			pe.PlanEvent(NewSendMultipleResponsesEvent(updates, time.Now()))
 		}
 	}
 

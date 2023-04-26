@@ -3,13 +3,15 @@ package game
 import (
 	"github.com/mbpolan/openmcs/internal/model"
 	"github.com/mbpolan/openmcs/internal/network/response"
+	"github.com/mbpolan/openmcs/internal/util"
 	"sync"
 )
 
 // MapManager is responsible for managing the state of the entire world map.
 type MapManager struct {
-	regions  map[model.Vector3D]*RegionManager
-	worldMap *model.Map
+	regions        map[model.Vector3D]*RegionManager
+	pendingRegions map[model.Vector3D]bool
+	worldMap       *model.Map
 }
 
 // NewMapManager creates a new manager for a world map.
@@ -21,8 +23,9 @@ func NewMapManager(m *model.Map) *MapManager {
 	}
 
 	return &MapManager{
-		regions:  regions,
-		worldMap: m,
+		pendingRegions: map[model.Vector3D]bool{},
+		regions:        regions,
+		worldMap:       m,
 	}
 }
 
@@ -36,6 +39,18 @@ func (m *MapManager) State(origin model.Vector3D) []response.Response {
 	}
 
 	return region.State()
+}
+
+func (m *MapManager) AddGroundItem(itemID int, globalPos model.Vector3D) {
+	region := util.GlobalToRegionGlobal(globalPos)
+
+	mgr, ok := m.regions[region]
+	if !ok {
+		return
+	}
+
+	mgr.AddGroundItem(itemID, globalPos)
+	m.pendingRegions[region] = true
 }
 
 // WarmUp computes the initial state of the world map. This should generally be called only once before the game state
@@ -57,6 +72,14 @@ func (m *MapManager) WarmUp() {
 }
 
 // Reconcile validates the current state of the entire world map and recomputes its state if a change has occurred.
-func (m *MapManager) Reconcile() {
-	// TODO
+func (m *MapManager) Reconcile() map[model.Vector3D][]response.Response {
+	updates := map[model.Vector3D][]response.Response{}
+
+	// process each region that has pending updates available
+	for origin, _ := range m.pendingRegions {
+		updates[origin] = m.regions[origin].Reconcile()
+	}
+
+	m.pendingRegions = map[model.Vector3D]bool{}
+	return updates
 }
