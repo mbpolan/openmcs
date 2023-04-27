@@ -4,6 +4,7 @@ import (
 	"github.com/mbpolan/openmcs/internal/model"
 	"github.com/mbpolan/openmcs/internal/network/response"
 	"github.com/mbpolan/openmcs/internal/util"
+	"time"
 )
 
 // changeEventType enumerates possible mutation events to a tile.
@@ -11,34 +12,50 @@ type changeEventType int
 
 const (
 	changeEventAddGroundItem changeEventType = iota
-	changeEventClearGroundItems
+	changeEventRemoveGroundItem
 )
 
-// changeEvent is a mutation to a tile that should be tracked.
-type changeEvent struct {
+// changeDelta is a mutation to a tile that should be tracked.
+type changeDelta struct {
 	eventType changeEventType
-	itemID    int
 	globalPos model.Vector3D
 	itemIDs   []int
 }
 
 // RegionManager is responsible for tracking the state of a single, 2D region on the world map.
 type RegionManager struct {
+	changeChan    chan model.Vector3D
+	doneChan      chan bool
+	resetChan     chan bool
 	origin        model.Vector3D
 	worldMap      *model.Map
 	state         []response.Response
 	chunkStates   map[model.Vector3D]response.Response
-	pendingEvents []*changeEvent
+	pendingEvents []*changeDelta
+	scheduler     *Scheduler
 }
 
 // NewRegionManager creates a manager for a 2D region of the map. The z-coordinate will be used to determine which
-// plane of the region this manager will be responsible for.
-func NewRegionManager(origin model.Vector3D, m *model.Map) *RegionManager {
-	return &RegionManager{
+// plane of the region this manager will be responsible for. A changeChan will be written to when an internal event
+// causes the state of the region to change, containing the origin of the region this manager is overseeing.
+func NewRegionManager(origin model.Vector3D, m *model.Map, changeChan chan model.Vector3D) *RegionManager {
+	mgr := &RegionManager{
+		changeChan:  changeChan,
+		doneChan:    make(chan bool, 1),
+		resetChan:   make(chan bool, 1),
 		chunkStates: map[model.Vector3D]response.Response{},
 		origin:      origin,
 		worldMap:    m,
+		scheduler:   NewScheduler(),
 	}
+
+	go mgr.loop()
+	return mgr
+}
+
+// Stop terminates scheduled events and stops the management of the map region.
+func (r *RegionManager) Stop() {
+	r.doneChan <- true
 }
 
 // State returns the last computed state of the region, described as a slice of response.Response messages that can
@@ -47,19 +64,33 @@ func (r *RegionManager) State() []response.Response {
 	return r.state
 }
 
-// AddGroundItem adds a ground item to a tile.
-func (r *RegionManager) AddGroundItem(itemID int, globalPos model.Vector3D) {
+// AddGroundItem adds a ground item to a tile with an optional timeout when the item should be removed.
+func (r *RegionManager) AddGroundItem(itemID int, timeoutSeconds *int, globalPos model.Vector3D) {
 	tile := r.worldMap.Tile(globalPos)
 	if tile == nil {
 		return
 	}
 
-	tile.AddItem(itemID)
+	// add the item to the tile, and schedule a timeout to remove it if an expiration was passed
+	instanceUUID := tile.AddItem(itemID)
+	if timeoutSeconds != nil {
+		timeout := *timeoutSeconds
 
-	r.pendingEvents = append(r.pendingEvents, &changeEvent{
+		r.scheduler.Plan(&Event{
+			Type:         EventRemoveExpiredGroundItem,
+			Schedule:     time.Now().Add(time.Second * time.Duration(timeout)),
+			InstanceUUID: instanceUUID,
+			GlobalPos:    globalPos,
+		})
+
+		r.resetChan <- true
+	}
+
+	// track this change to the region state
+	r.pendingEvents = append(r.pendingEvents, &changeDelta{
 		eventType: changeEventAddGroundItem,
-		itemID:    itemID,
 		globalPos: globalPos,
+		itemIDs:   []int{itemID},
 	})
 }
 
@@ -70,11 +101,11 @@ func (r *RegionManager) ClearGroundItems(globalPos model.Vector3D) {
 		return
 	}
 
-	existingItemIDs := tile.ItemIDs
+	existingItemIDs := tile.GroundItemIDs()
 	tile.Clear()
 
-	r.pendingEvents = append(r.pendingEvents, &changeEvent{
-		eventType: changeEventClearGroundItems,
+	r.pendingEvents = append(r.pendingEvents, &changeDelta{
+		eventType: changeEventRemoveGroundItem,
 		globalPos: globalPos,
 		itemIDs:   existingItemIDs,
 	})
@@ -96,8 +127,10 @@ func (r *RegionManager) Reconcile() []response.Response {
 
 		switch e.eventType {
 		case changeEventAddGroundItem:
-			// an item was added to a tile; track this specific change
-			updates = append(updates, response.NewShowGroundItemResponse(e.itemID, 1, relative))
+			// one or more ground items were added to a tile
+			for _, itemID := range e.itemIDs {
+				updates = append(updates, response.NewShowGroundItemResponse(itemID, 1, relative))
+			}
 
 			// recompute the state of the tile the item was added to
 			// TODO: can this be optimized to only update the tile itself?
@@ -107,8 +140,8 @@ func (r *RegionManager) Reconcile() []response.Response {
 			r.chunkStates[chunkOrigin] = chunkState
 			r.syncOverallState()
 
-		case changeEventClearGroundItems:
-			// all ground items on a tile were removed
+		case changeEventRemoveGroundItem:
+			// one or more ground items on a tile were removed
 			for _, itemID := range e.itemIDs {
 				updates = append(updates, response.NewRemoveGroundItemResponse(itemID, relative))
 			}
@@ -125,6 +158,61 @@ func (r *RegionManager) Reconcile() []response.Response {
 
 	r.pendingEvents = nil
 	return updates
+}
+
+// loop processes events that occur within the region that affect its state.
+func (r *RegionManager) loop() {
+	run := true
+
+	for run {
+		select {
+		case <-r.doneChan:
+			// the processing loop has been shut down
+			run = false
+
+		case <-r.resetChan:
+			// run another iteration since the scheduler has changed
+
+		case <-time.After(r.scheduler.TimeUntil()):
+			// handle the next scheduled event
+			r.handleNextEvent()
+		}
+	}
+}
+
+// handleNextEvent processes the next scheduled event in this region.
+func (r *RegionManager) handleNextEvent() {
+	event := r.scheduler.Next()
+	if event == nil {
+		return
+	}
+
+	switch event.Type {
+	case EventRemoveExpiredGroundItem:
+		// a ground item has expired and should be removed, if it's still on a tile
+		tile := r.worldMap.Tile(event.GlobalPos)
+		if tile == nil {
+			return
+		}
+
+		// attempt to remove the item if it still exists
+		// FIXME: this is not reentrant
+		itemID := tile.RemoveItem(event.InstanceUUID)
+		if itemID == nil {
+			return
+		}
+
+		// track this change to the tile
+		r.pendingEvents = append(r.pendingEvents, &changeDelta{
+			eventType: changeEventRemoveGroundItem,
+			itemIDs:   []int{*itemID},
+			globalPos: event.GlobalPos,
+		})
+
+		// notify on the change channel since this was an internally scheduled event
+		r.changeChan <- r.origin
+	default:
+	}
 }
 
 // globalToChunkOriginAndRelative translates a position in global coordinates to the origin of the containing chunk,
@@ -234,7 +322,7 @@ func (r *RegionManager) computeTile(tilePosGlobal model.Vector3D, relative model
 
 	// describe ground items at this tile
 	var batched []response.Response
-	for _, item := range tile.ItemIDs {
+	for _, item := range tile.GroundItemIDs() {
 		batched = append(batched, response.NewShowGroundItemResponse(item, 1, relative))
 	}
 

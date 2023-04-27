@@ -76,6 +76,7 @@ func NewGame(cfg *config.Config) (*Game, error) {
 // Stop gracefully terminates the game loop.
 func (g *Game) Stop() {
 	g.ticker.Stop()
+	g.mapManager.Stop()
 	g.doneChan <- true
 }
 
@@ -685,7 +686,7 @@ func (p *Game) playerRegionPosition(pe *playerEntity) (model.Vector2D, model.Vec
 func (g *Game) handleChatCommand(pe *playerEntity, command *ChatCommand) {
 	switch command.Type {
 	case ChatCommandTypeSpawnItem:
-		g.mapManager.AddGroundItem(command.SpawnItem.ItemID, pe.player.GlobalPos)
+		g.mapManager.AddGroundItem(command.SpawnItem.ItemID, command.SpawnItem.DespawnTimeSeconds, pe.player.GlobalPos)
 
 	case ChatCommandTypeClearTile:
 		g.mapManager.ClearGroundItems(pe.player.GlobalPos)

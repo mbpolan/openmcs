@@ -1,6 +1,8 @@
 package game
 
 import (
+	"github.com/google/uuid"
+	"github.com/mbpolan/openmcs/internal/model"
 	"github.com/mbpolan/openmcs/internal/network/response"
 	"time"
 )
@@ -22,13 +24,17 @@ const (
 	EventFriendList
 	// EventSkills sends data about all the player's skills.
 	EventSkills
+	// EventRemoveExpiredGroundItem removes a ground item on a tile after it has expired.
+	EventRemoveExpiredGroundItem
 )
 
 // Event is an action that the game server should take at a specified time.
 type Event struct {
-	Type      EventType
-	Schedule  time.Time
-	Responses []response.Response
+	Type         EventType
+	Schedule     time.Time
+	Responses    []response.Response
+	InstanceUUID uuid.UUID
+	GlobalPos    model.Vector3D
 }
 
 // NewEventWithType creates an event with a specific type that should be processed at the provided time.

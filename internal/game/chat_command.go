@@ -15,7 +15,8 @@ const (
 
 // ChatCommandSpawnItemParams contains parameters for a chat command that spawns a ground item.
 type ChatCommandSpawnItemParams struct {
-	ItemID int
+	ItemID             int
+	DespawnTimeSeconds *int
 }
 
 // ChatCommand is a game command embedded in a player chat message.
@@ -39,19 +40,33 @@ func ParseChatCommand(text string) *ChatCommand {
 	switch command {
 	case "i":
 		// spawn a ground item
-		if len(args) != 1 {
+		if len(args) < 1 {
 			return nil
 		}
 
-		// only argument is a numeric item id
+		// first required argument is a numeric item id
 		itemID, err := strconv.Atoi(args[0])
 		if err != nil {
 			return nil
 		}
 
+		// second optional argument is a despawn time in seconds
+		var despawnTimeSeconds *int
+		if len(args) > 1 {
+			timeout, err := strconv.Atoi(args[1])
+			if err != nil {
+				return nil
+			}
+
+			despawnTimeSeconds = &timeout
+		}
+
 		return &ChatCommand{
-			Type:      ChatCommandTypeSpawnItem,
-			SpawnItem: &ChatCommandSpawnItemParams{ItemID: itemID},
+			Type: ChatCommandTypeSpawnItem,
+			SpawnItem: &ChatCommandSpawnItemParams{
+				ItemID:             itemID,
+				DespawnTimeSeconds: despawnTimeSeconds,
+			},
 		}
 
 	case "ct":

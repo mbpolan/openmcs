@@ -9,6 +9,8 @@ import (
 
 // MapManager is responsible for managing the state of the entire world map.
 type MapManager struct {
+	changeChan     chan model.Vector3D
+	doneChan       chan bool
 	regions        map[model.Vector3D]*RegionManager
 	pendingRegions map[model.Vector3D]bool
 	worldMap       *model.Map
@@ -17,15 +19,30 @@ type MapManager struct {
 // NewMapManager creates a new manager for a world map.
 func NewMapManager(m *model.Map) *MapManager {
 	regions := map[model.Vector3D]*RegionManager{}
+	changeChan := make(chan model.Vector3D, len(m.RegionOrigins))
 
 	for _, origin := range m.RegionOrigins {
-		regions[origin] = NewRegionManager(origin, m)
+		regions[origin] = NewRegionManager(origin, m, changeChan)
 	}
 
-	return &MapManager{
+	mgr := &MapManager{
+		changeChan:     changeChan,
+		doneChan:       make(chan bool, 1),
 		pendingRegions: map[model.Vector3D]bool{},
 		regions:        regions,
 		worldMap:       m,
+	}
+
+	go mgr.loop()
+	return mgr
+}
+
+// Stop terminates scheduled events and stops the management of the map.
+func (m *MapManager) Stop() {
+	m.doneChan <- true
+
+	for _, region := range m.regions {
+		region.Stop()
 	}
 }
 
@@ -41,7 +58,9 @@ func (m *MapManager) State(origin model.Vector3D) []response.Response {
 	return region.State()
 }
 
-func (m *MapManager) AddGroundItem(itemID int, globalPos model.Vector3D) {
+// AddGroundItem adds a ground item to the top of a tile with an optional timeout (in seconds) when that item should
+// automatically be removed.
+func (m *MapManager) AddGroundItem(itemID int, timeoutSeconds *int, globalPos model.Vector3D) {
 	region := util.GlobalToRegionGlobal(globalPos)
 
 	mgr, ok := m.regions[region]
@@ -49,7 +68,7 @@ func (m *MapManager) AddGroundItem(itemID int, globalPos model.Vector3D) {
 		return
 	}
 
-	mgr.AddGroundItem(itemID, globalPos)
+	mgr.AddGroundItem(itemID, timeoutSeconds, globalPos)
 	m.pendingRegions[region] = true
 }
 
@@ -94,4 +113,22 @@ func (m *MapManager) Reconcile() map[model.Vector3D][]response.Response {
 
 	m.pendingRegions = map[model.Vector3D]bool{}
 	return updates
+}
+
+// loop processes state changes to the map that occur internally.
+func (m *MapManager) loop() {
+	run := true
+
+	for run {
+		select {
+		case <-m.doneChan:
+			// the processing loop has been shut down
+			run = false
+
+		case region := <-m.changeChan:
+			// a region's state has changed internally; track it for reconciliation
+			// FIXME: this is not reentrant
+			m.pendingRegions[region] = true
+		}
+	}
 }

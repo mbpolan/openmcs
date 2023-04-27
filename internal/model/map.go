@@ -1,13 +1,21 @@
 package model
 
+import "github.com/google/uuid"
+
+// TileGroundItem is an instance of an item placed on a tile.
+type TileGroundItem struct {
+	InstanceUUID uuid.UUID
+	ItemID       int
+}
+
 // Tile is the smallest unit of space on the world map.
 type Tile struct {
-	Height     int
-	Objects    []*WorldObject
-	ItemIDs    []int
-	OverlayID  int
-	RenderFlag int
-	UnderlayID int
+	Height      int
+	Objects     []*WorldObject
+	GroundItems []*TileGroundItem
+	OverlayID   int
+	RenderFlag  int
+	UnderlayID  int
 }
 
 // AddObject places a world object on the tile.
@@ -15,14 +23,43 @@ func (t *Tile) AddObject(object *WorldObject) {
 	t.Objects = append(t.Objects, object)
 }
 
-// AddItem adds a ground item to the tile.
-func (t *Tile) AddItem(id int) {
-	t.ItemIDs = append([]int{id}, t.ItemIDs...)
+// AddItem adds a ground item to the tile returning its unique instance UUID.
+func (t *Tile) AddItem(id int) uuid.UUID {
+	item := &TileGroundItem{
+		InstanceUUID: uuid.New(),
+		ItemID:       id,
+	}
+
+	t.GroundItems = append([]*TileGroundItem{item}, t.GroundItems...)
+	return item.InstanceUUID
+}
+
+// GroundItemIDs returns a slice of ground item IDs located on this tile.
+func (t *Tile) GroundItemIDs() []int {
+	ids := make([]int, len(t.GroundItems))
+	for i, item := range t.GroundItems {
+		ids[i] = item.ItemID
+	}
+
+	return ids
+}
+
+// RemoveItem removes a ground item that matches the instance UUID. If the item was found and removed, its item ID will
+// be returned.
+func (t *Tile) RemoveItem(instanceUUID uuid.UUID) *int {
+	for i, item := range t.GroundItems {
+		if item.InstanceUUID == instanceUUID {
+			t.GroundItems = append(t.GroundItems[:i], t.GroundItems[i+1:]...)
+			return &item.ItemID
+		}
+	}
+
+	return nil
 }
 
 // Clear removes all ground items on the tile.
 func (t *Tile) Clear() {
-	t.ItemIDs = nil
+	t.GroundItems = nil
 }
 
 // Map represents the game world map and its static objects.
