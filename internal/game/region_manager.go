@@ -11,6 +11,7 @@ type changeEventType int
 
 const (
 	changeEventAddGroundItem changeEventType = iota
+	changeEventClearGroundItems
 )
 
 // changeEvent is a mutation to a tile that should be tracked.
@@ -18,6 +19,7 @@ type changeEvent struct {
 	eventType changeEventType
 	itemID    int
 	globalPos model.Vector3D
+	itemIDs   []int
 }
 
 // RegionManager is responsible for tracking the state of a single, 2D region on the world map.
@@ -61,6 +63,23 @@ func (r *RegionManager) AddGroundItem(itemID int, globalPos model.Vector3D) {
 	})
 }
 
+// ClearGroundItems removes all ground items on a tile.
+func (r *RegionManager) ClearGroundItems(globalPos model.Vector3D) {
+	tile := r.worldMap.Tile(globalPos)
+	if tile == nil {
+		return
+	}
+
+	existingItemIDs := tile.ItemIDs
+	tile.Clear()
+
+	r.pendingEvents = append(r.pendingEvents, &changeEvent{
+		eventType: changeEventClearGroundItems,
+		globalPos: globalPos,
+		itemIDs:   existingItemIDs,
+	})
+}
+
 // Reconcile validates the current state of the region and recomputes its state if a change has occurred. A slice of
 // messages will be returned that should be dispatched to players in the region.
 func (r *RegionManager) Reconcile() []response.Response {
@@ -73,23 +92,26 @@ func (r *RegionManager) Reconcile() []response.Response {
 	var updates []response.Response
 
 	for _, e := range r.pendingEvents {
+		chunkOrigin, relative := r.globalToChunkOriginAndRelative(e.globalPos)
+
 		switch e.eventType {
 		case changeEventAddGroundItem:
-			// an item was added to a tile: compute the chunk origin in global coordinates of said tile
-			chunkOrigin := model.Vector3D{
-				X: r.origin.X + ((e.globalPos.X-r.origin.X)/util.Chunk2D.X)*util.Chunk2D.X,
-				Y: r.origin.Y + ((e.globalPos.Y-r.origin.Y)/util.Chunk2D.Y)*util.Chunk2D.Y,
-				Z: r.origin.Z,
-			}
-
-			// compute the relative offsets to the tile with respect to the chunk origin
-			relative := model.Vector2D{
-				X: e.globalPos.X - chunkOrigin.X,
-				Y: e.globalPos.Y - chunkOrigin.Y,
-			}
-
-			// track this specific change
+			// an item was added to a tile; track this specific change
 			updates = append(updates, response.NewShowGroundItemResponse(e.itemID, 1, relative))
+
+			// recompute the state of the tile the item was added to
+			// TODO: can this be optimized to only update the tile itself?
+			chunkState := r.computeChunk(chunkOrigin)
+
+			// since this chunk's state might have changed, we need to synchronize the region's memoized state
+			r.chunkStates[chunkOrigin] = chunkState
+			r.syncOverallState()
+
+		case changeEventClearGroundItems:
+			// all ground items on a tile were removed
+			for _, itemID := range e.itemIDs {
+				updates = append(updates, response.NewRemoveGroundItemResponse(itemID, relative))
+			}
 
 			// recompute the state of the tile the item was added to
 			// TODO: can this be optimized to only update the tile itself?
@@ -103,6 +125,25 @@ func (r *RegionManager) Reconcile() []response.Response {
 
 	r.pendingEvents = nil
 	return updates
+}
+
+// globalToChunkOriginAndRelative translates a position in global coordinates to the origin of the containing chunk,
+// in global coordinates and a relative offset to that position from said origin.
+func (r *RegionManager) globalToChunkOriginAndRelative(globalPos model.Vector3D) (model.Vector3D, model.Vector2D) {
+	// an item was added to a tile: compute the chunk origin in global coordinates of said tile
+	chunkOrigin := model.Vector3D{
+		X: r.origin.X + ((globalPos.X-r.origin.X)/util.Chunk2D.X)*util.Chunk2D.X,
+		Y: r.origin.Y + ((globalPos.Y-r.origin.Y)/util.Chunk2D.Y)*util.Chunk2D.Y,
+		Z: r.origin.Z,
+	}
+
+	// compute the relative offsets to the tile with respect to the chunk origin
+	relative := model.Vector2D{
+		X: globalPos.X - chunkOrigin.X,
+		Y: globalPos.Y - chunkOrigin.Y,
+	}
+
+	return chunkOrigin, relative
 }
 
 // syncOverallState refreshes the memoized state so that it matches the state of each chunk. You should call this

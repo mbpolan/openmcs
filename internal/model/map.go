@@ -20,6 +20,11 @@ func (t *Tile) AddItem(id int) {
 	t.ItemIDs = append([]int{id}, t.ItemIDs...)
 }
 
+// Clear removes all ground items on the tile.
+func (t *Tile) Clear() {
+	t.ItemIDs = nil
+}
+
 // Map represents the game world map and its static objects.
 type Map struct {
 	// Tiles are stored in (z, x, y) coordinates.
@@ -49,7 +54,7 @@ func (m *Map) Tile(pos Vector3D) *Tile {
 	if _, ok := m.Tiles[pos.Z]; !ok {
 		return nil
 	}
-	
+
 	if _, ok := m.Tiles[pos.Z][pos.X]; !ok {
 		return nil
 	}

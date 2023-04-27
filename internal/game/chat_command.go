@@ -10,6 +10,7 @@ type ChatCommandType int
 
 const (
 	ChatCommandTypeSpawnItem ChatCommandType = iota
+	ChatCommandTypeClearTile
 )
 
 // ChatCommandSpawnItemParams contains parameters for a chat command that spawns a ground item.
@@ -51,6 +52,11 @@ func ParseChatCommand(text string) *ChatCommand {
 		return &ChatCommand{
 			Type:      ChatCommandTypeSpawnItem,
 			SpawnItem: &ChatCommandSpawnItemParams{ItemID: itemID},
+		}
+
+	case "ct":
+		return &ChatCommand{
+			Type: ChatCommandTypeClearTile,
 		}
 
 	default:

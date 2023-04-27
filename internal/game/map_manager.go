@@ -53,6 +53,18 @@ func (m *MapManager) AddGroundItem(itemID int, globalPos model.Vector3D) {
 	m.pendingRegions[region] = true
 }
 
+func (m *MapManager) ClearGroundItems(globalPos model.Vector3D) {
+	region := util.GlobalToRegionGlobal(globalPos)
+
+	mgr, ok := m.regions[region]
+	if !ok {
+		return
+	}
+
+	mgr.ClearGroundItems(globalPos)
+	m.pendingRegions[region] = true
+}
+
 // WarmUp computes the initial state of the world map. This should generally be called only once before the game state
 // begins changing.
 func (m *MapManager) WarmUp() {

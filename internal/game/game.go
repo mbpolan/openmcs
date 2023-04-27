@@ -686,6 +686,9 @@ func (g *Game) handleChatCommand(pe *playerEntity, command *ChatCommand) {
 	switch command.Type {
 	case ChatCommandTypeSpawnItem:
 		g.mapManager.AddGroundItem(command.SpawnItem.ItemID, pe.player.GlobalPos)
+
+	case ChatCommandTypeClearTile:
+		g.mapManager.ClearGroundItems(pe.player.GlobalPos)
 	}
 }
 
