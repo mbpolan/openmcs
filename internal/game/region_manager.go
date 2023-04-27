@@ -6,33 +6,36 @@ import (
 	"github.com/mbpolan/openmcs/internal/util"
 )
 
+// changeEventType enumerates possible mutation events to a tile.
 type changeEventType int
 
 const (
 	changeEventAddGroundItem changeEventType = iota
 )
 
+// changeEvent is a mutation to a tile that should be tracked.
 type changeEvent struct {
-	Type      changeEventType
-	GlobalPos model.Vector3D
+	eventType changeEventType
+	itemID    int
+	globalPos model.Vector3D
 }
 
 // RegionManager is responsible for tracking the state of a single, 2D region on the world map.
 type RegionManager struct {
-	origin          model.Vector3D
-	worldMap        *model.Map
-	state           []response.Response
-	chunkStateIndex map[model.Vector3D]int
-	pendingEvents   []*changeEvent
+	origin        model.Vector3D
+	worldMap      *model.Map
+	state         []response.Response
+	chunkStates   map[model.Vector3D]response.Response
+	pendingEvents []*changeEvent
 }
 
 // NewRegionManager creates a manager for a 2D region of the map. The z-coordinate will be used to determine which
 // plane of the region this manager will be responsible for.
 func NewRegionManager(origin model.Vector3D, m *model.Map) *RegionManager {
 	return &RegionManager{
-		chunkStateIndex: map[model.Vector3D]int{},
-		origin:          origin,
-		worldMap:        m,
+		chunkStates: map[model.Vector3D]response.Response{},
+		origin:      origin,
+		worldMap:    m,
 	}
 }
 
@@ -52,8 +55,9 @@ func (r *RegionManager) AddGroundItem(itemID int, globalPos model.Vector3D) {
 	tile.AddItem(itemID)
 
 	r.pendingEvents = append(r.pendingEvents, &changeEvent{
-		Type:      changeEventAddGroundItem,
-		GlobalPos: globalPos,
+		eventType: changeEventAddGroundItem,
+		itemID:    itemID,
+		globalPos: globalPos,
 	})
 }
 
@@ -62,34 +66,38 @@ func (r *RegionManager) AddGroundItem(itemID int, globalPos model.Vector3D) {
 func (r *RegionManager) Reconcile() []response.Response {
 	// perform an initial state update
 	if r.state == nil {
-		r.state = r.computeRegion()
+		r.refreshRegion()
 		return nil
 	}
 
 	var updates []response.Response
 
 	for _, e := range r.pendingEvents {
-		switch e.Type {
+		switch e.eventType {
 		case changeEventAddGroundItem:
-			// an item was added to a tile
+			// an item was added to a tile: compute the chunk origin in global coordinates of said tile
 			chunkOrigin := model.Vector3D{
-				X: r.origin.X + ((e.GlobalPos.X-r.origin.X)/util.Chunk2D.X)*util.Chunk2D.X,
-				Y: r.origin.Y + ((e.GlobalPos.Y-r.origin.Y)/util.Chunk2D.Y)*util.Chunk2D.Y,
+				X: r.origin.X + ((e.globalPos.X-r.origin.X)/util.Chunk2D.X)*util.Chunk2D.X,
+				Y: r.origin.Y + ((e.globalPos.Y-r.origin.Y)/util.Chunk2D.Y)*util.Chunk2D.Y,
 				Z: r.origin.Z,
 			}
 
-			// recompute the state of the chunk the item was added to
-			update := r.computeChunk(chunkOrigin)
-			updates = append(updates, update)
-
-			// compute the chunk's new state, and append or update it in the region's state list
-			idx, ok := r.chunkStateIndex[chunkOrigin]
-			if ok {
-				r.state[idx] = update
-			} else if update != nil {
-				r.chunkStateIndex[chunkOrigin] = len(r.state)
-				r.state = append(r.state, update)
+			// compute the relative offsets to the tile with respect to the chunk origin
+			relative := model.Vector2D{
+				X: e.globalPos.X - chunkOrigin.X,
+				Y: e.globalPos.Y - chunkOrigin.Y,
 			}
+
+			// track this specific change
+			updates = append(updates, response.NewShowGroundItemResponse(e.itemID, 1, relative))
+
+			// recompute the state of the tile the item was added to
+			// TODO: can this be optimized to only update the tile itself?
+			chunkState := r.computeChunk(chunkOrigin)
+
+			// since this chunk's state might have changed, we need to synchronize the region's memoized state
+			r.chunkStates[chunkOrigin] = chunkState
+			r.syncOverallState()
 		}
 	}
 
@@ -97,11 +105,19 @@ func (r *RegionManager) Reconcile() []response.Response {
 	return updates
 }
 
-// computeRegion builds a slice of BatchResponse messages describing the current state of a map region. The origin
-// should be the region origin in global coordinates.
-func (r *RegionManager) computeRegion() []response.Response {
-	var batches []response.Response
-	r.chunkStateIndex = map[model.Vector3D]int{}
+// syncOverallState refreshes the memoized state so that it matches the state of each chunk. You should call this
+// method if any of the chunk states have changed, and have not yet been synced with the region's state.
+func (r *RegionManager) syncOverallState() {
+	r.state = nil
+	for _, chunkState := range r.chunkStates {
+		r.state = append(r.state, chunkState)
+	}
+}
+
+// refreshRegion refreshes the current state of this map region, including all the individual chunks that comprise it.
+func (r *RegionManager) refreshRegion() {
+	r.state = nil
+	r.chunkStates = map[model.Vector3D]response.Response{}
 
 	// compute batches for each chunk in this region
 	for x := 0; x < util.Region3D.X*util.Chunk2D.X; x += util.Chunk2D.X {
@@ -112,25 +128,23 @@ func (r *RegionManager) computeRegion() []response.Response {
 				Z: r.origin.Z,
 			}
 
-			// compute the state of this chunk and mark its index
-			chunkBatches := r.computeChunk(chunkOrigin)
-			if chunkBatches != nil {
-				r.chunkStateIndex[chunkOrigin] = len(batches)
-				batches = append(batches, chunkBatches)
+			// compute the state of this chunk and add it to the overall region state
+			chunkState := r.computeChunk(chunkOrigin)
+			if chunkState == nil {
+				delete(r.chunkStates, chunkOrigin)
+			} else {
+				r.chunkStates[chunkOrigin] = chunkState
+				r.state = append(r.state, chunkState)
 			}
 		}
 	}
-
-	return batches
 }
 
-// computeChunk builds a BatchResponse containing the current state of a chunk in a region. The chunkOriginGlobal
-// should be the origin of the chunk in global coordinates. If there are no updates for this chunk, then a nil will
-// be returned instead.
+// computeChunk builds a response.Response slice containing the current state of a chunk in a region. The
+// chunkOriginGlobal should be the origin of the chunk in global coordinates. If there are no updates for this chunk,
+// then a nil will be returned instead.
 func (r *RegionManager) computeChunk(chunkOriginGlobal model.Vector3D) response.Response {
 	var batched []response.Response
-
-	delete(r.chunkStateIndex, chunkOriginGlobal)
 	origin := util.GlobalToRegionLocal(chunkOriginGlobal)
 
 	for x := 0; x <= util.Chunk2D.X; x++ {
@@ -147,22 +161,15 @@ func (r *RegionManager) computeChunk(chunkOriginGlobal model.Vector3D) response.
 				continue
 			}
 
-			tile := r.worldMap.Tile(tilePos)
-			if tile == nil {
-				continue
-			}
-
-			// find the relative position of this tile with respect to the player's chunk origin. since the x- and y-
-			// coordinate offsets can be negative in this loop, we need to ensure that each is translated to be relative
-			// to the chunk origin.
 			relative := model.Vector2D{
 				X: x,
 				Y: y,
 			}
 
-			// describe ground items at this tile
-			for _, item := range tile.ItemIDs {
-				batched = append(batched, response.NewShowGroundItemResponse(item, 1, relative))
+			// compute the state of the tile
+			tileState := r.computeTile(tilePos, relative)
+			if tileState != nil {
+				batched = append(batched, tileState...)
 			}
 		}
 	}
@@ -172,4 +179,23 @@ func (r *RegionManager) computeChunk(chunkOriginGlobal model.Vector3D) response.
 	}
 
 	return response.NewBatchResponse(origin.To2D(), batched)
+}
+
+// computeTile builds a response.Response slice containing the current state of a tile. The tilePosGlobal should be
+// the coordinates of the tile in global coordinates. The relative coordinates are the x- and y-coordinate offsets to
+// this tile, relative to the origin. If a tile does not exist at the specified location, or if there are no state
+// updates for this tile, nil will be returned.
+func (r *RegionManager) computeTile(tilePosGlobal model.Vector3D, relative model.Vector2D) []response.Response {
+	tile := r.worldMap.Tile(tilePosGlobal)
+	if tile == nil {
+		return nil
+	}
+
+	// describe ground items at this tile
+	var batched []response.Response
+	for _, item := range tile.ItemIDs {
+		batched = append(batched, response.NewShowGroundItemResponse(item, 1, relative))
+	}
+
+	return batched
 }
