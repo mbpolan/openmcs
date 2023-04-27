@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"github.com/mbpolan/openmcs/internal/asset"
 	"github.com/mbpolan/openmcs/internal/config"
 	"github.com/mbpolan/openmcs/internal/logger"
@@ -686,7 +687,14 @@ func (p *Game) playerRegionPosition(pe *playerEntity) (model.Vector2D, model.Vec
 func (g *Game) handleChatCommand(pe *playerEntity, command *ChatCommand) {
 	switch command.Type {
 	case ChatCommandTypeSpawnItem:
-		g.mapManager.AddGroundItem(command.SpawnItem.ItemID, command.SpawnItem.DespawnTimeSeconds, pe.player.GlobalPos)
+		// prevent invalid items from being spawned
+		if command.SpawnItem.ItemID <= 0 && command.SpawnItem.ItemID <= len(g.items) {
+			g.mapManager.AddGroundItem(command.SpawnItem.ItemID, command.SpawnItem.DespawnTimeSeconds, pe.player.GlobalPos)
+		} else {
+			pe.PlanEvent(NewSendResponseEvent(
+				response.NewServerMessageResponse(fmt.Sprintf("Invalid item: %d", command.SpawnItem.ItemID)),
+				time.Now()))
+		}
 
 	case ChatCommandTypeClearTile:
 		g.mapManager.ClearGroundItems(pe.player.GlobalPos)
