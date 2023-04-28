@@ -44,7 +44,7 @@ func newPlayerEntity(p *model.Player, w *network.ProtocolWriter) *playerEntity {
 		tracking:         map[int]*playerEntity{},
 		resetChan:        make(chan bool),
 		doneChan:         make(chan bool, 1),
-		updateChan:       make(chan *response.PlayerUpdateResponse),
+		updateChan:       make(chan *response.PlayerUpdateResponse, 1),
 		scheduler:        NewScheduler(),
 		privateMessageID: 1,
 		writer:           w,
