@@ -688,7 +688,7 @@ func (g *Game) handleChatCommand(pe *playerEntity, command *ChatCommand) {
 	switch command.Type {
 	case ChatCommandTypeSpawnItem:
 		// prevent invalid items from being spawned
-		if command.SpawnItem.ItemID <= 0 && command.SpawnItem.ItemID <= len(g.items) {
+		if command.SpawnItem.ItemID >= 0 && command.SpawnItem.ItemID <= len(g.items) {
 			g.mapManager.AddGroundItem(command.SpawnItem.ItemID, command.SpawnItem.DespawnTimeSeconds, pe.player.GlobalPos)
 		} else {
 			pe.PlanEvent(NewSendResponseEvent(
@@ -697,7 +697,13 @@ func (g *Game) handleChatCommand(pe *playerEntity, command *ChatCommand) {
 		}
 
 	case ChatCommandTypeClearTile:
+		// remove all ground items at player's position
 		g.mapManager.ClearGroundItems(pe.player.GlobalPos)
+
+	case ChatCommandTypePosition:
+		// send a message containing player's server position on the world map
+		msg := fmt.Sprintf("Position: %d, %d, %d", pe.player.GlobalPos.X, pe.player.GlobalPos.Y, pe.player.GlobalPos.Z)
+		pe.PlanEvent(NewSendResponseEvent(response.NewServerMessageResponse(msg), time.Now()))
 	}
 }
 
