@@ -4,6 +4,7 @@ import (
 	"github.com/mbpolan/openmcs/internal/model"
 	"github.com/mbpolan/openmcs/internal/network/response"
 	"github.com/mbpolan/openmcs/internal/util"
+	"sync"
 	"time"
 )
 
@@ -33,6 +34,7 @@ type RegionManager struct {
 	chunkStates   map[model.Vector3D]response.Response
 	pendingEvents []*changeDelta
 	scheduler     *Scheduler
+	mu            sync.Mutex
 }
 
 // NewRegionManager creates a manager for a 2D region of the map. The z-coordinate will be used to determine which
@@ -87,7 +89,7 @@ func (r *RegionManager) AddGroundItem(itemID int, timeoutSeconds *int, globalPos
 	}
 
 	// track this change to the region state
-	r.pendingEvents = append(r.pendingEvents, &changeDelta{
+	r.addDelta(&changeDelta{
 		eventType: changeEventAddGroundItem,
 		globalPos: globalPos,
 		itemIDs:   []int{itemID},
@@ -104,7 +106,7 @@ func (r *RegionManager) ClearGroundItems(globalPos model.Vector3D) {
 	existingItemIDs := tile.GroundItemIDs()
 	tile.Clear()
 
-	r.pendingEvents = append(r.pendingEvents, &changeDelta{
+	r.addDelta(&changeDelta{
 		eventType: changeEventRemoveGroundItem,
 		globalPos: globalPos,
 		itemIDs:   existingItemIDs,
@@ -120,16 +122,22 @@ func (r *RegionManager) Reconcile() []response.Response {
 		return nil
 	}
 
-	var updates []response.Response
+	r.mu.Lock()
+
+	// track updates by chunk origin, relative to the region origin
+	updates := map[model.Vector2D][]response.Response{}
 
 	for _, e := range r.pendingEvents {
 		chunkOrigin, relative := r.globalToChunkOriginAndRelative(e.globalPos)
+
+		// track changes to this chunk
+		chunkLocal := util.GlobalToRegionLocal(chunkOrigin).To2D()
 
 		switch e.eventType {
 		case changeEventAddGroundItem:
 			// one or more ground items were added to a tile
 			for _, itemID := range e.itemIDs {
-				updates = append(updates, response.NewShowGroundItemResponse(itemID, 1, relative))
+				updates[chunkLocal] = append(updates[chunkLocal], response.NewShowGroundItemResponse(itemID, 1, relative))
 			}
 
 			// recompute the state of the tile the item was added to
@@ -143,7 +151,7 @@ func (r *RegionManager) Reconcile() []response.Response {
 		case changeEventRemoveGroundItem:
 			// one or more ground items on a tile were removed
 			for _, itemID := range e.itemIDs {
-				updates = append(updates, response.NewRemoveGroundItemResponse(itemID, relative))
+				updates[chunkLocal] = append(updates[chunkLocal], response.NewRemoveGroundItemResponse(itemID, relative))
 			}
 
 			// recompute the state of the tile the item was added to
@@ -156,8 +164,17 @@ func (r *RegionManager) Reconcile() []response.Response {
 		}
 	}
 
+	// clear out all pending events
 	r.pendingEvents = nil
-	return updates
+	r.mu.Unlock()
+
+	// convert each chunk's updates into a single batched update per chunk
+	var batchedUpdates []response.Response
+	for chunk, chunkUpdates := range updates {
+		batchedUpdates = append(batchedUpdates, response.NewBatchResponse(chunk, chunkUpdates))
+	}
+
+	return batchedUpdates
 }
 
 // loop processes events that occur within the region that affect its state.
@@ -196,14 +213,13 @@ func (r *RegionManager) handleNextEvent() {
 		}
 
 		// attempt to remove the item if it still exists
-		// FIXME: this is not reentrant
 		itemID := tile.RemoveItem(event.InstanceUUID)
 		if itemID == nil {
 			return
 		}
 
 		// track this change to the tile
-		r.pendingEvents = append(r.pendingEvents, &changeDelta{
+		r.addDelta(&changeDelta{
 			eventType: changeEventRemoveGroundItem,
 			itemIDs:   []int{*itemID},
 			globalPos: event.GlobalPos,
@@ -232,6 +248,15 @@ func (r *RegionManager) globalToChunkOriginAndRelative(globalPos model.Vector3D)
 	}
 
 	return chunkOrigin, relative
+}
+
+// addDelta adds a change that occurred in the region that should be reported the next time the manager reconciles
+// its changes.
+func (r *RegionManager) addDelta(delta *changeDelta) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.pendingEvents = append(r.pendingEvents, delta)
 }
 
 // syncOverallState refreshes the memoized state so that it matches the state of each chunk. You should call this

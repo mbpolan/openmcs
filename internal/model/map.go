@@ -1,6 +1,9 @@
 package model
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+	"sync"
+)
 
 // TileGroundItem is an instance of an item placed on a tile.
 type TileGroundItem struct {
@@ -10,34 +13,44 @@ type TileGroundItem struct {
 
 // Tile is the smallest unit of space on the world map.
 type Tile struct {
-	Height      int
-	Objects     []*WorldObject
-	GroundItems []*TileGroundItem
-	OverlayID   int
-	RenderFlag  int
-	UnderlayID  int
+	Height     int
+	OverlayID  int
+	RenderFlag int
+	UnderlayID int
+
+	objects     []*WorldObject
+	groundItems []*TileGroundItem
+	mu          sync.Mutex
 }
 
 // AddObject places a world object on the tile.
 func (t *Tile) AddObject(object *WorldObject) {
-	t.Objects = append(t.Objects, object)
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.objects = append(t.objects, object)
 }
 
 // AddItem adds a ground item to the tile returning its unique instance UUID.
 func (t *Tile) AddItem(id int) uuid.UUID {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	item := &TileGroundItem{
 		InstanceUUID: uuid.New(),
 		ItemID:       id,
 	}
 
-	t.GroundItems = append([]*TileGroundItem{item}, t.GroundItems...)
+	t.groundItems = append([]*TileGroundItem{item}, t.groundItems...)
 	return item.InstanceUUID
 }
 
 // GroundItemIDs returns a slice of ground item IDs located on this tile.
 func (t *Tile) GroundItemIDs() []int {
-	ids := make([]int, len(t.GroundItems))
-	for i, item := range t.GroundItems {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	ids := make([]int, len(t.groundItems))
+	for i, item := range t.groundItems {
 		ids[i] = item.ItemID
 	}
 
@@ -47,9 +60,12 @@ func (t *Tile) GroundItemIDs() []int {
 // RemoveItem removes a ground item that matches the instance UUID. If the item was found and removed, its item ID will
 // be returned.
 func (t *Tile) RemoveItem(instanceUUID uuid.UUID) *int {
-	for i, item := range t.GroundItems {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	for i, item := range t.groundItems {
 		if item.InstanceUUID == instanceUUID {
-			t.GroundItems = append(t.GroundItems[:i], t.GroundItems[i+1:]...)
+			t.groundItems = append(t.groundItems[:i], t.groundItems[i+1:]...)
 			return &item.ItemID
 		}
 	}
@@ -59,7 +75,10 @@ func (t *Tile) RemoveItem(instanceUUID uuid.UUID) *int {
 
 // Clear removes all ground items on the tile.
 func (t *Tile) Clear() {
-	t.GroundItems = nil
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.groundItems = nil
 }
 
 // Map represents the game world map and its static objects.

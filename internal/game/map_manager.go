@@ -14,6 +14,7 @@ type MapManager struct {
 	regions        map[model.Vector3D]*RegionManager
 	pendingRegions map[model.Vector3D]bool
 	worldMap       *model.Map
+	mu             sync.Mutex
 }
 
 // NewMapManager creates a new manager for a world map.
@@ -69,7 +70,7 @@ func (m *MapManager) AddGroundItem(itemID int, timeoutSeconds *int, globalPos mo
 	}
 
 	mgr.AddGroundItem(itemID, timeoutSeconds, globalPos)
-	m.pendingRegions[region] = true
+	m.addPendingRegion(region)
 }
 
 func (m *MapManager) ClearGroundItems(globalPos model.Vector3D) {
@@ -81,7 +82,7 @@ func (m *MapManager) ClearGroundItems(globalPos model.Vector3D) {
 	}
 
 	mgr.ClearGroundItems(globalPos)
-	m.pendingRegions[region] = true
+	m.addPendingRegion(region)
 }
 
 // WarmUp computes the initial state of the world map. This should generally be called only once before the game state
@@ -106,6 +107,9 @@ func (m *MapManager) WarmUp() {
 func (m *MapManager) Reconcile() map[model.Vector3D][]response.Response {
 	updates := map[model.Vector3D][]response.Response{}
 
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	// process each region that has pending updates available
 	for origin, _ := range m.pendingRegions {
 		updates[origin] = m.regions[origin].Reconcile()
@@ -113,6 +117,15 @@ func (m *MapManager) Reconcile() map[model.Vector3D][]response.Response {
 
 	m.pendingRegions = map[model.Vector3D]bool{}
 	return updates
+}
+
+// addPendingRegion marks a region that has had at least one change and should be reported the next time the manager
+// reconciles its changes. The origin should be the region origin in global coordinates.
+func (m *MapManager) addPendingRegion(origin model.Vector3D) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.pendingRegions[origin] = true
 }
 
 // loop processes state changes to the map that occur internally.
@@ -127,8 +140,7 @@ func (m *MapManager) loop() {
 
 		case region := <-m.changeChan:
 			// a region's state has changed internally; track it for reconciliation
-			// FIXME: this is not reentrant
-			m.pendingRegions[region] = true
+			m.addPendingRegion(region)
 		}
 	}
 }
