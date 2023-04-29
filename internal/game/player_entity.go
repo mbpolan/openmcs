@@ -25,6 +25,7 @@ type playerEntity struct {
 	lastChatTime        time.Time
 	chatHighWater       time.Time
 	tabInterfaces       map[model.ClientTab]int
+	teleportGlobal      *model.Vector3D
 	privateMessageID    int
 	regionOrigin        model.Vector2D
 	nextStatusBroadcast *playerStatusBroadcast

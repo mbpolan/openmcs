@@ -700,6 +700,15 @@ func (g *Game) handleChatCommand(pe *playerEntity, command *ChatCommand) {
 		// remove all ground items at player's position
 		g.mapManager.ClearGroundItems(pe.player.GlobalPos)
 
+	case ChatCommandTeleportRelative:
+		// relocate the player to a new location relative to their current position
+		newPos := pe.player.GlobalPos.Add(command.Pos)
+		pe.teleportGlobal = &newPos
+
+	case ChatCommandTeleport:
+		// relocate the player to a new location
+		pe.teleportGlobal = &command.Pos
+
 	case ChatCommandTypePosition:
 		// send a message containing player's server position on the world map
 		msg := fmt.Sprintf("Position: %d, %d, %d", pe.player.GlobalPos.X, pe.player.GlobalPos.Y, pe.player.GlobalPos.Z)
@@ -859,6 +868,26 @@ func (g *Game) handleGameUpdate() error {
 
 		// track if this player has moved to a new region
 		hasChangedRegions := false
+
+		// has this player teleported to a new location?
+		if pe.teleportGlobal != nil {
+			pe.player.GlobalPos = *pe.teleportGlobal
+			origin, relative := g.playerRegionPosition(pe)
+
+			if origin != pe.regionOrigin {
+				pe.regionOrigin = origin
+
+				region := response.NewLoadRegionResponse(pe.regionOrigin)
+				pe.PlanEvent(NewSendResponseEvent(region, time.Now()))
+			}
+
+			relocate := response.NewPlayerUpdateResponse(pe.player.ID)
+			relocate.SetLocalPlayerPosition(relative, true)
+			pe.PlanEvent(NewSendResponseEvent(relocate, time.Now()))
+
+			hasChangedRegions = true
+			pe.teleportGlobal = nil
+		}
 
 		// check if the player is walking, and it's time to move to the next waypoint
 		if pe.Walking() && time.Now().Sub(pe.lastWalkTime) >= playerWalkInterval {

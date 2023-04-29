@@ -1,6 +1,7 @@
 package game
 
 import (
+	"github.com/mbpolan/openmcs/internal/model"
 	"strconv"
 	"strings"
 )
@@ -12,6 +13,8 @@ const (
 	ChatCommandTypeSpawnItem ChatCommandType = iota
 	ChatCommandTypeClearTile
 	ChatCommandTypePosition
+	ChatCommandTeleport
+	ChatCommandTeleportRelative
 )
 
 // ChatCommandSpawnItemParams contains parameters for a chat command that spawns a ground item.
@@ -23,6 +26,7 @@ type ChatCommandSpawnItemParams struct {
 // ChatCommand is a game command embedded in a player chat message.
 type ChatCommand struct {
 	Type      ChatCommandType
+	Pos       model.Vector3D
 	SpawnItem *ChatCommandSpawnItemParams
 }
 
@@ -73,6 +77,77 @@ func ParseChatCommand(text string) *ChatCommand {
 	case "ct":
 		return &ChatCommand{
 			Type: ChatCommandTypeClearTile,
+		}
+
+	case "tpr":
+		if len(args) == 0 {
+			return nil
+		}
+
+		// teleport to a location relative to the player's current position
+		dx, dy, dz := 0, 0, 0
+		var err error
+
+		// arguments are the x-, y- and z-coordinates, in that order, with each coordinate being optional
+		if len(args) > 0 {
+			dx, err = strconv.Atoi(args[0])
+			if err != nil {
+				return nil
+			}
+		}
+
+		if len(args) > 1 {
+			dy, err = strconv.Atoi(args[1])
+			if err != nil {
+				return nil
+			}
+		}
+
+		if len(args) > 2 {
+			dz, err = strconv.Atoi(args[2])
+			if err != nil {
+				return nil
+			}
+		}
+
+		return &ChatCommand{
+			Type: ChatCommandTeleportRelative,
+			Pos: model.Vector3D{
+				X: dx,
+				Y: dy,
+				Z: dz,
+			},
+		}
+
+	case "tp":
+		// teleport to a location
+		if len(args) != 3 {
+			return nil
+		}
+
+		// arguments are the x-, y- and z-coordinates, in that order
+		x, err := strconv.Atoi(args[0])
+		if err != nil {
+			return nil
+		}
+
+		y, err := strconv.Atoi(args[1])
+		if err != nil {
+			return nil
+		}
+
+		z, err := strconv.Atoi(args[2])
+		if err != nil {
+			return nil
+		}
+
+		return &ChatCommand{
+			Type: ChatCommandTeleport,
+			Pos: model.Vector3D{
+				X: x,
+				Y: y,
+				Z: z,
+			},
 		}
 
 	case "pos":
