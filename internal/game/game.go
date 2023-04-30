@@ -275,18 +275,12 @@ func (g *Game) WalkPlayer(p *model.Player, start model.Vector2D, waypoints []mod
 		return
 	}
 
-	// the starting position is offset by 6 tiles from the region origin, and serves as the basis for waypoints
-	initial := model.Vector2D{
-		X: start.X + (util.Chunk2D.X * 6),
-		Y: start.Y + (util.Chunk2D.Y * 6),
-	}
-
 	// convert each waypoint into global coordinates
-	actuals := []model.Vector2D{initial}
+	actuals := []model.Vector2D{start}
 	for _, w := range waypoints {
 		actuals = append(actuals, model.Vector2D{
-			X: initial.X + w.X,
-			Y: initial.Y + w.Y,
+			X: start.X + w.X,
+			Y: start.Y + w.Y,
 		})
 	}
 
@@ -677,8 +671,11 @@ func (g *Game) findEffectiveRegion(pe *playerEntity) model.Vector2D {
 // playerRegionPosition returns the region origin and player position relative to that origin.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) playerRegionPosition(pe *playerEntity) (model.Vector2D, model.Vector3D) {
-	// compute the current region origin and the player's position relative to its origin
+	// compute the current region origin
 	regionOrigin := util.GlobalToRegionOrigin(pe.player.GlobalPos).To2D()
+
+	// compute the player's position relative to the client's base coordinates. the client uses a top-left origin
+	// which is offset by six chunks on each axis.
 	regionRelative := model.Vector3D{
 		X: pe.player.GlobalPos.X - (((regionOrigin.X/util.Region3D.X)*util.Chunk2D.X)-6)*util.Chunk2D.X,
 		Y: pe.player.GlobalPos.Y - (((regionOrigin.Y/util.Region3D.Y)*util.Chunk2D.Y)-6)*util.Chunk2D.Y,
@@ -912,15 +909,15 @@ func (g *Game) handleGameUpdate() error {
 			pe.lastWalkTime = time.Now()
 
 			// check if the player has moved into a new map region, and schedule a map region load is that's the case
-			origin := g.findEffectiveRegion(pe)
-			if origin != pe.regionOrigin {
-				region := response.NewLoadRegionResponse(origin)
-				pe.PlanEvent(NewSendResponseEvent(region, time.Now()))
-
-				// mark this as the current region the player's client has loaded
-				pe.regionOrigin = origin
-				hasChangedRegions = true
-			}
+			//origin := g.findEffectiveRegion(pe)
+			//if origin != pe.regionOrigin {
+			//	region := response.NewLoadRegionResponse(origin)
+			//	pe.PlanEvent(NewSendResponseEvent(region, time.Now()))
+			//
+			//	// mark this as the current region the player's client has loaded
+			//	pe.regionOrigin = origin
+			//	hasChangedRegions = true
+			//}
 		}
 
 		// broadcast this player's status to friends and other target players if required
