@@ -21,6 +21,12 @@ var RegionBoundary2D = model.Vector2D{
 	Y: 16,
 }
 
+// ClientChunkArea2D represents the amount of chunks that comprise the area drawn by the client.
+var ClientChunkArea2D = model.Vector2D{
+	X: 13,
+	Y: 13,
+}
+
 // GlobalToRegionLocal scales a position in global coordinates to region local coordinates.
 func GlobalToRegionLocal(v model.Vector3D) model.Vector3D {
 	return v.Mod(Region3D)
@@ -31,6 +37,16 @@ func GlobalToRegionOrigin(v model.Vector3D) model.Vector3D {
 	return model.Vector3D{
 		X: ((v.X / Region3D.X) * Region3D.X) / Chunk2D.X,
 		Y: ((v.Y / Region3D.Y) * Region3D.Y) / Chunk2D.Y,
+		Z: v.Z,
+	}
+}
+
+// RegionGlobalToClientBase translates a region origin, in global coordinates, to the base coordinates used by the
+// game client.
+func RegionGlobalToClientBase(v model.Vector3D) model.Vector3D {
+	return model.Vector3D{
+		X: (((v.X / Region3D.X) * Chunk2D.X) - 6) * Chunk2D.X,
+		Y: (((v.Y / Region3D.Y) * Chunk2D.Y) - 6) * Chunk2D.Y,
 		Z: v.Z,
 	}
 }

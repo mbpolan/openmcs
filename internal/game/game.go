@@ -650,39 +650,51 @@ func (g *Game) loadAssets(assetDir string) error {
 	return nil
 }
 
-// findEffectiveRegion computes the region origin, in region local coordinates, that the player's client should render.
+// findEffectiveRegion computes the region origin, in region coordinates, that the player's client should render.
 func (g *Game) findEffectiveRegion(pe *playerEntity) model.Vector2D {
-	regionOrigin := util.GlobalToRegionGlobal(pe.player.GlobalPos)
-	regionBound := regionOrigin.Add(util.Region3D)
+	regionGlobal := util.GlobalToRegionGlobal(pe.player.GlobalPos)
+	base := util.RegionGlobalToClientBase(regionGlobal)
 
-	if util.Abs(pe.player.GlobalPos.X-regionOrigin.X) < util.RegionBoundary2D.X {
+	// compute the ending bounds of the area the client knows about, relative to the client base coordinates
+	baseBound := model.Vector3D{
+		X: base.X + util.ClientChunkArea2D.X*util.Chunk2D.X,
+		Y: base.Y + util.ClientChunkArea2D.Y*util.Chunk2D.Y,
+		Z: 0,
+	}
+
+	regionOrigin := util.GlobalToRegionOrigin(regionGlobal).To2D()
+
+	// determine if the player is nearing or has encroached on the boundary to a new map region. if so, adjust the
+	// region origin so that it matches the newly discovered region.
+	if util.Abs(pe.player.GlobalPos.X-base.X) < util.RegionBoundary2D.X {
 		regionOrigin.X -= util.Chunk2D.X
-	} else if util.Abs(pe.player.GlobalPos.X-regionBound.X) < util.RegionBoundary2D.X {
+	} else if util.Abs(pe.player.GlobalPos.X-baseBound.X) < util.RegionBoundary2D.X {
 		regionOrigin.X += util.Chunk2D.X
-	} else if util.Abs(pe.player.GlobalPos.Y-regionOrigin.Y) < util.RegionBoundary2D.Y {
+	} else if util.Abs(pe.player.GlobalPos.Y-base.Y) < util.RegionBoundary2D.Y {
 		regionOrigin.Y -= util.Chunk2D.Y
-	} else if util.Abs(pe.player.GlobalPos.Y-regionBound.Y) < util.RegionBoundary2D.Y {
+	} else if util.Abs(pe.player.GlobalPos.Y-baseBound.Y) < util.RegionBoundary2D.Y {
 		regionOrigin.Y += util.Chunk2D.Y
 	}
 
-	return util.GlobalToRegionOrigin(regionOrigin).To2D()
+	return regionOrigin
 }
 
 // playerRegionPosition returns the region origin and player position relative to that origin.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) playerRegionPosition(pe *playerEntity) (model.Vector2D, model.Vector3D) {
 	// compute the current region origin
-	regionOrigin := util.GlobalToRegionOrigin(pe.player.GlobalPos).To2D()
+	regionGlobal := util.GlobalToRegionGlobal(pe.player.GlobalPos)
+	base := util.RegionGlobalToClientBase(regionGlobal)
 
 	// compute the player's position relative to the client's base coordinates. the client uses a top-left origin
 	// which is offset by six chunks on each axis.
 	regionRelative := model.Vector3D{
-		X: pe.player.GlobalPos.X - (((regionOrigin.X/util.Region3D.X)*util.Chunk2D.X)-6)*util.Chunk2D.X,
-		Y: pe.player.GlobalPos.Y - (((regionOrigin.Y/util.Region3D.Y)*util.Chunk2D.Y)-6)*util.Chunk2D.Y,
+		X: pe.player.GlobalPos.X - base.X,
+		Y: pe.player.GlobalPos.Y - base.Y,
 		Z: pe.player.GlobalPos.Z,
 	}
 
-	return regionOrigin, regionRelative
+	return util.GlobalToRegionOrigin(regionGlobal).To2D(), regionRelative
 }
 
 // handleChatCommand processes a chat command sent by a player.
@@ -909,15 +921,15 @@ func (g *Game) handleGameUpdate() error {
 			pe.lastWalkTime = time.Now()
 
 			// check if the player has moved into a new map region, and schedule a map region load is that's the case
-			//origin := g.findEffectiveRegion(pe)
-			//if origin != pe.regionOrigin {
-			//	region := response.NewLoadRegionResponse(origin)
-			//	pe.PlanEvent(NewSendResponseEvent(region, time.Now()))
-			//
-			//	// mark this as the current region the player's client has loaded
-			//	pe.regionOrigin = origin
-			//	hasChangedRegions = true
-			//}
+			origin := g.findEffectiveRegion(pe)
+			if origin != pe.regionOrigin {
+				region := response.NewLoadRegionResponse(origin)
+				pe.PlanEvent(NewSendResponseEvent(region, time.Now()))
+
+				// mark this as the current region the player's client has loaded
+				pe.regionOrigin = origin
+				hasChangedRegions = true
+			}
 		}
 
 		// broadcast this player's status to friends and other target players if required
