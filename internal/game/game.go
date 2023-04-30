@@ -682,8 +682,11 @@ func (g *Game) findEffectiveRegion(pe *playerEntity) model.Vector2D {
 // playerRegionPosition returns the region origin and player position relative to that origin.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) playerRegionPosition(pe *playerEntity) (model.Vector2D, model.Vector3D) {
-	// compute the current region origin
-	regionGlobal := util.GlobalToRegionGlobal(pe.player.GlobalPos)
+	// find the region where the player's client is rendered
+	regionOrigin := g.findEffectiveRegion(pe)
+
+	// compute the current region origin in global coordinates and the client base
+	regionGlobal := util.RegionOriginToGlobal(regionOrigin)
 	base := util.RegionGlobalToClientBase(regionGlobal)
 
 	// compute the player's position relative to the client's base coordinates. the client uses a top-left origin

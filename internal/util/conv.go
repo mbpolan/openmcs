@@ -41,6 +41,15 @@ func GlobalToRegionOrigin(v model.Vector3D) model.Vector3D {
 	}
 }
 
+// RegionOriginToGlobal translates a region origin, in region origin coordinates, to global coordinates.
+func RegionOriginToGlobal(v model.Vector2D) model.Vector3D {
+	return model.Vector3D{
+		X: v.X * Chunk2D.X,
+		Y: v.Y * Chunk2D.Y,
+		Z: 0,
+	}
+}
+
 // RegionGlobalToClientBase translates a region origin, in global coordinates, to the base coordinates used by the
 // game client.
 func RegionGlobalToClientBase(v model.Vector3D) model.Vector3D {
