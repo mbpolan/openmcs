@@ -17,8 +17,8 @@ var Chunk2D = model.Vector2D{
 
 // RegionBoundary2D represents the amount of tiles that comprise the overlapping boundary between regions.
 var RegionBoundary2D = model.Vector2D{
-	X: 6,
-	Y: 6,
+	X: 16,
+	Y: 16,
 }
 
 // GlobalToRegionLocal scales a position in global coordinates to region local coordinates.

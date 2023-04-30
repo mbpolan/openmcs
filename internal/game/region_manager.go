@@ -274,12 +274,18 @@ func (r *RegionManager) refreshRegion() {
 	r.chunkStates = map[model.Vector3D]response.Response{}
 
 	// compute batches for each chunk in this region
-	for x := 0; x < util.Region3D.X*util.Chunk2D.X; x += util.Chunk2D.X {
-		for y := 0; y < util.Region3D.Y*util.Chunk2D.Y; y += util.Chunk2D.Y {
+	for x := -4; x < 4; x++ {
+		for y := -4; y < 4; y++ {
+			//for x := 0; x < util.Region3D.X*util.Chunk2D.X; x += util.Chunk2D.X {
+			//	for y := 0; y < util.Region3D.Y*util.Chunk2D.Y; y += util.Chunk2D.Y {
 			chunkOrigin := model.Vector3D{
-				X: r.origin.X + x,
-				Y: r.origin.Y + y,
+				X: r.origin.X + (x * util.Chunk2D.X),
+				Y: r.origin.Y + (y * util.Chunk2D.Y),
 				Z: r.origin.Z,
+			}
+
+			if chunkOrigin.X < 0 || chunkOrigin.Y < 0 {
+				continue
 			}
 
 			// compute the state of this chunk and add it to the overall region state

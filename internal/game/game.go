@@ -643,7 +643,7 @@ func (g *Game) loadAssets(assetDir string) error {
 	}
 
 	// FIXME: spawn some ground items for testing
-	g.worldMap.Tile(model.Vector3D{X: 3116, Y: 3116}).AddItem(3140)
+	g.worldMap.Tile(model.Vector3D{X: 3076, Y: 3080}).AddItem(3140)
 	g.worldMap.Tile(model.Vector3D{X: 3117, Y: 3116}).AddItem(1052)
 	g.worldMap.Tile(model.Vector3D{X: 3117, Y: 3117}).AddItem(1187)
 	g.worldMap.Tile(model.Vector3D{X: 3116, Y: 3117}).AddItem(775)
@@ -656,27 +656,33 @@ func (g *Game) loadAssets(assetDir string) error {
 	return nil
 }
 
-// playerRegionPosition returns the region origin and player position relative to that origin.
-// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (p *Game) playerRegionPosition(pe *playerEntity) (model.Vector2D, model.Vector3D) {
-	// compute the current region origin and the player's position relative to its origin
-	regionOrigin := util.GlobalToRegionOrigin(pe.player.GlobalPos).To2D()
-	regionRelative := util.GlobalToRegionLocal(pe.player.GlobalPos)
+// findEffectiveRegion computes the region origin, in region local coordinates, that the player's client should render.
+func (g *Game) findEffectiveRegion(pe *playerEntity) model.Vector2D {
+	regionOrigin := util.GlobalToRegionGlobal(pe.player.GlobalPos)
+	regionBound := regionOrigin.Add(util.Region3D)
 
-	// compute the boundary zone between regions, where new regions are to be loaded
-	boundaryX := util.Chunk2D.X + util.RegionBoundary2D.X
-	boundaryY := util.Chunk2D.Y + util.RegionBoundary2D.Y
-
-	// if the player is standing within the boundary between regions, adjust the region offset and position in such a
-	// way that the player is part of the preceding region.
-	if regionRelative.X < boundaryX {
+	if util.Abs(pe.player.GlobalPos.X-regionOrigin.X) < util.RegionBoundary2D.X {
 		regionOrigin.X -= util.Chunk2D.X
-		regionRelative.X += util.Region3D.X
+	} else if util.Abs(pe.player.GlobalPos.X-regionBound.X) < util.RegionBoundary2D.X {
+		regionOrigin.X += util.Chunk2D.X
+	} else if util.Abs(pe.player.GlobalPos.Y-regionOrigin.Y) < util.RegionBoundary2D.Y {
+		regionOrigin.Y -= util.Chunk2D.Y
+	} else if util.Abs(pe.player.GlobalPos.Y-regionBound.Y) < util.RegionBoundary2D.Y {
+		regionOrigin.Y += util.Chunk2D.Y
 	}
 
-	if regionRelative.Y < boundaryY {
-		regionOrigin.Y -= util.Chunk2D.Y
-		regionRelative.Y += util.Region3D.Y
+	return util.GlobalToRegionOrigin(regionOrigin).To2D()
+}
+
+// playerRegionPosition returns the region origin and player position relative to that origin.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) playerRegionPosition(pe *playerEntity) (model.Vector2D, model.Vector3D) {
+	// compute the current region origin and the player's position relative to its origin
+	regionOrigin := util.GlobalToRegionOrigin(pe.player.GlobalPos).To2D()
+	regionRelative := model.Vector3D{
+		X: pe.player.GlobalPos.X - (((regionOrigin.X/util.Region3D.X)*util.Chunk2D.X)-6)*util.Chunk2D.X,
+		Y: pe.player.GlobalPos.Y - (((regionOrigin.Y/util.Region3D.Y)*util.Chunk2D.Y)-6)*util.Chunk2D.Y,
+		Z: pe.player.GlobalPos.Z,
 	}
 
 	return regionOrigin, regionRelative
@@ -906,7 +912,7 @@ func (g *Game) handleGameUpdate() error {
 			pe.lastWalkTime = time.Now()
 
 			// check if the player has moved into a new map region, and schedule a map region load is that's the case
-			origin, _ := g.playerRegionPosition(pe)
+			origin := g.findEffectiveRegion(pe)
 			if origin != pe.regionOrigin {
 				region := response.NewLoadRegionResponse(origin)
 				pe.PlanEvent(NewSendResponseEvent(region, time.Now()))
