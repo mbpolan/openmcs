@@ -37,9 +37,10 @@ type RegionManager struct {
 	mu            sync.Mutex
 }
 
-// NewRegionManager creates a manager for a 2D region of the map. The z-coordinate will be used to determine which
-// plane of the region this manager will be responsible for. A changeChan will be written to when an internal event
-// causes the state of the region to change, containing the origin of the region this manager is overseeing.
+// NewRegionManager creates a manager for a 2D region of the map centered around an origin in global coordinates.
+// The z-coordinate will be used to determine which plane of the region this manager will be responsible for. A
+// changeChan will be written to when an internal event causes the state of the region to change, containing the origin
+// of the region this manager is overseeing.
 func NewRegionManager(origin model.Vector3D, m *model.Map, changeChan chan model.Vector3D) *RegionManager {
 	mgr := &RegionManager{
 		changeChan:  changeChan,
@@ -142,10 +143,10 @@ func (r *RegionManager) Reconcile() []response.Response {
 
 			// recompute the state of the tile the item was added to
 			// TODO: can this be optimized to only update the tile itself?
-			chunkState := r.computeChunk(chunkOrigin)
+			//chunkState := r.computeChunk(chunkOrigin)
 
 			// since this chunk's state might have changed, we need to synchronize the region's memoized state
-			r.chunkStates[chunkOrigin] = chunkState
+			//r.chunkStates[chunkOrigin] = chunkState
 			r.syncOverallState()
 
 		case changeEventRemoveGroundItem:
@@ -156,10 +157,10 @@ func (r *RegionManager) Reconcile() []response.Response {
 
 			// recompute the state of the tile the item was added to
 			// TODO: can this be optimized to only update the tile itself?
-			chunkState := r.computeChunk(chunkOrigin)
+			//chunkState := r.computeChunk(chunkOrigin)
 
 			// since this chunk's state might have changed, we need to synchronize the region's memoized state
-			r.chunkStates[chunkOrigin] = chunkState
+			//r.chunkStates[chunkOrigin] = chunkState
 			r.syncOverallState()
 		}
 	}
@@ -274,10 +275,9 @@ func (r *RegionManager) refreshRegion() {
 	r.chunkStates = map[model.Vector3D]response.Response{}
 
 	// compute batches for each chunk in this region
-	for x := -4; x < 4; x++ {
-		for y := -4; y < 4; y++ {
-			//for x := 0; x < util.Region3D.X*util.Chunk2D.X; x += util.Chunk2D.X {
-			//	for y := 0; y < util.Region3D.Y*util.Chunk2D.Y; y += util.Chunk2D.Y {
+	for x := -util.Chunk2D.X / 2; x < util.Chunk2D.X/2; x++ {
+		for y := -util.Chunk2D.Y / 2; y < util.Chunk2D.Y/2; y++ {
+			// compute the top-left origin of this chunk in global coordinates
 			chunkOrigin := model.Vector3D{
 				X: r.origin.X + (x * util.Chunk2D.X),
 				Y: r.origin.Y + (y * util.Chunk2D.Y),
@@ -288,8 +288,14 @@ func (r *RegionManager) refreshRegion() {
 				continue
 			}
 
+			// compute the relative location of this chunk with respect to the client's base coordinates
+			chunkRelative := model.Vector2D{
+				X: (util.Chunk2D.X * 2) + (x+util.Chunk2D.X/2)*util.Chunk2D.X,
+				Y: (util.Chunk2D.Y * 2) + (y+util.Chunk2D.Y/2)*util.Chunk2D.Y,
+			}
+
 			// compute the state of this chunk and add it to the overall region state
-			chunkState := r.computeChunk(chunkOrigin)
+			chunkState := r.computeChunk(chunkOrigin, chunkRelative)
 			if chunkState == nil {
 				delete(r.chunkStates, chunkOrigin)
 			} else {
@@ -303,9 +309,9 @@ func (r *RegionManager) refreshRegion() {
 // computeChunk builds a response.Response slice containing the current state of a chunk in a region. The
 // chunkOriginGlobal should be the origin of the chunk in global coordinates. If there are no updates for this chunk,
 // then a nil will be returned instead.
-func (r *RegionManager) computeChunk(chunkOriginGlobal model.Vector3D) response.Response {
+func (r *RegionManager) computeChunk(chunkOriginGlobal model.Vector3D, chunkRelative model.Vector2D) response.Response {
 	var batched []response.Response
-	origin := util.GlobalToRegionLocal(chunkOriginGlobal)
+	//origin := util.GlobalToRegionLocal(chunkOriginGlobal)
 
 	for x := 0; x <= util.Chunk2D.X; x++ {
 		for y := 0; y < util.Chunk2D.Y; y++ {
@@ -321,13 +327,13 @@ func (r *RegionManager) computeChunk(chunkOriginGlobal model.Vector3D) response.
 				continue
 			}
 
-			relative := model.Vector2D{
+			tileRelative := model.Vector2D{
 				X: x,
 				Y: y,
 			}
 
 			// compute the state of the tile
-			tileState := r.computeTile(tilePos, relative)
+			tileState := r.computeTile(tilePos, tileRelative)
 			if tileState != nil {
 				batched = append(batched, tileState...)
 			}
@@ -338,7 +344,7 @@ func (r *RegionManager) computeChunk(chunkOriginGlobal model.Vector3D) response.
 		return nil
 	}
 
-	return response.NewBatchResponse(origin.To2D(), batched)
+	return response.NewBatchResponse(chunkRelative, batched)
 }
 
 // computeTile builds a response.Response slice containing the current state of a tile. The tilePosGlobal should be

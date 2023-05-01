@@ -392,7 +392,8 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 
 	// describe the local region
 	// FIXME: this should be done in the game loop
-	pe.PlanEvent(NewSendMultipleResponsesEvent(g.mapManager.State(util.GlobalToRegionGlobal(pe.player.GlobalPos)), time.Now()))
+	mapUpdates := g.mapManager.State(util.RegionOriginToGlobal(regionOrigin))
+	pe.PlanEvent(NewSendMultipleResponsesEvent(mapUpdates, time.Now()))
 
 	// plan an update to the client sidebar interfaces
 	pe.PlanEvent(NewEventWithType(EventUpdateTabInterfaces, time.Now()))
@@ -638,14 +639,14 @@ func (g *Game) loadAssets(assetDir string) error {
 
 	// FIXME: spawn some ground items for testing
 	g.worldMap.Tile(model.Vector3D{X: 3076, Y: 3080}).AddItem(3140)
-	g.worldMap.Tile(model.Vector3D{X: 3117, Y: 3116}).AddItem(1052)
-	g.worldMap.Tile(model.Vector3D{X: 3117, Y: 3117}).AddItem(1187)
-	g.worldMap.Tile(model.Vector3D{X: 3116, Y: 3117}).AddItem(775)
-	g.worldMap.Tile(model.Vector3D{X: 3115, Y: 3117}).AddItem(861)
-	g.worldMap.Tile(model.Vector3D{X: 3115, Y: 3116}).AddItem(560)
-	g.worldMap.Tile(model.Vector3D{X: 3115, Y: 3115}).AddItem(962)
-	g.worldMap.Tile(model.Vector3D{X: 3116, Y: 3115}).AddItem(1053)
-	g.worldMap.Tile(model.Vector3D{X: 3117, Y: 3115}).AddItem(2550)
+	//g.worldMap.Tile(model.Vector3D{X: 3117, Y: 3116}).AddItem(1052)
+	//g.worldMap.Tile(model.Vector3D{X: 3117, Y: 3117}).AddItem(1187)
+	//g.worldMap.Tile(model.Vector3D{X: 3116, Y: 3117}).AddItem(775)
+	//g.worldMap.Tile(model.Vector3D{X: 3115, Y: 3117}).AddItem(861)
+	//g.worldMap.Tile(model.Vector3D{X: 3115, Y: 3116}).AddItem(560)
+	//g.worldMap.Tile(model.Vector3D{X: 3115, Y: 3115}).AddItem(962)
+	//g.worldMap.Tile(model.Vector3D{X: 3116, Y: 3115}).AddItem(1053)
+	//g.worldMap.Tile(model.Vector3D{X: 3117, Y: 3115}).AddItem(2550)
 
 	return nil
 }
