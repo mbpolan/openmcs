@@ -9,6 +9,12 @@ var Region3D = model.Vector3D{
 	Z: 1,
 }
 
+// Area2D represents the dimensions of a single map area.
+var Area2D = model.Vector2D{
+	X: 13,
+	Y: 13,
+}
+
 // Chunk2D represents the dimensions of a single region chunk.
 var Chunk2D = model.Vector2D{
 	X: 8,

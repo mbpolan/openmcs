@@ -68,6 +68,7 @@ func NewGame(cfg *config.Config) (*Game, error) {
 	// initialize the map manager and perform a warm-up for map regions
 	g.mapManager = NewMapManager(g.worldMap)
 	g.mapManager.WarmUp()
+	g.mapManager.Start()
 
 	logger.Infof("finished map warm-up in: %s", time.Now().Sub(start))
 
@@ -392,7 +393,8 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 
 	// describe the local region
 	// FIXME: this should be done in the game loop
-	mapUpdates := g.mapManager.State(util.RegionOriginToGlobal(regionOrigin))
+	rg := util.RegionOriginToGlobal(regionOrigin)
+	mapUpdates := g.mapManager.State(rg)
 	pe.PlanEvent(NewSendMultipleResponsesEvent(mapUpdates, time.Now()))
 
 	// plan an update to the client sidebar interfaces
@@ -638,15 +640,18 @@ func (g *Game) loadAssets(assetDir string) error {
 	}
 
 	// FIXME: spawn some ground items for testing
-	g.worldMap.Tile(model.Vector3D{X: 3076, Y: 3080}).AddItem(3140)
-	//g.worldMap.Tile(model.Vector3D{X: 3117, Y: 3116}).AddItem(1052)
-	//g.worldMap.Tile(model.Vector3D{X: 3117, Y: 3117}).AddItem(1187)
-	//g.worldMap.Tile(model.Vector3D{X: 3116, Y: 3117}).AddItem(775)
-	//g.worldMap.Tile(model.Vector3D{X: 3115, Y: 3117}).AddItem(861)
-	//g.worldMap.Tile(model.Vector3D{X: 3115, Y: 3116}).AddItem(560)
-	//g.worldMap.Tile(model.Vector3D{X: 3115, Y: 3115}).AddItem(962)
-	//g.worldMap.Tile(model.Vector3D{X: 3116, Y: 3115}).AddItem(1053)
-	//g.worldMap.Tile(model.Vector3D{X: 3117, Y: 3115}).AddItem(2550)
+	//g.worldMap.Tile(model.Vector3D{X: 3076, Y: 3080}).AddItem(54)
+	g.worldMap.Tile(model.Vector3D{X: 3213, Y: 3423}).AddItem(54)
+	g.worldMap.Tile(model.Vector3D{X: 3213, Y: 3424}).AddItem(1187)
+
+	//g.worldMap.Tile(model.Vector3D{X: 3242, Y: 3429}).AddItem(1052)
+	//g.worldMap.Tile(model.Vector3D{X: 3243, Y: 3429}).AddItem(1187)
+	//g.worldMap.Tile(model.Vector3D{X: 3243, Y: 3430}).AddItem(775)
+	//g.worldMap.Tile(model.Vector3D{X: 3242, Y: 3430}).AddItem(861)
+	//g.worldMap.Tile(model.Vector3D{X: 3241, Y: 3430}).AddItem(560)
+	//g.worldMap.Tile(model.Vector3D{X: 3241, Y: 3429}).AddItem(962)
+	//g.worldMap.Tile(model.Vector3D{X: 3241, Y: 3428}).AddItem(1053)
+	//g.worldMap.Tile(model.Vector3D{X: 3242, Y: 3428}).AddItem(2550)
 
 	return nil
 }

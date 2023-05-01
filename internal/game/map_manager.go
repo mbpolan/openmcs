@@ -22,8 +22,13 @@ func NewMapManager(m *model.Map) *MapManager {
 	regions := map[model.Vector3D]*RegionManager{}
 	changeChan := make(chan model.Vector3D, len(m.RegionOrigins))
 
+	// create a region manager for each known region. because each RegionManager spans an area that overlaps with the
+	// regions directly bordering it, certain tiles will fall under the purview of multiple managers.
 	for _, origin := range m.RegionOrigins {
-		regions[origin] = NewRegionManager(origin, m, changeChan)
+		mgr := NewRegionManager(origin, m, changeChan)
+		mgr.Start()
+
+		regions[origin] = mgr
 	}
 
 	mgr := &MapManager{
@@ -34,8 +39,13 @@ func NewMapManager(m *model.Map) *MapManager {
 		worldMap:       m,
 	}
 
-	go mgr.loop()
 	return mgr
+}
+
+// Start begins background routines that monitor for changes to the state of the map. When cleaning up, Stop() should be
+// called to gracefully terminate this process.
+func (m *MapManager) Start() {
+	go m.loop()
 }
 
 // Stop terminates scheduled events and stops the management of the map.

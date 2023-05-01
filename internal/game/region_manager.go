@@ -23,7 +23,9 @@ type changeDelta struct {
 	itemIDs   []int
 }
 
-// RegionManager is responsible for tracking the state of a single, 2D region on the world map.
+// RegionManager is responsible for tracking the state of a single, 2D region on the world map. A region is defined by
+// a square of size util.Region3D centered about an origin, plus additional tiles on each boundary equal to
+// util.Chunk2D * 2. Therefore, the entire span of tiles for a RegionManager is util.Area2D.
 type RegionManager struct {
 	changeChan    chan model.Vector3D
 	doneChan      chan bool
@@ -52,8 +54,13 @@ func NewRegionManager(origin model.Vector3D, m *model.Map, changeChan chan model
 		scheduler:   NewScheduler(),
 	}
 
-	go mgr.loop()
 	return mgr
+}
+
+// Start begins background routines that monitor for changes to the state of the region. When cleaning up, Stop() should
+// be called to gracefully terminate this process.
+func (r *RegionManager) Start() {
+	go r.loop()
 }
 
 // Stop terminates scheduled events and stops the management of the map region.
@@ -275,8 +282,8 @@ func (r *RegionManager) refreshRegion() {
 	r.chunkStates = map[model.Vector3D]response.Response{}
 
 	// compute batches for each chunk in this region
-	for x := -util.Chunk2D.X / 2; x < util.Chunk2D.X/2; x++ {
-		for y := -util.Chunk2D.Y / 2; y < util.Chunk2D.Y/2; y++ {
+	for x := -util.Area2D.X / 2; x <= util.Area2D.X/2; x++ {
+		for y := -util.Area2D.Y / 2; y <= util.Area2D.Y/2; y++ {
 			// compute the top-left origin of this chunk in global coordinates
 			chunkOrigin := model.Vector3D{
 				X: r.origin.X + (x * util.Chunk2D.X),
