@@ -311,9 +311,8 @@ func (r *RegionManager) refreshRegion() {
 // then a nil will be returned instead.
 func (r *RegionManager) computeChunk(chunkOriginGlobal model.Vector3D, chunkRelative model.Vector2D) response.Response {
 	var batched []response.Response
-	//origin := util.GlobalToRegionLocal(chunkOriginGlobal)
 
-	for x := 0; x <= util.Chunk2D.X; x++ {
+	for x := 0; x < util.Chunk2D.X; x++ {
 		for y := 0; y < util.Chunk2D.Y; y++ {
 			// find the tile, if there is one, at this location
 			tilePos := model.Vector3D{
