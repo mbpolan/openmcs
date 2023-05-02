@@ -935,6 +935,9 @@ func (g *Game) handleGameUpdate() error {
 				region := response.NewLoadRegionResponse(origin)
 				pe.PlanEvent(NewSendResponseEvent(region, time.Now()))
 
+				updates := g.mapManager.State(util.RegionOriginToGlobal(origin))
+				pe.PlanEvent(NewSendMultipleResponsesEvent(updates, time.Now()))
+
 				// mark this as the current region the player's client has loaded
 				pe.regionOrigin = origin
 				hasChangedRegions = true

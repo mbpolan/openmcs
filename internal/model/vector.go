@@ -23,6 +23,15 @@ func (v Vector2D) Sub(w Vector2D) Vector2D {
 	}
 }
 
+// To3D returns a Vector3D with the 2D components of this vector.
+func (v Vector2D) To3D(z int) Vector3D {
+	return Vector3D{
+		X: v.X,
+		Y: v.Y,
+		Z: z,
+	}
+}
+
 func (v Vector2D) String() string {
 	return fmt.Sprintf("(%d,%d)", v.X, v.Y)
 }
