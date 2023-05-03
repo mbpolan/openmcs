@@ -394,7 +394,7 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	// describe the local region
 	// FIXME: this should be done in the game loop
 	rg := util.RegionOriginToGlobal(regionOrigin)
-	mapUpdates := g.mapManager.State(rg)
+	mapUpdates := g.mapManager.State(rg, model.BoundaryNone)
 	pe.PlanEvent(NewSendMultipleResponsesEvent(mapUpdates, time.Now()))
 
 	// plan an update to the client sidebar interfaces
@@ -935,8 +935,26 @@ func (g *Game) handleGameUpdate() error {
 				region := response.NewLoadRegionResponse(origin)
 				pe.PlanEvent(NewSendResponseEvent(region, time.Now()))
 
-				updates := g.mapManager.State(util.RegionOriginToGlobal(origin))
-				pe.PlanEvent(NewSendMultipleResponsesEvent(updates, time.Now()))
+				// determine in which direction the new region is in relative to the player's current region. use this
+				// to apply a trimming boundary so that we don't send map state for an overlapping part of the two
+				// regions
+				delta := pe.regionOrigin.Sub(origin)
+				boundary := model.BoundaryNone
+				if delta.X < 0 {
+					boundary |= model.BoundaryWest
+				} else if delta.X > 0 {
+					boundary |= model.BoundaryEast
+				}
+
+				if delta.Y < 0 {
+					boundary |= model.BoundarySouth
+				} else if delta.Y > 0 {
+					boundary |= model.BoundaryNorth
+				}
+
+				// send the map state for the new region
+				state := g.mapManager.State(util.RegionOriginToGlobal(origin), boundary)
+				pe.PlanEvent(NewSendMultipleResponsesEvent(state, time.Now()))
 
 				// mark this as the current region the player's client has loaded
 				pe.regionOrigin = origin

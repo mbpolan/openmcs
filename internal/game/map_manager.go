@@ -60,13 +60,13 @@ func (m *MapManager) Stop() {
 // State returns the last computed state of a 2D region. The origin should be the region origin in global coordinates,
 // and the z-coordinate will be used to determine which plane of a region to return. If no region exists at this origin,
 // nil will be returned instead.
-func (m *MapManager) State(origin model.Vector3D) []response.Response {
+func (m *MapManager) State(origin model.Vector3D, trim model.Boundary) []response.Response {
 	region, ok := m.regions[origin]
 	if !ok {
 		return nil
 	}
 
-	return region.State()
+	return region.State(trim)
 }
 
 // AddGroundItem adds a ground item to the top of a tile with an optional timeout (in seconds) when that item should

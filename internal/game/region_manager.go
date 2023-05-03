@@ -23,6 +23,12 @@ type changeDelta struct {
 	itemIDs   []int
 }
 
+// chunkState is a container for the state of a particular chunk.
+type chunkState struct {
+	boundary model.Boundary
+	state    response.Response
+}
+
 // RegionManager is responsible for tracking the state of a single, 2D region on the world map. A region is defined by
 // a square of size util.Region3D centered about an origin, plus additional tiles on each boundary equal to
 // util.Chunk2D * 2. Therefore, the entire span of tiles for a RegionManager is util.Area2D.
@@ -31,9 +37,11 @@ type RegionManager struct {
 	doneChan      chan bool
 	resetChan     chan bool
 	origin        model.Vector3D
+	topLeft       model.Vector2D
+	bottomRight   model.Vector2D
 	worldMap      *model.Map
-	state         []response.Response
-	chunkStates   map[model.Vector3D]response.Response
+	state         []*chunkState
+	chunkStates   map[model.Vector3D]*chunkState
 	pendingEvents []*changeDelta
 	scheduler     *Scheduler
 	mu            sync.Mutex
@@ -44,12 +52,26 @@ type RegionManager struct {
 // changeChan will be written to when an internal event causes the state of the region to change, containing the origin
 // of the region this manager is overseeing.
 func NewRegionManager(origin model.Vector3D, m *model.Map, changeChan chan model.Vector3D) *RegionManager {
+	// compute the top-left coordinates of the region, not including area padding
+	topLeft := model.Vector2D{
+		X: origin.X - (util.Chunk2D.X/2)*util.Chunk2D.X,
+		Y: origin.Y - (util.Chunk2D.Y/2)*util.Chunk2D.Y,
+	}
+
+	// compute the bottom right coordinates of the region, not including area padding
+	bottomRight := model.Vector2D{
+		X: origin.X + ((util.Chunk2D.X / 2) * util.Chunk2D.X) - 1,
+		Y: origin.Y + ((util.Chunk2D.Y / 2) * util.Chunk2D.Y) - 1,
+	}
+
 	mgr := &RegionManager{
 		changeChan:  changeChan,
 		doneChan:    make(chan bool, 1),
 		resetChan:   make(chan bool, 1),
-		chunkStates: map[model.Vector3D]response.Response{},
+		chunkStates: map[model.Vector3D]*chunkState{},
 		origin:      origin,
+		topLeft:     topLeft,
+		bottomRight: bottomRight,
 		worldMap:    m,
 		scheduler:   NewScheduler(),
 	}
@@ -70,8 +92,17 @@ func (r *RegionManager) Stop() {
 
 // State returns the last computed state of the region, described as a slice of response.Response messages that can
 // be sent to a player's client.
-func (r *RegionManager) State() []response.Response {
-	return r.state
+func (r *RegionManager) State(trim model.Boundary) []response.Response {
+	var state []response.Response
+	for _, st := range r.state {
+		if st.boundary&trim != 0 || st.state == nil {
+			continue
+		}
+
+		state = append(state, st.state)
+	}
+
+	return state
 }
 
 // AddGroundItem adds a ground item to a tile with an optional timeout when the item should be removed.
@@ -239,6 +270,27 @@ func (r *RegionManager) handleNextEvent() {
 	}
 }
 
+// boundaryForChunk returns a bitmask describing if a chunk origin, in global coordinates, falls into one or more of
+// the area padding boundaries around a region.
+func (r *RegionManager) boundaryForChunk(origin model.Vector3D) model.Boundary {
+	// determine if this chunk falls into the area padding around the region. we also need to add another chunk's
+	// worth of padding since the client renders extra tiles further ahead of said boundary
+	boundary := model.BoundaryNone
+	if origin.X < r.topLeft.X-util.Chunk2D.X {
+		boundary |= model.BoundaryWest
+	} else if origin.X >= r.bottomRight.X+util.Chunk2D.X {
+		boundary |= model.BoundaryEast
+	}
+
+	if origin.Y < r.bottomRight.Y-util.Chunk2D.X {
+		boundary |= model.BoundarySouth
+	} else if origin.Y >= r.topLeft.Y+util.Chunk2D.X {
+		boundary |= model.BoundaryNorth
+	}
+
+	return boundary
+}
+
 // globalToChunkOriginAndRelative translates a position in global coordinates to the origin of the containing chunk,
 // in global coordinates and a relative offset to that position from said origin.
 func (r *RegionManager) globalToChunkOriginAndRelative(globalPos model.Vector3D) (model.Vector3D, model.Vector2D) {
@@ -279,7 +331,7 @@ func (r *RegionManager) syncOverallState() {
 // refreshRegion refreshes the current state of this map region, including all the individual chunks that comprise it.
 func (r *RegionManager) refreshRegion() {
 	r.state = nil
-	r.chunkStates = map[model.Vector3D]response.Response{}
+	r.chunkStates = map[model.Vector3D]*chunkState{}
 
 	// compute batches for each chunk in this region
 	for x := -util.Area2D.X / 2; x <= util.Area2D.X/2; x++ {
@@ -302,12 +354,12 @@ func (r *RegionManager) refreshRegion() {
 			}
 
 			// compute the state of this chunk and add it to the overall region state
-			chunkState := r.computeChunk(chunkOrigin, chunkRelative)
-			if chunkState == nil {
+			state := r.computeChunk(chunkOrigin, chunkRelative)
+			if state == nil {
 				delete(r.chunkStates, chunkOrigin)
 			} else {
-				r.chunkStates[chunkOrigin] = chunkState
-				r.state = append(r.state, chunkState)
+				r.chunkStates[chunkOrigin] = state
+				r.state = append(r.state, state)
 			}
 		}
 	}
@@ -316,8 +368,9 @@ func (r *RegionManager) refreshRegion() {
 // computeChunk builds a response.Response slice containing the current state of a chunk in a region. The
 // chunkOriginGlobal should be the origin of the chunk in global coordinates. If there are no updates for this chunk,
 // then a nil will be returned instead.
-func (r *RegionManager) computeChunk(chunkOriginGlobal model.Vector3D, chunkRelative model.Vector2D) response.Response {
+func (r *RegionManager) computeChunk(chunkOriginGlobal model.Vector3D, chunkRelative model.Vector2D) *chunkState {
 	var batched []response.Response
+	boundary := r.boundaryForChunk(chunkOriginGlobal)
 
 	for x := 0; x < util.Chunk2D.X; x++ {
 		for y := 0; y < util.Chunk2D.Y; y++ {
@@ -350,7 +403,10 @@ func (r *RegionManager) computeChunk(chunkOriginGlobal model.Vector3D, chunkRela
 		return nil
 	}
 
-	return response.NewBatchResponse(chunkRelative, batched)
+	return &chunkState{
+		boundary: boundary,
+		state:    response.NewBatchResponse(chunkRelative, batched),
+	}
 }
 
 // computeTile builds a response.Response slice containing the current state of a tile. The tilePosGlobal should be
