@@ -9,8 +9,9 @@ import (
 
 // MapManager is responsible for managing the state of the entire world map.
 type MapManager struct {
-	changeChan     chan model.Vector3D
-	doneChan       chan bool
+	changeChan chan model.Vector3D
+	doneChan   chan bool
+	// regions is a map of region origins, in global coordinates, to their managers.
 	regions        map[model.Vector3D]*RegionManager
 	pendingRegions map[model.Vector3D]bool
 	worldMap       *model.Map
@@ -72,15 +73,14 @@ func (m *MapManager) State(origin model.Vector3D, trim model.Boundary) []respons
 // AddGroundItem adds a ground item to the top of a tile with an optional timeout (in seconds) when that item should
 // automatically be removed.
 func (m *MapManager) AddGroundItem(itemID int, timeoutSeconds *int, globalPos model.Vector3D) {
-	region := util.GlobalToRegionGlobal(globalPos)
+	regions := m.findOverlappingRegions(globalPos)
 
-	mgr, ok := m.regions[region]
-	if !ok {
-		return
+	for _, origin := range regions {
+		region := m.regions[origin]
+
+		region.AddGroundItem(itemID, timeoutSeconds, globalPos)
+		m.addPendingRegion(origin)
 	}
-
-	mgr.AddGroundItem(itemID, timeoutSeconds, globalPos)
-	m.addPendingRegion(region)
 }
 
 func (m *MapManager) ClearGroundItems(globalPos model.Vector3D) {
@@ -127,6 +127,40 @@ func (m *MapManager) Reconcile() map[model.Vector3D][]response.Response {
 
 	m.pendingRegions = map[model.Vector3D]bool{}
 	return updates
+}
+
+// findOverlappingRegions returns a slice of region origins, in global coordinates, for each region that manages a
+// position, in global coordinates. Since map regions span an area that overlaps with neighboring regions, a single
+// position may be managed by multiple regions. This method will compute each of those overlapping regions, including
+// the region which actually contains the position itself.
+func (m *MapManager) findOverlappingRegions(globalPos model.Vector3D) []model.Vector3D {
+	baseRegion := util.GlobalToRegionOrigin(globalPos)
+	allRegions := []model.Vector3D{util.GlobalToRegionGlobal(globalPos)}
+
+	checkAndAddRegion := func(x, y int) {
+		neighborOrigin := util.RegionOriginToGlobal(model.Vector2D{
+			X: baseRegion.X + x*util.Chunk2D.X,
+			Y: baseRegion.Y + y*util.Chunk2D.X,
+		})
+		neighborOrigin.Z = globalPos.Z
+
+		region, ok := m.regions[neighborOrigin]
+		if !ok {
+			return
+		}
+
+		if region.Contains(globalPos) {
+			allRegions = append(allRegions, neighborOrigin)
+		}
+	}
+
+	// check if all regions in each cardinal direction also manages this position
+	checkAndAddRegion(-1, 0)
+	checkAndAddRegion(1, 0)
+	checkAndAddRegion(0, 1)
+	checkAndAddRegion(0, -1)
+
+	return allRegions
 }
 
 // addPendingRegion marks a region that has had at least one change and should be reported the next time the manager

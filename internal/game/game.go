@@ -641,6 +641,11 @@ func (g *Game) loadAssets(assetDir string) error {
 
 	// FIXME: spawn some ground items for testing
 	//g.worldMap.Tile(model.Vector3D{X: 3076, Y: 3080}).AddItem(54)
+	g.worldMap.Tile(model.Vector3D{X: 3152, Y: 3344}).AddItem(54)
+	g.worldMap.Tile(model.Vector3D{X: 3255, Y: 3344}).AddItem(54)
+	g.worldMap.Tile(model.Vector3D{X: 3152, Y: 3447}).AddItem(54)
+	g.worldMap.Tile(model.Vector3D{X: 3255, Y: 3447}).AddItem(54)
+
 	g.worldMap.Tile(model.Vector3D{X: 3213, Y: 3423}).AddItem(54)
 	g.worldMap.Tile(model.Vector3D{X: 3213, Y: 3424}).AddItem(1187)
 

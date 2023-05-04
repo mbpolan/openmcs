@@ -33,18 +33,18 @@ type chunkState struct {
 // a square of size util.Region3D centered about an origin, plus additional tiles on each boundary equal to
 // util.Chunk2D * 2. Therefore, the entire span of tiles for a RegionManager is util.Area2D.
 type RegionManager struct {
-	changeChan    chan model.Vector3D
-	doneChan      chan bool
-	resetChan     chan bool
-	origin        model.Vector3D
-	topLeft       model.Vector2D
-	bottomRight   model.Vector2D
-	worldMap      *model.Map
-	state         []*chunkState
-	chunkStates   map[model.Vector3D]*chunkState
-	pendingEvents []*changeDelta
-	scheduler     *Scheduler
-	mu            sync.Mutex
+	changeChan       chan model.Vector3D
+	doneChan         chan bool
+	resetChan        chan bool
+	origin           model.Vector3D
+	clientBaseArea   model.Rectangle
+	clientBaseRegion model.Rectangle
+	worldMap         *model.Map
+	state            []*chunkState
+	chunkStates      map[model.Vector3D]*chunkState
+	pendingEvents    []*changeDelta
+	scheduler        *Scheduler
+	mu               sync.Mutex
 }
 
 // NewRegionManager creates a manager for a 2D region of the map centered around an origin in global coordinates.
@@ -52,28 +52,32 @@ type RegionManager struct {
 // changeChan will be written to when an internal event causes the state of the region to change, containing the origin
 // of the region this manager is overseeing.
 func NewRegionManager(origin model.Vector3D, m *model.Map, changeChan chan model.Vector3D) *RegionManager {
-	// compute the top-left coordinates of the region, not including area padding
-	topLeft := model.Vector2D{
-		X: origin.X - (util.Chunk2D.X/2)*util.Chunk2D.X,
-		Y: origin.Y - (util.Chunk2D.Y/2)*util.Chunk2D.Y,
+	// compute the top-left coordinates of the region, including the area padding relative to client base coordinates
+	clientBaseArea := model.Rectangle{
+		X1: origin.X - (util.Area2D.X/2)*util.Chunk2D.X,
+		Y1: origin.Y - (util.Area2D.Y/2)*util.Chunk2D.Y,
+		X2: origin.X + (util.Area2D.X/2)*util.Chunk2D.X - 1,
+		Y2: origin.Y + (util.Area2D.Y/2)*util.Chunk2D.Y - 1,
 	}
 
-	// compute the bottom right coordinates of the region, not including area padding
-	bottomRight := model.Vector2D{
-		X: origin.X + ((util.Chunk2D.X / 2) * util.Chunk2D.X) - 1,
-		Y: origin.Y + ((util.Chunk2D.Y / 2) * util.Chunk2D.Y) - 1,
+	// compute the top-left coordinates of the region, not including area padding relative to client base coordinates
+	clientBaseRegion := model.Rectangle{
+		X1: origin.X - (util.Chunk2D.X/2)*util.Chunk2D.X,
+		Y1: origin.Y - (util.Chunk2D.Y/2)*util.Chunk2D.Y,
+		X2: origin.X + ((util.Chunk2D.X / 2) * util.Chunk2D.X) - 1,
+		Y2: origin.Y + ((util.Chunk2D.Y / 2) * util.Chunk2D.Y) - 1,
 	}
 
 	mgr := &RegionManager{
-		changeChan:  changeChan,
-		doneChan:    make(chan bool, 1),
-		resetChan:   make(chan bool, 1),
-		chunkStates: map[model.Vector3D]*chunkState{},
-		origin:      origin,
-		topLeft:     topLeft,
-		bottomRight: bottomRight,
-		worldMap:    m,
-		scheduler:   NewScheduler(),
+		changeChan:       changeChan,
+		doneChan:         make(chan bool, 1),
+		resetChan:        make(chan bool, 1),
+		chunkStates:      map[model.Vector3D]*chunkState{},
+		origin:           origin,
+		clientBaseArea:   clientBaseArea,
+		clientBaseRegion: clientBaseRegion,
+		worldMap:         m,
+		scheduler:        NewScheduler(),
 	}
 
 	return mgr
@@ -88,6 +92,12 @@ func (r *RegionManager) Start() {
 // Stop terminates scheduled events and stops the management of the map region.
 func (r *RegionManager) Stop() {
 	r.doneChan <- true
+}
+
+// Contains returns true if a position, in global coordinates, is managed by this manager.
+func (r *RegionManager) Contains(globalPos model.Vector3D) bool {
+	return globalPos.X >= r.clientBaseArea.X1 && globalPos.X <= r.clientBaseArea.X2 &&
+		globalPos.Y >= r.clientBaseArea.Y2 && globalPos.Y <= r.clientBaseArea.Y1
 }
 
 // State returns the last computed state of the region, described as a slice of response.Response messages that can
@@ -167,31 +177,32 @@ func (r *RegionManager) Reconcile() []response.Response {
 	updates := map[model.Vector2D][]response.Response{}
 
 	for _, e := range r.pendingEvents {
-		chunkOrigin, relative := r.globalToChunkOriginAndRelative(e.globalPos)
-
-		// track changes to this chunk
-		chunkLocal := util.GlobalToRegionLocal(chunkOrigin).To2D()
+		chunkOrigin, tileRelative := r.globalToChunkOriginAndRelative(e.globalPos)
+		chunkRelative := model.Vector2D{
+			X: chunkOrigin.X - r.clientBaseArea.X1,
+			Y: chunkOrigin.Y - r.clientBaseArea.Y1,
+		}
 
 		switch e.eventType {
 		case changeEventAddGroundItem:
 			// one or more ground items were added to a tile
 			for _, itemID := range e.itemIDs {
-				updates[chunkLocal] = append(updates[chunkLocal], response.NewShowGroundItemResponse(itemID, 1, relative))
+				updates[chunkRelative] = append(updates[chunkRelative], response.NewShowGroundItemResponse(itemID, 1, tileRelative))
 			}
 
 			// recompute the state of the tile the item was added to
 			// TODO: can this be optimized to only update the tile itself?
-			//chunkState := r.computeChunk(chunkOrigin)
+			newState := r.computeChunk(chunkOrigin, chunkRelative)
 
 			// since this chunk's state might have changed, we need to synchronize the region's memoized state
-			//r.chunkStates[chunkOrigin] = chunkState
+			r.chunkStates[chunkOrigin] = newState
 			r.syncOverallState()
 
 		case changeEventRemoveGroundItem:
 			// one or more ground items on a tile were removed
-			for _, itemID := range e.itemIDs {
-				updates[chunkLocal] = append(updates[chunkLocal], response.NewRemoveGroundItemResponse(itemID, relative))
-			}
+			//for _, itemID := range e.itemIDs {
+			//	updates[chunkLocal] = append(updates[chunkLocal], response.NewRemoveGroundItemResponse(itemID, tileRelative))
+			//}
 
 			// recompute the state of the tile the item was added to
 			// TODO: can this be optimized to only update the tile itself?
@@ -276,15 +287,15 @@ func (r *RegionManager) boundaryForChunk(origin model.Vector3D) model.Boundary {
 	// determine if this chunk falls into the area padding around the region. we also need to add another chunk's
 	// worth of padding since the client renders extra tiles further ahead of said boundary
 	boundary := model.BoundaryNone
-	if origin.X < r.topLeft.X-util.Chunk2D.X {
+	if origin.X < r.clientBaseRegion.X1-util.Chunk2D.X {
 		boundary |= model.BoundaryWest
-	} else if origin.X >= r.bottomRight.X+util.Chunk2D.X {
+	} else if origin.X >= r.clientBaseRegion.X2+util.Chunk2D.X {
 		boundary |= model.BoundaryEast
 	}
 
-	if origin.Y < r.bottomRight.Y-util.Chunk2D.X {
+	if origin.Y < r.clientBaseRegion.Y2-util.Chunk2D.X {
 		boundary |= model.BoundarySouth
-	} else if origin.Y >= r.topLeft.Y+util.Chunk2D.X {
+	} else if origin.Y >= r.clientBaseRegion.Y1+util.Chunk2D.X {
 		boundary |= model.BoundaryNorth
 	}
 
@@ -294,10 +305,9 @@ func (r *RegionManager) boundaryForChunk(origin model.Vector3D) model.Boundary {
 // globalToChunkOriginAndRelative translates a position in global coordinates to the origin of the containing chunk,
 // in global coordinates and a relative offset to that position from said origin.
 func (r *RegionManager) globalToChunkOriginAndRelative(globalPos model.Vector3D) (model.Vector3D, model.Vector2D) {
-	// an item was added to a tile: compute the chunk origin in global coordinates of said tile
 	chunkOrigin := model.Vector3D{
-		X: r.origin.X + ((globalPos.X-r.origin.X)/util.Chunk2D.X)*util.Chunk2D.X,
-		Y: r.origin.Y + ((globalPos.Y-r.origin.Y)/util.Chunk2D.Y)*util.Chunk2D.Y,
+		X: r.origin.X + ((globalPos.X-r.clientBaseArea.X1)/util.Chunk2D.X)*util.Chunk2D.X,
+		Y: r.origin.Y + ((globalPos.Y-r.clientBaseArea.Y1)/util.Chunk2D.Y)*util.Chunk2D.Y,
 		Z: r.origin.Z,
 	}
 
@@ -348,6 +358,8 @@ func (r *RegionManager) refreshRegion() {
 			}
 
 			// compute the relative location of this chunk with respect to the client's base coordinates
+			// since we're iterating +/- relative to the origin, we need to translate each x,y offset so that it's
+			// instead relative to the top-left coordinate
 			chunkRelative := model.Vector2D{
 				X: (util.Chunk2D.X * 2) + (x+util.Chunk2D.X/2)*util.Chunk2D.X,
 				Y: (util.Chunk2D.Y * 2) + (y+util.Chunk2D.Y/2)*util.Chunk2D.Y,
