@@ -209,7 +209,9 @@ func (r *RegionManager) Reconcile() []response.Response {
 		// recompute the state of the tile where the change occurred
 		// TODO: can this be optimized to only update the tile itself?
 		newState := r.computeChunk(chunkOrigin, chunkRelative)
-		if newState != nil {
+		if newState == nil {
+			delete(r.chunkStates, chunkOrigin)
+		} else {
 			r.chunkStates[chunkOrigin] = newState
 		}
 
