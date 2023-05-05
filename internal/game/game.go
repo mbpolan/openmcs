@@ -395,7 +395,9 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	// FIXME: this should be done in the game loop
 	rg := util.RegionOriginToGlobal(regionOrigin)
 	mapUpdates := g.mapManager.State(rg, model.BoundaryNone)
-	pe.PlanEvent(NewSendMultipleResponsesEvent(mapUpdates, time.Now()))
+	if len(mapUpdates) > 0 {
+		pe.PlanEvent(NewSendMultipleResponsesEvent(mapUpdates, time.Now()))
+	}
 
 	// plan an update to the client sidebar interfaces
 	pe.PlanEvent(NewEventWithType(EventUpdateTabInterfaces, time.Now()))
@@ -640,14 +642,15 @@ func (g *Game) loadAssets(assetDir string) error {
 	}
 
 	// FIXME: spawn some ground items for testing
-	//g.worldMap.Tile(model.Vector3D{X: 3076, Y: 3080}).AddItem(54)
-	g.worldMap.Tile(model.Vector3D{X: 3152, Y: 3344}).AddItem(54)
-	g.worldMap.Tile(model.Vector3D{X: 3255, Y: 3344}).AddItem(54)
-	g.worldMap.Tile(model.Vector3D{X: 3152, Y: 3447}).AddItem(54)
-	g.worldMap.Tile(model.Vector3D{X: 3255, Y: 3447}).AddItem(54)
+	g.worldMap.Tile(model.Vector3D{X: 3209, Y: 3429}).AddItem(54)
 
-	g.worldMap.Tile(model.Vector3D{X: 3213, Y: 3423}).AddItem(54)
-	g.worldMap.Tile(model.Vector3D{X: 3213, Y: 3424}).AddItem(1187)
+	//g.worldMap.Tile(model.Vector3D{X: 3152, Y: 3344}).AddItem(54)
+	//g.worldMap.Tile(model.Vector3D{X: 3255, Y: 3344}).AddItem(54)
+	//g.worldMap.Tile(model.Vector3D{X: 3152, Y: 3447}).AddItem(54)
+	//g.worldMap.Tile(model.Vector3D{X: 3255, Y: 3447}).AddItem(54)
+
+	//g.worldMap.Tile(model.Vector3D{X: 3213, Y: 3423}).AddItem(54)
+	//g.worldMap.Tile(model.Vector3D{X: 3213, Y: 3424}).AddItem(249)
 
 	//g.worldMap.Tile(model.Vector3D{X: 3242, Y: 3429}).AddItem(1052)
 	//g.worldMap.Tile(model.Vector3D{X: 3243, Y: 3429}).AddItem(1187)
@@ -959,7 +962,9 @@ func (g *Game) handleGameUpdate() error {
 
 				// send the map state for the new region
 				state := g.mapManager.State(util.RegionOriginToGlobal(origin), boundary)
-				pe.PlanEvent(NewSendMultipleResponsesEvent(state, time.Now()))
+				if len(state) > 0 {
+					pe.PlanEvent(NewSendMultipleResponsesEvent(state, time.Now()))
+				}
 
 				// mark this as the current region the player's client has loaded
 				pe.regionOrigin = origin
