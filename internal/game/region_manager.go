@@ -25,26 +25,46 @@ type changeDelta struct {
 
 // chunkState is a container for the state of a particular chunk.
 type chunkState struct {
+	// boundary defines which boundary of the region this chunk lies on, if any.
 	boundary model.Boundary
-	state    response.Response
+	// state is the current state of the chunk.
+	state response.Response
+	// relative is the offset of this chunk relative to the region origin.
+	relative model.Vector2D
 }
 
 // RegionManager is responsible for tracking the state of a single, 2D region on the world map. A region is defined by
 // a square of size util.Region3D centered about an origin, plus additional tiles on each boundary equal to
 // util.Chunk2D * 2. Therefore, the entire span of tiles for a RegionManager is util.Area2D.
 type RegionManager struct {
-	changeChan       chan model.Vector3D
-	doneChan         chan bool
-	resetChan        chan bool
-	origin           model.Vector3D
-	clientBaseArea   model.Rectangle
+	// changeChan is a channel used to write changeDelta instances to.
+	changeChan chan model.Vector3D
+	// doneChan is a channel used to terminate the RegionManager's internal goroutines.
+	doneChan chan bool
+	// resetChan is a channel used to inform the RegionManager that a change has occurred and should be processed.
+	resetChan chan bool
+	// origin is the position, in global coordinates, at the center of the region.
+	origin model.Vector3D
+	// clientBaseRegion is the top-left position, in global coordinates, of the region plus area padding relative to
+	// the client's base coordinates.
+	clientBaseArea model.Rectangle
+	// clientBaseRegion is the top-left position, in global coordinates, of the region relative to the client's
+	// base coordinates.
 	clientBaseRegion model.Rectangle
-	worldMap         *model.Map
-	state            []*chunkState
-	chunkStates      map[model.Vector3D]*chunkState
-	pendingEvents    []*changeDelta
-	scheduler        *Scheduler
-	mu               sync.Mutex
+	// worldMap is a pointer to the parent model.Map model.
+	worldMap *model.Map
+	// state is a memoized slice of each chunk's state.
+	state []*chunkState
+	// chunkRelative is a map of chunk origins, in global coordinates, to their offsets from the region origin.
+	chunkRelative map[model.Vector3D]model.Vector2D
+	// chunkStates is a map of chunk origins, in global coordinates, to their last computed state.
+	chunkStates map[model.Vector3D]*chunkState
+	// pendingEvents is a slice of deltas that have occurred to this region's state that need to be reconciled.
+	pendingEvents []*changeDelta
+	// scheduler is used to track and plan ad-hoc changes to the region's state.
+	scheduler *Scheduler
+	// mu is a mutex for volatile struct fields.
+	mu sync.Mutex
 }
 
 // NewRegionManager creates a manager for a 2D region of the map centered around an origin in global coordinates.
@@ -55,23 +75,24 @@ func NewRegionManager(origin model.Vector3D, m *model.Map, changeChan chan model
 	// compute the top-left coordinates of the region, including the area padding relative to client base coordinates
 	clientBaseArea := model.Rectangle{
 		X1: origin.X - (util.Area2D.X/2)*util.Chunk2D.X,
-		Y1: origin.Y - (util.Area2D.Y/2)*util.Chunk2D.Y,
-		X2: origin.X + (util.Area2D.X/2)*util.Chunk2D.X - 1,
-		Y2: origin.Y + (util.Area2D.Y/2)*util.Chunk2D.Y - 1,
+		Y1: origin.Y + ((util.Area2D.Y/2)+1)*util.Chunk2D.Y,
+		X2: origin.X + ((util.Area2D.X/2)+1)*util.Chunk2D.X,
+		Y2: origin.Y - (util.Area2D.Y/2)*util.Chunk2D.Y,
 	}
 
 	// compute the top-left coordinates of the region, not including area padding relative to client base coordinates
 	clientBaseRegion := model.Rectangle{
 		X1: origin.X - (util.Chunk2D.X/2)*util.Chunk2D.X,
-		Y1: origin.Y - (util.Chunk2D.Y/2)*util.Chunk2D.Y,
-		X2: origin.X + ((util.Chunk2D.X / 2) * util.Chunk2D.X) - 1,
-		Y2: origin.Y + ((util.Chunk2D.Y / 2) * util.Chunk2D.Y) - 1,
+		Y1: origin.Y + ((util.Chunk2D.Y/2)+1)*util.Chunk2D.Y,
+		X2: origin.X + ((util.Chunk2D.X/2)+1)*util.Chunk2D.X,
+		Y2: origin.Y - (util.Chunk2D.Y/2)*util.Chunk2D.Y,
 	}
 
 	mgr := &RegionManager{
 		changeChan:       changeChan,
 		doneChan:         make(chan bool, 1),
 		resetChan:        make(chan bool, 1),
+		chunkRelative:    map[model.Vector3D]model.Vector2D{},
 		chunkStates:      map[model.Vector3D]*chunkState{},
 		origin:           origin,
 		clientBaseArea:   clientBaseArea,
@@ -105,7 +126,7 @@ func (r *RegionManager) Contains(globalPos model.Vector3D) bool {
 func (r *RegionManager) State(trim model.Boundary) []response.Response {
 	var state []response.Response
 	for _, st := range r.state {
-		if st.boundary&trim != 0 || st.state == nil {
+		if st.state == nil || st.boundary&trim != 0 {
 			continue
 		}
 
@@ -178,10 +199,7 @@ func (r *RegionManager) Reconcile() []response.Response {
 
 	for _, e := range r.pendingEvents {
 		chunkOrigin, tileRelative := r.globalToChunkOriginAndRelative(e.globalPos)
-		chunkRelative := model.Vector2D{
-			X: chunkOrigin.X - r.clientBaseArea.X1,
-			Y: chunkOrigin.Y - r.clientBaseArea.Y1,
-		}
+		chunkRelative := r.chunkRelative[chunkOrigin]
 
 		switch e.eventType {
 		case changeEventAddGroundItem:
@@ -193,9 +211,11 @@ func (r *RegionManager) Reconcile() []response.Response {
 			// recompute the state of the tile the item was added to
 			// TODO: can this be optimized to only update the tile itself?
 			newState := r.computeChunk(chunkOrigin, chunkRelative)
+			if newState != nil {
+				r.chunkStates[chunkOrigin] = newState
+			}
 
 			// since this chunk's state might have changed, we need to synchronize the region's memoized state
-			r.chunkStates[chunkOrigin] = newState
 			r.syncOverallState()
 
 		case changeEventRemoveGroundItem:
@@ -293,9 +313,9 @@ func (r *RegionManager) boundaryForChunk(origin model.Vector3D) model.Boundary {
 		boundary |= model.BoundaryEast
 	}
 
-	if origin.Y < r.clientBaseRegion.Y2-util.Chunk2D.X {
+	if origin.Y < r.clientBaseRegion.Y2+util.Chunk2D.X {
 		boundary |= model.BoundarySouth
-	} else if origin.Y >= r.clientBaseRegion.Y1+util.Chunk2D.X {
+	} else if origin.Y >= r.clientBaseRegion.Y1-util.Chunk2D.X {
 		boundary |= model.BoundaryNorth
 	}
 
@@ -306,15 +326,15 @@ func (r *RegionManager) boundaryForChunk(origin model.Vector3D) model.Boundary {
 // in global coordinates and a relative offset to that position from said origin.
 func (r *RegionManager) globalToChunkOriginAndRelative(globalPos model.Vector3D) (model.Vector3D, model.Vector2D) {
 	chunkOrigin := model.Vector3D{
-		X: r.origin.X + ((globalPos.X-r.clientBaseArea.X1)/util.Chunk2D.X)*util.Chunk2D.X,
-		Y: r.origin.Y + ((globalPos.Y-r.clientBaseArea.Y1)/util.Chunk2D.Y)*util.Chunk2D.Y,
+		X: r.origin.X + ((globalPos.X-r.origin.X)/util.Chunk2D.X)*util.Chunk2D.X,
+		Y: r.origin.Y + ((globalPos.Y-r.origin.Y)/util.Chunk2D.Y)*util.Chunk2D.Y,
 		Z: r.origin.Z,
 	}
 
 	// compute the relative offsets to the tile with respect to the chunk origin
 	relative := model.Vector2D{
-		X: globalPos.X - chunkOrigin.X,
-		Y: globalPos.Y - chunkOrigin.Y,
+		X: util.Abs(globalPos.X - chunkOrigin.X),
+		Y: util.Abs(globalPos.Y - chunkOrigin.Y),
 	}
 
 	return chunkOrigin, relative
@@ -365,6 +385,8 @@ func (r *RegionManager) refreshRegion() {
 				Y: (util.Chunk2D.Y * 2) + (y+util.Chunk2D.Y/2)*util.Chunk2D.Y,
 			}
 
+			r.chunkRelative[chunkOrigin] = chunkRelative
+
 			// compute the state of this chunk and add it to the overall region state
 			state := r.computeChunk(chunkOrigin, chunkRelative)
 			if state == nil {
@@ -405,18 +427,20 @@ func (r *RegionManager) computeChunk(chunkOriginGlobal model.Vector3D, chunkRela
 
 			// compute the state of the tile
 			tileState := r.computeTile(tilePos, tileRelative)
-			if tileState != nil {
+			if len(tileState) > 0 {
 				batched = append(batched, tileState...)
 			}
 		}
 	}
 
-	if batched == nil {
+	// only compute the state if there is at least one tile with state
+	if len(batched) == 0 {
 		return nil
 	}
 
 	return &chunkState{
 		boundary: boundary,
+		relative: chunkRelative,
 		state:    response.NewBatchResponse(chunkRelative, batched),
 	}
 }
