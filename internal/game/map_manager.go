@@ -73,26 +73,42 @@ func (m *MapManager) State(origin model.Vector3D, trim model.Boundary) []respons
 // AddGroundItem adds a ground item to the top of a tile with an optional timeout (in seconds) when that item should
 // automatically be removed.
 func (m *MapManager) AddGroundItem(itemID int, timeoutSeconds *int, globalPos model.Vector3D) {
-	regions := m.findOverlappingRegions(globalPos)
+	tile := m.worldMap.Tile(globalPos)
+	if tile == nil {
+		return
+	}
 
+	// add the item to the tile
+	instanceUUID := tile.AddItem(itemID)
+
+	// find each region manager that is aware of this tile and inform them about the change
+	regions := m.findOverlappingRegions(globalPos)
 	for _, origin := range regions {
 		region := m.regions[origin]
 
-		region.AddGroundItem(itemID, timeoutSeconds, globalPos)
+		region.MarkGroundItemAdded(instanceUUID, itemID, timeoutSeconds, globalPos)
 		m.addPendingRegion(origin)
 	}
 }
 
+// ClearGroundItems removes all ground items on a tile.
 func (m *MapManager) ClearGroundItems(globalPos model.Vector3D) {
-	region := util.GlobalToRegionGlobal(globalPos)
-
-	mgr, ok := m.regions[region]
-	if !ok {
+	tile := m.worldMap.Tile(globalPos)
+	if tile == nil {
 		return
 	}
 
-	mgr.ClearGroundItems(globalPos)
-	m.addPendingRegion(region)
+	itemIDs := tile.GroundItemIDs()
+	tile.Clear()
+
+	// find each region manager that is aware of this tile and inform them about the change
+	regions := m.findOverlappingRegions(globalPos)
+	for _, origin := range regions {
+		region := m.regions[origin]
+
+		region.MarkGroundItemsCleared(itemIDs, globalPos)
+		m.addPendingRegion(origin)
+	}
 }
 
 // WarmUp computes the initial state of the world map. This should generally be called only once before the game state

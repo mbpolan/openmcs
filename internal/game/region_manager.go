@@ -1,6 +1,7 @@
 package game
 
 import (
+	"github.com/google/uuid"
 	"github.com/mbpolan/openmcs/internal/model"
 	"github.com/mbpolan/openmcs/internal/network/response"
 	"github.com/mbpolan/openmcs/internal/util"
@@ -136,15 +137,9 @@ func (r *RegionManager) State(trim model.Boundary) []response.Response {
 	return state
 }
 
-// AddGroundItem adds a ground item to a tile with an optional timeout when the item should be removed.
-func (r *RegionManager) AddGroundItem(itemID int, timeoutSeconds *int, globalPos model.Vector3D) {
-	tile := r.worldMap.Tile(globalPos)
-	if tile == nil {
-		return
-	}
-
-	// add the item to the tile, and schedule a timeout to remove it if an expiration was passed
-	instanceUUID := tile.AddItem(itemID)
+// MarkGroundItemAdded informs the region manager that a ground item was placed on a tile, with an optional timeout when
+// the item should be removed.
+func (r *RegionManager) MarkGroundItemAdded(instanceUUID uuid.UUID, itemID int, timeoutSeconds *int, globalPos model.Vector3D) {
 	if timeoutSeconds != nil {
 		timeout := *timeoutSeconds
 
@@ -166,20 +161,12 @@ func (r *RegionManager) AddGroundItem(itemID int, timeoutSeconds *int, globalPos
 	})
 }
 
-// ClearGroundItems removes all ground items on a tile.
-func (r *RegionManager) ClearGroundItems(globalPos model.Vector3D) {
-	tile := r.worldMap.Tile(globalPos)
-	if tile == nil {
-		return
-	}
-
-	existingItemIDs := tile.GroundItemIDs()
-	tile.Clear()
-
+// MarkGroundItemsCleared informs the region manager that all ground items on a tile have been removed.
+func (r *RegionManager) MarkGroundItemsCleared(itemIDs []int, globalPos model.Vector3D) {
 	r.addDelta(&changeDelta{
 		eventType: changeEventRemoveGroundItem,
 		globalPos: globalPos,
-		itemIDs:   existingItemIDs,
+		itemIDs:   itemIDs,
 	})
 }
 
