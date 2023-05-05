@@ -198,6 +198,7 @@ func (r *RegionManager) Reconcile() []response.Response {
 	updates := map[model.Vector2D][]response.Response{}
 
 	for _, e := range r.pendingEvents {
+		// find the chunk where this change occurred
 		chunkOrigin, tileRelative := r.globalToChunkOriginAndRelative(e.globalPos)
 		chunkRelative := r.chunkRelative[chunkOrigin]
 
@@ -208,30 +209,25 @@ func (r *RegionManager) Reconcile() []response.Response {
 				updates[chunkRelative] = append(updates[chunkRelative], response.NewShowGroundItemResponse(itemID, 1, tileRelative))
 			}
 
-			// recompute the state of the tile the item was added to
-			// TODO: can this be optimized to only update the tile itself?
-			newState := r.computeChunk(chunkOrigin, chunkRelative)
-			if newState != nil {
-				r.chunkStates[chunkOrigin] = newState
-			}
-
-			// since this chunk's state might have changed, we need to synchronize the region's memoized state
-			r.syncOverallState()
-
 		case changeEventRemoveGroundItem:
 			// one or more ground items on a tile were removed
-			//for _, itemID := range e.itemIDs {
-			//	updates[chunkLocal] = append(updates[chunkLocal], response.NewRemoveGroundItemResponse(itemID, tileRelative))
-			//}
+			for _, itemID := range e.itemIDs {
+				updates[chunkRelative] = append(updates[chunkRelative], response.NewRemoveGroundItemResponse(itemID, tileRelative))
+			}
 
-			// recompute the state of the tile the item was added to
-			// TODO: can this be optimized to only update the tile itself?
-			//chunkState := r.computeChunk(chunkOrigin)
-
-			// since this chunk's state might have changed, we need to synchronize the region's memoized state
-			//r.chunkStates[chunkOrigin] = chunkState
-			r.syncOverallState()
+		default:
+			continue
 		}
+
+		// recompute the state of the tile where the change occurred
+		// TODO: can this be optimized to only update the tile itself?
+		newState := r.computeChunk(chunkOrigin, chunkRelative)
+		if newState != nil {
+			r.chunkStates[chunkOrigin] = newState
+		}
+
+		// since this chunk's state might have changed, we need to synchronize the region's memoized state
+		r.syncOverallState()
 	}
 
 	// clear out all pending events
