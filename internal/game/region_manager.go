@@ -38,6 +38,8 @@ type chunkState struct {
 // a square of size util.Region3D centered about an origin, plus additional tiles on each boundary equal to
 // util.Chunk2D * 2. Therefore, the entire span of tiles for a RegionManager is util.Area2D.
 type RegionManager struct {
+	// initialized flags if the RegionManager has performed an initial state update.
+	initialized bool
 	// changeChan is a channel used to write changeDelta instances to.
 	changeChan chan model.Vector3D
 	// doneChan is a channel used to terminate the RegionManager's internal goroutines.
@@ -174,7 +176,8 @@ func (r *RegionManager) MarkGroundItemsCleared(itemIDs []int, globalPos model.Ve
 // messages will be returned that should be dispatched to players in the region.
 func (r *RegionManager) Reconcile() []response.Response {
 	// perform an initial state update
-	if r.state == nil {
+	if !r.initialized {
+		r.initialized = true
 		r.refreshRegion()
 		return nil
 	}
