@@ -57,9 +57,25 @@ func (t *Tile) GroundItemIDs() []int {
 	return ids
 }
 
-// RemoveItem removes a ground item that matches the instance UUID. If the item was found and removed, its item ID will
+// RemoveItemByID removes the first ground item that matches the item ID. If the item was found and removed, true will
+// be returned. If there are multiple ground items with the same item ID, only the first will be removed.
+func (t *Tile) RemoveItemByID(id int) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	for i, item := range t.groundItems {
+		if item.ItemID == id {
+			t.groundItems = append(t.groundItems[:i], t.groundItems[i+1:]...)
+			return true
+		}
+	}
+
+	return false
+}
+
+// RemoveItemByInstanceUUID removes a ground item that matches the instance UUID. If the item was found and removed, its item ID will
 // be returned.
-func (t *Tile) RemoveItem(instanceUUID uuid.UUID) *int {
+func (t *Tile) RemoveItemByInstanceUUID(instanceUUID uuid.UUID) *int {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 

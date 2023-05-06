@@ -8,6 +8,25 @@ import (
 	"time"
 )
 
+// pendingActionType enumerates deferred actions that a player can take.
+type pendingActionType int
+
+const (
+	pendingActionTakeGroundItem pendingActionType = iota
+)
+
+// pendingAction is a deferred action that a player has requested be done.
+type pendingAction struct {
+	actionType     pendingActionType
+	takeGroundItem *takeGroundItemAction
+}
+
+// takeGroundItemAction is an action to pick up a ground item that should occur at a position.
+type takeGroundItemAction struct {
+	globalPos model.Vector3D
+	itemID    int
+}
+
 // playerEntity represents a player and their state while they are logged into the game world.
 type playerEntity struct {
 	lastInteraction     time.Time
@@ -30,6 +49,7 @@ type playerEntity struct {
 	regionOrigin        model.Vector2D
 	nextStatusBroadcast *playerStatusBroadcast
 	nextUpdate          *response.PlayerUpdateResponse
+	deferredAction      *pendingAction
 	mu                  sync.Mutex
 }
 
@@ -68,6 +88,18 @@ func (pe *playerEntity) MarkStatusBroadcastTarget(target string) {
 	}
 
 	pe.nextStatusBroadcast.targets = append(pe.nextStatusBroadcast.targets, target)
+}
+
+// DeferTakeGroundItemAction sets the player's pending action to pick up a specific ground item at a position, in
+// global coordinates. This will overwrite any previously deferred action.
+func (pe *playerEntity) DeferTakeGroundItemAction(itemID int, globalPos model.Vector3D) {
+	pe.deferredAction = &pendingAction{
+		actionType: pendingActionTakeGroundItem,
+		takeGroundItem: &takeGroundItemAction{
+			globalPos: globalPos,
+			itemID:    itemID,
+		},
+	}
 }
 
 // MoveDirection returns the direction the player is currently moving in. If the player is not moving, then

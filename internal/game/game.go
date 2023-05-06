@@ -437,10 +437,18 @@ func (g *Game) RemovePlayer(p *model.Player) {
 	g.removePlayers = append(g.removePlayers, pe)
 }
 
-// TakeGroundItem handles a player's request to pick up a ground item at a position, in global coordinates.
-func (g *Game) TakeGroundItem(p *model.Player, itemID int, globalPos model.Vector2D) {
-	// TODO
-	logger.Debugf("player %s takes ground item %d at %s", p.Username, itemID, globalPos)
+// DoTakeGroundItem handles a player's request to pick up a ground item at a position, in global coordinates.
+func (g *Game) DoTakeGroundItem(p *model.Player, itemID int, globalPos model.Vector2D) {
+	pe := g.findPlayer(p)
+	if pe == nil {
+		return
+	}
+
+	pe.mu.Lock()
+	defer pe.mu.Unlock()
+
+	// defer this action since the player might need to walk to the position of the item
+	pe.DeferTakeGroundItemAction(itemID, globalPos.To3D(pe.player.GlobalPos.Z))
 }
 
 // broadcastPlayerStatus sends updates to other players that have them on their friends lists. An optional list of
@@ -972,6 +980,24 @@ func (g *Game) handleGameUpdate() error {
 				// mark this as the current region the player's client has loaded
 				pe.regionOrigin = origin
 				hasChangedRegions = true
+			}
+		}
+
+		// handle a deferred action for the player
+		if pe.deferredAction != nil {
+			action := pe.deferredAction
+
+			switch action.actionType {
+			case pendingActionTakeGroundItem:
+				// pick up a ground item only if the player has reached the position of that item
+				if pe.player.GlobalPos != action.takeGroundItem.globalPos {
+					break
+				}
+
+				// remove the ground item if it still exists, and allow the next reconciliation to take care of
+				// updating the state of the map
+				g.mapManager.RemoveGroundItem(action.takeGroundItem.itemID, action.takeGroundItem.globalPos)
+				pe.deferredAction = nil
 			}
 		}
 

@@ -272,7 +272,7 @@ func (r *RegionManager) handleNextEvent() {
 		}
 
 		// attempt to remove the item if it still exists
-		itemID := tile.RemoveItem(event.InstanceUUID)
+		itemID := tile.RemoveItemByInstanceUUID(event.InstanceUUID)
 		if itemID == nil {
 			return
 		}

@@ -91,6 +91,31 @@ func (m *MapManager) AddGroundItem(itemID int, timeoutSeconds *int, globalPos mo
 	}
 }
 
+// RemoveGroundItem attempts to remove a ground item with the given ID at a position, in global coordinates. If the item
+// was found and removed, true will be returned.
+func (m *MapManager) RemoveGroundItem(itemID int, globalPos model.Vector3D) bool {
+	tile := m.worldMap.Tile(globalPos)
+	if tile == nil {
+		return false
+	}
+
+	// attempt to remove the ground item, if it still exists on this tile
+	if !tile.RemoveItemByID(itemID) {
+		return false
+	}
+
+	// find each region manager that is aware of this tile and inform them about the change
+	regions := m.findOverlappingRegions(globalPos)
+	for _, origin := range regions {
+		region := m.regions[origin]
+
+		region.MarkGroundItemsCleared([]int{itemID}, globalPos)
+		m.addPendingRegion(origin)
+	}
+
+	return true
+}
+
 // ClearGroundItems removes all ground items on a tile.
 func (m *MapManager) ClearGroundItems(globalPos model.Vector3D) {
 	tile := m.worldMap.Tile(globalPos)

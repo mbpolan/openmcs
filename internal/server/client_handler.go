@@ -322,7 +322,7 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 		// the player tried to pick up a ground item
 		req, err := request.ReadTakeGroundItemRequest(c.reader)
 		if err == nil {
-			c.game.TakeGroundItem(c.player, req.ItemID, req.GlobalPos)
+			c.game.DoTakeGroundItem(c.player, req.ItemID, req.GlobalPos)
 		}
 
 	case request.AddFriendRequestHeader:
