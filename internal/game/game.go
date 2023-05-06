@@ -642,12 +642,10 @@ func (g *Game) loadAssets(assetDir string) error {
 	}
 
 	// FIXME: spawn some ground items for testing
-	g.worldMap.Tile(model.Vector3D{X: 3209, Y: 3429}).AddItem(54)
+	g.worldMap.Tile(model.Vector3D{X: 3209, Y: 3433}).AddItem(2)
+	g.worldMap.Tile(model.Vector3D{X: 3209, Y: 3432}).AddItem(1)
 
-	//g.worldMap.Tile(model.Vector3D{X: 3152, Y: 3344}).AddItem(54)
-	//g.worldMap.Tile(model.Vector3D{X: 3255, Y: 3344}).AddItem(54)
-	//g.worldMap.Tile(model.Vector3D{X: 3152, Y: 3447}).AddItem(54)
-	//g.worldMap.Tile(model.Vector3D{X: 3255, Y: 3447}).AddItem(54)
+	//g.worldMap.Tile(model.Vector3D{X: 3209, Y: 3429}).AddItem(54)
 
 	//g.worldMap.Tile(model.Vector3D{X: 3213, Y: 3423}).AddItem(54)
 	//g.worldMap.Tile(model.Vector3D{X: 3213, Y: 3424}).AddItem(249)
@@ -670,10 +668,9 @@ func (g *Game) findEffectiveRegion(pe *playerEntity) model.Vector2D {
 	base := util.RegionGlobalToClientBase(regionGlobal)
 
 	// compute the ending bounds of the area the client knows about, relative to the client base coordinates
-	baseBound := model.Vector3D{
+	baseBound := model.Vector2D{
 		X: base.X + util.ClientChunkArea2D.X*util.Chunk2D.X,
 		Y: base.Y + util.ClientChunkArea2D.Y*util.Chunk2D.Y,
-		Z: 0,
 	}
 
 	regionOrigin := util.GlobalToRegionOrigin(regionGlobal).To2D()
@@ -979,7 +976,7 @@ func (g *Game) handleGameUpdate() error {
 		}
 
 		// is this player in a region that has map updates? only send updates if they have not left this region
-		regionGlobal := util.GlobalToRegionGlobal(pe.player.GlobalPos)
+		regionGlobal := util.RegionOriginToGlobal(g.findEffectiveRegion(pe))
 		if updates, ok := mapUpdates[regionGlobal]; ok && !hasChangedRegions {
 			pe.PlanEvent(NewSendMultipleResponsesEvent(updates, time.Now()))
 		}

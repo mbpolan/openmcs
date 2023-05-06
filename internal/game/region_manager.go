@@ -5,6 +5,7 @@ import (
 	"github.com/mbpolan/openmcs/internal/model"
 	"github.com/mbpolan/openmcs/internal/network/response"
 	"github.com/mbpolan/openmcs/internal/util"
+	"math"
 	"sync"
 	"time"
 )
@@ -295,13 +296,13 @@ func (r *RegionManager) boundaryForChunk(origin model.Vector3D) model.Boundary {
 	// determine if this chunk falls into the area padding around the region. we also need to add another chunk's
 	// worth of padding since the client renders extra tiles further ahead of said boundary
 	boundary := model.BoundaryNone
-	if origin.X < r.clientBaseRegion.X1-util.Chunk2D.X {
+	if origin.X <= r.clientBaseRegion.X1-util.Chunk2D.X {
 		boundary |= model.BoundaryWest
 	} else if origin.X >= r.clientBaseRegion.X2+util.Chunk2D.X {
 		boundary |= model.BoundaryEast
 	}
 
-	if origin.Y < r.clientBaseRegion.Y2+util.Chunk2D.X {
+	if origin.Y <= r.clientBaseRegion.Y2+util.Chunk2D.X {
 		boundary |= model.BoundarySouth
 	} else if origin.Y >= r.clientBaseRegion.Y1-util.Chunk2D.X {
 		boundary |= model.BoundaryNorth
@@ -313,9 +314,12 @@ func (r *RegionManager) boundaryForChunk(origin model.Vector3D) model.Boundary {
 // globalToChunkOriginAndRelative translates a position in global coordinates to the origin of the containing chunk,
 // in global coordinates and a relative offset to that position from said origin.
 func (r *RegionManager) globalToChunkOriginAndRelative(globalPos model.Vector3D) (model.Vector3D, model.Vector2D) {
+	dx := math.Floor(float64(globalPos.X-r.origin.X) / float64(util.Chunk2D.X))
+	dy := math.Floor(float64(globalPos.Y-r.origin.Y) / float64(util.Chunk2D.Y))
+
 	chunkOrigin := model.Vector3D{
-		X: r.origin.X + ((globalPos.X-r.origin.X)/util.Chunk2D.X)*util.Chunk2D.X,
-		Y: r.origin.Y + ((globalPos.Y-r.origin.Y)/util.Chunk2D.Y)*util.Chunk2D.Y,
+		X: r.origin.X + int(dx)*util.Chunk2D.X,
+		Y: r.origin.Y + int(dy)*util.Chunk2D.Y,
 		Z: r.origin.Z,
 	}
 
@@ -392,7 +396,6 @@ func (r *RegionManager) refreshRegion() {
 // then a nil will be returned instead.
 func (r *RegionManager) computeChunk(chunkOriginGlobal model.Vector3D, chunkRelative model.Vector2D) *chunkState {
 	var batched []response.Response
-	boundary := r.boundaryForChunk(chunkOriginGlobal)
 
 	for x := 0; x < util.Chunk2D.X; x++ {
 		for y := 0; y < util.Chunk2D.Y; y++ {
@@ -426,10 +429,13 @@ func (r *RegionManager) computeChunk(chunkOriginGlobal model.Vector3D, chunkRela
 		return nil
 	}
 
+	boundary := r.boundaryForChunk(chunkOriginGlobal)
+	state := response.NewBatchResponse(chunkRelative, batched)
+
 	return &chunkState{
 		boundary: boundary,
 		relative: chunkRelative,
-		state:    response.NewBatchResponse(chunkRelative, batched),
+		state:    state,
 	}
 }
 
