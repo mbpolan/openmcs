@@ -24,7 +24,7 @@ type pendingAction struct {
 // takeGroundItemAction is an action to pick up a ground item that should occur at a position.
 type takeGroundItemAction struct {
 	globalPos model.Vector3D
-	itemID    int
+	item      *model.Item
 }
 
 // playerEntity represents a player and their state while they are logged into the game world.
@@ -92,12 +92,12 @@ func (pe *playerEntity) MarkStatusBroadcastTarget(target string) {
 
 // DeferTakeGroundItemAction sets the player's pending action to pick up a specific ground item at a position, in
 // global coordinates. This will overwrite any previously deferred action.
-func (pe *playerEntity) DeferTakeGroundItemAction(itemID int, globalPos model.Vector3D) {
+func (pe *playerEntity) DeferTakeGroundItemAction(item *model.Item, globalPos model.Vector3D) {
 	pe.deferredAction = &pendingAction{
 		actionType: pendingActionTakeGroundItem,
 		takeGroundItem: &takeGroundItemAction{
 			globalPos: globalPos,
-			itemID:    itemID,
+			item:      item,
 		},
 	}
 }

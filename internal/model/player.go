@@ -10,11 +10,20 @@ type PlayerType int
 // NumPlayerSkills is the number of available player skills.
 const NumPlayerSkills = 21
 
+// MaxInventorySlots is the maximum number of inventory slots.
+const MaxInventorySlots = 28
+
 const (
 	PlayerNormal PlayerType = iota
 	PlayerModerator
 	PlayerAdmin
 )
+
+// InventorySlot is an item stored in a player's inventory.
+type InventorySlot struct {
+	Item   *Item
+	Amount int
+}
 
 // Player is a human player connected to the game server. This struct stores a player's persistent data, including
 // various preferences, game world properties and other such attributes.
@@ -31,6 +40,7 @@ type Player struct {
 	Friends      []string
 	Ignored      []string
 	Skills       SkillMap
+	Inventory    [MaxInventorySlots]*InventorySlot
 }
 
 // PlayerModes indicates what types of chat and interactions a player wishes to receive.
@@ -69,6 +79,38 @@ func NewPlayer(username string) *Player {
 func (p *Player) SetSkill(skill *Skill) {
 	p.Skills[skill.Type] = skill
 	p.recomputeSkills()
+}
+
+// SetInventoryItem puts an item in a slot of the player's inventory. This will replace any existing items at that slot.
+func (p *Player) SetInventoryItem(item *Item, amount, slot int) {
+	p.Inventory[slot] = &InventorySlot{
+		Item:   item,
+		Amount: amount,
+	}
+}
+
+// InventorySlotWithItem returns the slot that contains an item with an ID. If no slot contains such an item, then
+// nil will be returned.
+func (p *Player) InventorySlotWithItem(itemID int) *InventorySlot {
+	for _, slot := range p.Inventory {
+		if slot != nil && slot.Item.ID == itemID {
+			return slot
+		}
+	}
+
+	return nil
+}
+
+// NextFreeInventorySlot returns the ID of the next available slot in the player's inventory. If no slot is free, -1
+// will be returned.
+func (p *Player) NextFreeInventorySlot() int {
+	for i, item := range p.Inventory {
+		if item == nil {
+			return i
+		}
+	}
+
+	return -1
 }
 
 // HasFriend determines if the given player username is on this player's friends list.

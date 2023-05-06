@@ -56,6 +56,15 @@ func (w *ProtocolWriter) WriteUint8(n uint8) error {
 	return nil
 }
 
+// WriteVarByte writes either a single, unsigned byte or two unsigned bytes depending on the value.
+func (w *ProtocolWriter) WriteVarByte(n uint16) error {
+	if n < 0x80 {
+		return w.WriteUint8(uint8(n))
+	}
+
+	return w.WriteUint16(n + 0x8000)
+}
+
 // WriteUint16Alt2 writes an unsigned, 16-bit (short) integer using the alternative format.
 func (w *ProtocolWriter) WriteUint16Alt2(n uint16) error {
 	err := w.WriteUint8(byte(n + 0x80))

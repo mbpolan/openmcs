@@ -439,6 +439,19 @@ func (g *Game) RemovePlayer(p *model.Player) {
 
 // DoTakeGroundItem handles a player's request to pick up a ground item at a position, in global coordinates.
 func (g *Game) DoTakeGroundItem(p *model.Player, itemID int, globalPos model.Vector2D) {
+	var targetItem *model.Item
+	for _, item := range g.items {
+		if item.ID == itemID {
+			targetItem = item
+			break
+		}
+	}
+
+	// validate the item is known
+	if targetItem == nil {
+		return
+	}
+
 	pe := g.findPlayer(p)
 	if pe == nil {
 		return
@@ -448,7 +461,7 @@ func (g *Game) DoTakeGroundItem(p *model.Player, itemID int, globalPos model.Vec
 	defer pe.mu.Unlock()
 
 	// defer this action since the player might need to walk to the position of the item
-	pe.DeferTakeGroundItemAction(itemID, globalPos.To3D(pe.player.GlobalPos.Z))
+	pe.DeferTakeGroundItemAction(targetItem, globalPos.To3D(pe.player.GlobalPos.Z))
 }
 
 // broadcastPlayerStatus sends updates to other players that have them on their friends lists. An optional list of
@@ -857,6 +870,32 @@ func (g *Game) removeFromList(p *model.Player, username string, friend bool) {
 	}
 }
 
+// addPlayerInventoryItem adds an item to the player's inventory, if there is room, and plans an update to the player's
+// client. The item may or may not be stackable.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) addPlayerInventoryItem(pe *playerEntity, item *model.Item) {
+	if item.Stackable {
+		// TODO
+		return
+	}
+
+	// find the next available slot in the player's inventory, if one exists
+	slot := pe.player.NextFreeInventorySlot()
+	if slot == -1 {
+		pe.PlanEvent(NewSendResponseEvent(response.NewServerMessageResponse("You cannot carry any more items"), time.Now()))
+		return
+	}
+
+	// set the item on the slot
+	pe.player.SetInventoryItem(item, 1, slot)
+
+	// update the player's inventory
+	// FIXME: the interface id should not be hardcoded
+	inventory := response.NewSetInventoryItemResponse(3214)
+	inventory.AddSlot(slot, item.ID, 1)
+	pe.PlanEvent(NewSendResponseEvent(inventory, time.Now()))
+}
+
 // handleGameUpdate performs a game state update.
 // Concurrency requirements: (a) game state should NOT be locked and (b) all players should NOT be locked.
 func (g *Game) handleGameUpdate() error {
@@ -985,18 +1024,21 @@ func (g *Game) handleGameUpdate() error {
 
 		// handle a deferred action for the player
 		if pe.deferredAction != nil {
-			action := pe.deferredAction
-
-			switch action.actionType {
+			switch pe.deferredAction.actionType {
 			case pendingActionTakeGroundItem:
+				action := pe.deferredAction.takeGroundItem
+
 				// pick up a ground item only if the player has reached the position of that item
-				if pe.player.GlobalPos != action.takeGroundItem.globalPos {
+				if pe.player.GlobalPos != action.globalPos {
 					break
 				}
 
 				// remove the ground item if it still exists, and allow the next reconciliation to take care of
 				// updating the state of the map
-				g.mapManager.RemoveGroundItem(action.takeGroundItem.itemID, action.takeGroundItem.globalPos)
+				g.mapManager.RemoveGroundItem(action.item.ID, action.globalPos)
+
+				// add the item to the player's inventory
+				g.addPlayerInventoryItem(pe, action.item)
 				pe.deferredAction = nil
 			}
 		}
