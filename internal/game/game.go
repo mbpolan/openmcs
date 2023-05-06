@@ -437,6 +437,12 @@ func (g *Game) RemovePlayer(p *model.Player) {
 	g.removePlayers = append(g.removePlayers, pe)
 }
 
+// TakeGroundItem handles a player's request to pick up a ground item at a position, in global coordinates.
+func (g *Game) TakeGroundItem(p *model.Player, itemID int, globalPos model.Vector2D) {
+	// TODO
+	logger.Debugf("player %s takes ground item %d at %s", p.Username, itemID, globalPos)
+}
+
 // broadcastPlayerStatus sends updates to other players that have them on their friends lists. An optional list of
 // target player usernames can be passed to limit who receives the update.
 //
@@ -740,7 +746,7 @@ func (g *Game) handleChatCommand(pe *playerEntity, command *ChatCommand) {
 
 	case ChatCommandTypePosition:
 		// send a message containing player's server position on the world map
-		msg := fmt.Sprintf("Position: %d, %d, %d", pe.player.GlobalPos.X, pe.player.GlobalPos.Y, pe.player.GlobalPos.Z)
+		msg := fmt.Sprintf("GlobalPos: %d, %d, %d", pe.player.GlobalPos.X, pe.player.GlobalPos.Y, pe.player.GlobalPos.Z)
 		pe.PlanEvent(NewSendResponseEvent(response.NewServerMessageResponse(msg), time.Now()))
 	}
 }

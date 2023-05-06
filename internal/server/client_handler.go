@@ -318,6 +318,13 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 			c.game.WalkPlayer(c.player, req.Start, req.Waypoints)
 		}
 
+	case request.TakeGroundItemRequestHeader:
+		// the player tried to pick up a ground item
+		req, err := request.ReadTakeGroundItemRequest(c.reader)
+		if err == nil {
+			c.game.TakeGroundItem(c.player, req.ItemID, req.GlobalPos)
+		}
+
 	case request.AddFriendRequestHeader:
 		// the player requested another player be added to their friends list
 		req, err := request.ReadModifyFriendRequest(c.reader)
