@@ -5,38 +5,59 @@ import (
 	"github.com/mbpolan/openmcs/internal/network/response"
 	"github.com/mbpolan/openmcs/internal/util"
 	"sync"
+	"time"
 )
+
+// changeEventType enumerates possible mutation events to a tile.
+type changeEventType int
+
+const (
+	changeEventAddGroundItem changeEventType = iota
+	changeEventRemoveGroundItem
+)
+
+// changeDelta is a mutation to a tile that should be tracked.
+type changeDelta struct {
+	eventType changeEventType
+	globalPos model.Vector3D
+	itemIDs   []int
+}
 
 // MapManager is responsible for managing the state of the entire world map.
 type MapManager struct {
-	changeChan chan model.Vector3D
-	doneChan   chan bool
+	// doneChan is a channel that tracks if the manager should terminate its internal goroutines.
+	doneChan chan bool
+	// resetChan is a channel that forces the manager to rerun its internal goroutines.
+	resetChan chan bool
 	// regions is a map of region origins, in global coordinates, to their managers.
-	regions        map[model.Vector3D]*RegionManager
+	regions map[model.Vector3D]*RegionManager
+	// pendingRegions is a map of region origins, in global coordinates, to flags if they need to be reconciled.
 	pendingRegions map[model.Vector3D]bool
-	worldMap       *model.Map
-	mu             sync.Mutex
+	// scheduler is used to track events on the map.
+	scheduler *Scheduler
+	// worldMap is a pointer to the model.Map that this MapManager is responsible for managing.
+	worldMap *model.Map
+	// mu is used to synchronize access to volatile fields.
+	mu sync.Mutex
 }
 
 // NewMapManager creates a new manager for a world map.
 func NewMapManager(m *model.Map) *MapManager {
 	regions := map[model.Vector3D]*RegionManager{}
-	changeChan := make(chan model.Vector3D, len(m.RegionOrigins))
 
 	// create a region manager for each known region. because each RegionManager spans an area that overlaps with the
 	// regions directly bordering it, certain tiles will fall under the purview of multiple managers.
 	for _, origin := range m.RegionOrigins {
-		mgr := NewRegionManager(origin, m, changeChan)
-		mgr.Start()
-
+		mgr := NewRegionManager(origin, m)
 		regions[origin] = mgr
 	}
 
 	mgr := &MapManager{
-		changeChan:     changeChan,
 		doneChan:       make(chan bool, 1),
+		resetChan:      make(chan bool, 1),
 		pendingRegions: map[model.Vector3D]bool{},
 		regions:        regions,
+		scheduler:      NewScheduler(),
 		worldMap:       m,
 	}
 
@@ -52,10 +73,6 @@ func (m *MapManager) Start() {
 // Stop terminates scheduled events and stops the management of the map.
 func (m *MapManager) Stop() {
 	m.doneChan <- true
-
-	for _, region := range m.regions {
-		region.Stop()
-	}
 }
 
 // State returns the last computed state of a 2D region. The origin should be the region origin in global coordinates,
@@ -81,12 +98,25 @@ func (m *MapManager) AddGroundItem(itemID int, timeoutSeconds *int, globalPos mo
 	// add the item to the tile
 	instanceUUID := tile.AddItem(itemID)
 
+	// if this item has an expiration, schedule an event to remove it after the fact
+	if timeoutSeconds != nil {
+		timeout := *timeoutSeconds
+		m.scheduler.Plan(&Event{
+			Type:         EventRemoveExpiredGroundItem,
+			Schedule:     time.Now().Add(time.Second * time.Duration(timeout)),
+			InstanceUUID: instanceUUID,
+			GlobalPos:    globalPos,
+		})
+
+		m.resetChan <- true
+	}
+
 	// find each region manager that is aware of this tile and inform them about the change
 	regions := m.findOverlappingRegions(globalPos)
 	for _, origin := range regions {
 		region := m.regions[origin]
 
-		region.MarkGroundItemAdded(instanceUUID, itemID, timeoutSeconds, globalPos)
+		region.MarkGroundItemAdded(itemID, globalPos)
 		m.addPendingRegion(origin)
 	}
 }
@@ -223,9 +253,45 @@ func (m *MapManager) loop() {
 			// the processing loop has been shut down
 			run = false
 
-		case region := <-m.changeChan:
-			// a region's state has changed internally; track it for reconciliation
-			m.addPendingRegion(region)
+		case <-m.resetChan:
+			// run another iteration since the scheduler has changed
+
+		case <-time.After(m.scheduler.TimeUntil()):
+			// handle the next scheduled event
+			m.handleNextEvent()
 		}
+	}
+}
+
+// handleNextEvent processes the next scheduled event on the map.
+func (m *MapManager) handleNextEvent() {
+	event := m.scheduler.Next()
+	if event == nil {
+		return
+	}
+
+	switch event.Type {
+	case EventRemoveExpiredGroundItem:
+		// a ground item has expired and should be removed, if it's still on a tile
+		tile := m.worldMap.Tile(event.GlobalPos)
+		if tile == nil {
+			return
+		}
+
+		// attempt to remove the item if it still exists
+		itemID := tile.RemoveItemByInstanceUUID(event.InstanceUUID)
+		if itemID == nil {
+			return
+		}
+
+		// find each region manager that is aware of this tile and inform them about the change
+		regions := m.findOverlappingRegions(event.GlobalPos)
+		for _, origin := range regions {
+			region := m.regions[origin]
+
+			region.MarkGroundItemsCleared([]int{*itemID}, event.GlobalPos)
+			m.addPendingRegion(origin)
+		}
+	default:
 	}
 }

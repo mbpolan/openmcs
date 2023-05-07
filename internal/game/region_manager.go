@@ -1,29 +1,12 @@
 package game
 
 import (
-	"github.com/google/uuid"
 	"github.com/mbpolan/openmcs/internal/model"
 	"github.com/mbpolan/openmcs/internal/network/response"
 	"github.com/mbpolan/openmcs/internal/util"
 	"math"
 	"sync"
-	"time"
 )
-
-// changeEventType enumerates possible mutation events to a tile.
-type changeEventType int
-
-const (
-	changeEventAddGroundItem changeEventType = iota
-	changeEventRemoveGroundItem
-)
-
-// changeDelta is a mutation to a tile that should be tracked.
-type changeDelta struct {
-	eventType changeEventType
-	globalPos model.Vector3D
-	itemIDs   []int
-}
 
 // chunkState is a container for the state of a particular chunk.
 type chunkState struct {
@@ -41,12 +24,6 @@ type chunkState struct {
 type RegionManager struct {
 	// initialized flags if the RegionManager has performed an initial state update.
 	initialized bool
-	// changeChan is a channel used to write changeDelta instances to.
-	changeChan chan model.Vector3D
-	// doneChan is a channel used to terminate the RegionManager's internal goroutines.
-	doneChan chan bool
-	// resetChan is a channel used to inform the RegionManager that a change has occurred and should be processed.
-	resetChan chan bool
 	// origin is the position, in global coordinates, at the center of the region.
 	origin model.Vector3D
 	// clientBaseRegion is the top-left position, in global coordinates, of the region plus area padding relative to
@@ -65,17 +42,13 @@ type RegionManager struct {
 	chunkStates map[model.Vector3D]*chunkState
 	// pendingEvents is a slice of deltas that have occurred to this region's state that need to be reconciled.
 	pendingEvents []*changeDelta
-	// scheduler is used to track and plan ad-hoc changes to the region's state.
-	scheduler *Scheduler
 	// mu is a mutex for volatile struct fields.
 	mu sync.Mutex
 }
 
 // NewRegionManager creates a manager for a 2D region of the map centered around an origin in global coordinates.
-// The z-coordinate will be used to determine which plane of the region this manager will be responsible for. A
-// changeChan will be written to when an internal event causes the state of the region to change, containing the origin
-// of the region this manager is overseeing.
-func NewRegionManager(origin model.Vector3D, m *model.Map, changeChan chan model.Vector3D) *RegionManager {
+// The z-coordinate will be used to determine which plane of the region this manager will be responsible for.
+func NewRegionManager(origin model.Vector3D, m *model.Map) *RegionManager {
 	// compute the top-left coordinates of the region, including the area padding relative to client base coordinates
 	clientBaseArea := model.Rectangle{
 		X1: origin.X - (util.Area2D.X/2)*util.Chunk2D.X,
@@ -93,30 +66,15 @@ func NewRegionManager(origin model.Vector3D, m *model.Map, changeChan chan model
 	}
 
 	mgr := &RegionManager{
-		changeChan:       changeChan,
-		doneChan:         make(chan bool, 1),
-		resetChan:        make(chan bool, 1),
 		chunkRelative:    map[model.Vector3D]model.Vector2D{},
 		chunkStates:      map[model.Vector3D]*chunkState{},
 		origin:           origin,
 		clientBaseArea:   clientBaseArea,
 		clientBaseRegion: clientBaseRegion,
 		worldMap:         m,
-		scheduler:        NewScheduler(),
 	}
 
 	return mgr
-}
-
-// Start begins background routines that monitor for changes to the state of the region. When cleaning up, Stop() should
-// be called to gracefully terminate this process.
-func (r *RegionManager) Start() {
-	go r.loop()
-}
-
-// Stop terminates scheduled events and stops the management of the map region.
-func (r *RegionManager) Stop() {
-	r.doneChan <- true
 }
 
 // Contains returns true if a position, in global coordinates, is managed by this manager.
@@ -140,22 +98,8 @@ func (r *RegionManager) State(trim model.Boundary) []response.Response {
 	return state
 }
 
-// MarkGroundItemAdded informs the region manager that a ground item was placed on a tile, with an optional timeout when
-// the item should be removed.
-func (r *RegionManager) MarkGroundItemAdded(instanceUUID uuid.UUID, itemID int, timeoutSeconds *int, globalPos model.Vector3D) {
-	if timeoutSeconds != nil {
-		timeout := *timeoutSeconds
-
-		r.scheduler.Plan(&Event{
-			Type:         EventRemoveExpiredGroundItem,
-			Schedule:     time.Now().Add(time.Second * time.Duration(timeout)),
-			InstanceUUID: instanceUUID,
-			GlobalPos:    globalPos,
-		})
-
-		r.resetChan <- true
-	}
-
+// MarkGroundItemAdded informs the region manager that a ground item was placed on a tile.
+func (r *RegionManager) MarkGroundItemAdded(itemID int, globalPos model.Vector3D) {
 	// track this change to the region state
 	r.addDelta(&changeDelta{
 		eventType: changeEventAddGroundItem,
@@ -234,60 +178,6 @@ func (r *RegionManager) Reconcile() []response.Response {
 	}
 
 	return batchedUpdates
-}
-
-// loop processes events that occur within the region that affect its state.
-func (r *RegionManager) loop() {
-	run := true
-
-	for run {
-		select {
-		case <-r.doneChan:
-			// the processing loop has been shut down
-			run = false
-
-		case <-r.resetChan:
-			// run another iteration since the scheduler has changed
-
-		case <-time.After(r.scheduler.TimeUntil()):
-			// handle the next scheduled event
-			r.handleNextEvent()
-		}
-	}
-}
-
-// handleNextEvent processes the next scheduled event in this region.
-func (r *RegionManager) handleNextEvent() {
-	event := r.scheduler.Next()
-	if event == nil {
-		return
-	}
-
-	switch event.Type {
-	case EventRemoveExpiredGroundItem:
-		// a ground item has expired and should be removed, if it's still on a tile
-		tile := r.worldMap.Tile(event.GlobalPos)
-		if tile == nil {
-			return
-		}
-
-		// attempt to remove the item if it still exists
-		itemID := tile.RemoveItemByInstanceUUID(event.InstanceUUID)
-		if itemID == nil {
-			return
-		}
-
-		// track this change to the tile
-		r.addDelta(&changeDelta{
-			eventType: changeEventRemoveGroundItem,
-			itemIDs:   []int{*itemID},
-			globalPos: event.GlobalPos,
-		})
-
-		// notify on the change channel since this was an internally scheduled event
-		r.changeChan <- r.origin
-	default:
-	}
 }
 
 // boundaryForChunk returns a bitmask describing if a chunk origin, in global coordinates, falls into one or more of

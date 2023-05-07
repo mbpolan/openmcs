@@ -26,7 +26,7 @@ const playerUpdateInterval = 200 * time.Millisecond
 const playerWalkInterval = 600 * time.Millisecond
 
 // itemDespawnInterval defines how long an item remains on the map before despawning.
-const itemDespawnInterval = 1 * time.Minute
+const itemDespawnInterval = 3 * time.Minute
 
 // ErrConflict is reported when a player is already connected to the game.
 var ErrConflict = errors.New("already logged in")
@@ -1090,10 +1090,11 @@ func (g *Game) handleGameUpdate() error {
 
 				// remove the ground item if it still exists, and allow the next reconciliation to take care of
 				// updating the state of the map
-				g.mapManager.RemoveGroundItem(action.item.ID, action.globalPos)
+				if g.mapManager.RemoveGroundItem(action.item.ID, action.globalPos) {
+					// add the item to the player's inventory
+					g.addPlayerInventoryItem(pe, action.item)
+				}
 
-				// add the item to the player's inventory
-				g.addPlayerInventoryItem(pe, action.item)
 				pe.deferredAction = nil
 
 			case pendingActionDropInventoryItem:
