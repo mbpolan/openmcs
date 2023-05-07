@@ -325,6 +325,13 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 			c.game.DoTakeGroundItem(c.player, req.ItemID, req.GlobalPos)
 		}
 
+	case request.DropInventoryItemRequestHeader:
+		// the player dropped an inventory item
+		req, err := request.ReadDropInventoryItemRequest(c.reader)
+		if err == nil {
+			c.game.DoDropInventoryItem(c.player, req.ItemID, req.InterfaceID, req.SecondaryActionID)
+		}
+
 	case request.AddFriendRequestHeader:
 		// the player requested another player be added to their friends list
 		req, err := request.ReadModifyFriendRequest(c.reader)

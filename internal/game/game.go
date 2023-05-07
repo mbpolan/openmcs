@@ -25,6 +25,9 @@ const playerUpdateInterval = 200 * time.Millisecond
 // playerWalkInterval defines how long to wait between a player walks to their next waypoint.
 const playerWalkInterval = 600 * time.Millisecond
 
+// itemDespawnInterval defines how long an item remains on the map before despawning.
+const itemDespawnInterval = 1 * time.Minute
+
 // ErrConflict is reported when a player is already connected to the game.
 var ErrConflict = errors.New("already logged in")
 
@@ -469,6 +472,33 @@ func (g *Game) DoTakeGroundItem(p *model.Player, itemID int, globalPos model.Vec
 	pe.DeferTakeGroundItemAction(targetItem, globalPos.To3D(pe.player.GlobalPos.Z))
 }
 
+// DoDropInventoryItem handles a player's request to drop an inventory item.
+func (g *Game) DoDropInventoryItem(p *model.Player, itemID, interfaceID, secondaryActionID int) {
+	var targetItem *model.Item
+	for _, item := range g.items {
+		if item.ID == itemID {
+			targetItem = item
+			break
+		}
+	}
+
+	// validate the item is known
+	if targetItem == nil {
+		return
+	}
+
+	pe := g.findPlayer(p)
+	if pe == nil {
+		return
+	}
+
+	pe.mu.Lock()
+	defer pe.mu.Unlock()
+
+	// defer this action so it occurs on the next game tick
+	pe.DeferDropInventoryItem(targetItem, interfaceID, secondaryActionID)
+}
+
 // broadcastPlayerStatus sends updates to other players that have them on their friends lists. An optional list of
 // target player usernames can be passed to limit who receives the update.
 //
@@ -901,6 +931,26 @@ func (g *Game) addPlayerInventoryItem(pe *playerEntity, item *model.Item) {
 	pe.PlanEvent(NewSendResponseEvent(inventory, time.Now()))
 }
 
+// removePlayerInventoryItem removes the first occurrence of an item from the player's inventory, and adds it to the
+// world map.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) removePlayerInventoryItem(pe *playerEntity, item *model.Item) *model.InventorySlot {
+	slot := pe.player.InventorySlotWithItem(item.ID)
+	if slot == nil {
+		return nil
+	}
+
+	// remove the item from the player's inventory
+	pe.player.ClearInventoryItem(slot.ID)
+
+	// update the player's inventory
+	inventory := response.NewSetInventoryItemResponse(3214)
+	inventory.AddSlot(slot.ID, -1, 0)
+	pe.PlanEvent(NewSendResponseEvent(inventory, time.Now()))
+
+	return slot
+}
+
 // handleGameUpdate performs a game state update.
 // Concurrency requirements: (a) game state should NOT be locked and (b) all players should NOT be locked.
 func (g *Game) handleGameUpdate() error {
@@ -1044,6 +1094,20 @@ func (g *Game) handleGameUpdate() error {
 
 				// add the item to the player's inventory
 				g.addPlayerInventoryItem(pe, action.item)
+				pe.deferredAction = nil
+
+			case pendingActionDropInventoryItem:
+				action := pe.deferredAction.dropInventoryItemAction
+
+				// remove the item from the player's inventory
+				slot := g.removePlayerInventoryItem(pe, action.item)
+				if slot != nil {
+					// put the item on the tile the player's standing on, and let the next reconciliation take care of
+					// updating the state of the map
+					timeout := int(itemDespawnInterval.Seconds())
+					g.mapManager.AddGroundItem(slot.Item.ID, &timeout, pe.player.GlobalPos)
+				}
+
 				pe.deferredAction = nil
 			}
 		}

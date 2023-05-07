@@ -21,6 +21,7 @@ const (
 
 // InventorySlot is an item stored in a player's inventory.
 type InventorySlot struct {
+	ID     int
 	Item   *Item
 	Amount int
 }
@@ -84,9 +85,15 @@ func (p *Player) SetSkill(skill *Skill) {
 // SetInventoryItem puts an item in a slot of the player's inventory. This will replace any existing items at that slot.
 func (p *Player) SetInventoryItem(item *Item, amount, slot int) {
 	p.Inventory[slot] = &InventorySlot{
+		ID:     slot,
 		Item:   item,
 		Amount: amount,
 	}
+}
+
+// ClearInventoryItem removes an item from the player's inventory slot.
+func (p *Player) ClearInventoryItem(slot int) {
+	p.Inventory[slot] = nil
 }
 
 // InventorySlotWithItem returns the slot that contains an item with an ID. If no slot contains such an item, then
