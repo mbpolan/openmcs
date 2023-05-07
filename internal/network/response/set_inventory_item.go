@@ -31,6 +31,14 @@ func (p *SetInventoryItemsResponse) AddSlot(slotID, itemID, amount int) {
 	}
 }
 
+// ClearSlot clears a slot in the inventory.
+func (p *SetInventoryItemsResponse) ClearSlot(slotID int) {
+	p.slots[slotID] = inventorySlot{
+		itemID: -1,
+		amount: 0,
+	}
+}
+
 // Write writes the contents of the message to a stream.
 func (p *SetInventoryItemsResponse) Write(w *network.ProtocolWriter) error {
 	// use a buffered writer since we need to compute the packet size

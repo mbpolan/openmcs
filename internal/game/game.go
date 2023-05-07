@@ -33,7 +33,7 @@ var ErrConflict = errors.New("already logged in")
 
 // Game is the game engine and representation of the game world.
 type Game struct {
-	items            []*model.Item
+	items            map[int]*model.Item
 	doneChan         chan bool
 	ticker           *time.Ticker
 	objects          []*model.WorldObject
@@ -53,6 +53,7 @@ type Game struct {
 func NewGame(cfg *config.Config) (*Game, error) {
 	g := &Game{
 		doneChan:       make(chan bool, 1),
+		items:          map[int]*model.Item{},
 		welcomeMessage: cfg.Server.WelcomeMessage,
 		worldID:        cfg.Server.WorldID,
 	}
@@ -356,6 +357,20 @@ func (g *Game) ValidatePlayer(p *model.Player) error {
 func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	pe := newPlayerEntity(p, writer)
 
+	// update the player's inventory to ensure items match their expected models
+	for _, slot := range pe.player.Inventory {
+		if slot == nil {
+			continue
+		}
+
+		item := g.items[slot.Item.ID]
+		if item == nil {
+			pe.player.ClearInventoryItem(slot.ID)
+		} else {
+			pe.player.SetInventoryItem(item, slot.Amount, slot.ID)
+		}
+	}
+
 	// set initial client tab interfaces
 	// TODO: these ids should not be hardcoded
 	pe.tabInterfaces = map[model.ClientTab]int{
@@ -406,9 +421,7 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	pe.PlanEvent(NewEventWithType(EventUpdateTabInterfaces, time.Now()))
 
 	// plan an event to clear the player's inventory
-	// TODO: the interface id should not be hardcoded
-	inventory := response.NewClearInventoryResponse(3214)
-	pe.PlanEvent(NewSendResponseEvent(inventory, time.Now()))
+	pe.PlanEvent(NewEventWithType(EventSendInventory, time.Now()))
 
 	// plan an update to the client's interaction modes
 	modes := response.NewSetModesResponse(pe.player.Modes.PublicChat, pe.player.Modes.PrivateChat, pe.player.Modes.Interaction)
@@ -447,15 +460,8 @@ func (g *Game) RemovePlayer(p *model.Player) {
 
 // DoTakeGroundItem handles a player's request to pick up a ground item at a position, in global coordinates.
 func (g *Game) DoTakeGroundItem(p *model.Player, itemID int, globalPos model.Vector2D) {
-	var targetItem *model.Item
-	for _, item := range g.items {
-		if item.ID == itemID {
-			targetItem = item
-			break
-		}
-	}
-
 	// validate the item is known
+	targetItem := g.items[itemID]
 	if targetItem == nil {
 		return
 	}
@@ -474,15 +480,8 @@ func (g *Game) DoTakeGroundItem(p *model.Player, itemID int, globalPos model.Vec
 
 // DoDropInventoryItem handles a player's request to drop an inventory item.
 func (g *Game) DoDropInventoryItem(p *model.Player, itemID, interfaceID, secondaryActionID int) {
-	var targetItem *model.Item
-	for _, item := range g.items {
-		if item.ID == itemID {
-			targetItem = item
-			break
-		}
-	}
-
 	// validate the item is known
+	targetItem := g.items[itemID]
 	if targetItem == nil {
 		return
 	}
@@ -698,9 +697,14 @@ func (g *Game) loadAssets(assetDir string) error {
 	}
 
 	// load items
-	g.items, err = manager.Items()
+	items, err := manager.Items()
 	if err != nil {
 		return err
+	}
+
+	// create a map of item ids to their models
+	for _, item := range items {
+		g.items[item.ID] = item
 	}
 
 	// FIXME: spawn some ground items for testing
@@ -779,7 +783,7 @@ func (g *Game) handleChatCommand(pe *playerEntity, command *ChatCommand) {
 	switch command.Type {
 	case ChatCommandTypeSpawnItem:
 		// prevent invalid items from being spawned
-		if command.SpawnItem.ItemID >= 0 && command.SpawnItem.ItemID <= len(g.items) {
+		if _, ok := g.items[command.SpawnItem.ItemID]; ok {
 			g.mapManager.AddGroundItem(command.SpawnItem.ItemID, command.SpawnItem.DespawnTimeSeconds, pe.player.GlobalPos)
 		} else {
 			pe.PlanEvent(NewSendResponseEvent(
@@ -945,7 +949,7 @@ func (g *Game) removePlayerInventoryItem(pe *playerEntity, item *model.Item) *mo
 
 	// update the player's inventory
 	inventory := response.NewSetInventoryItemResponse(3214)
-	inventory.AddSlot(slot.ID, -1, 0)
+	inventory.ClearSlot(slot.ID)
 	pe.PlanEvent(NewSendResponseEvent(inventory, time.Now()))
 
 	return slot
@@ -1216,8 +1220,30 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 			pe.scheduler.Plan(NewEventWithType(EventCheckIdle, time.Now().Add(playerMaxIdleInterval)))
 		}
 
+	case EventSendInventory:
+		pe.mu.Lock()
+		defer pe.mu.Unlock()
+
+		// send the player's inventory
+		// TODO: the interface id should not be hardcoded
+		inventory := response.NewSetInventoryItemResponse(3214)
+		for id, slot := range pe.player.Inventory {
+			if slot == nil {
+				inventory.ClearSlot(id)
+			} else {
+				inventory.AddSlot(slot.ID, slot.Item.ID, slot.Amount)
+			}
+		}
+
+		err := inventory.Write(pe.writer)
+		if err != nil {
+			return err
+		}
+
 	case EventFriendList:
 		// send a player their entire friends list
+		pe.mu.Lock()
+		defer pe.mu.Unlock()
 
 		// tell the client the list is loading
 		status := response.NewFriendsListStatusResponse(model.FriendsListStatusLoading)
@@ -1253,6 +1279,9 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 
 	case EventUpdateTabInterfaces:
 		// send all client tab interface ids
+		pe.mu.Lock()
+		defer pe.mu.Unlock()
+
 		for _, tab := range model.ClientTabs {
 			// does the player have an interface for this tab?
 			var r *response.SidebarInterfaceResponse
@@ -1270,6 +1299,9 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 
 	case EventSkills:
 		// send each skill to the client
+		pe.mu.Lock()
+		defer pe.mu.Unlock()
+
 		for _, skill := range pe.player.Skills {
 			resp := response.NewSkillDataResponse(skill)
 			err := resp.Write(pe.writer)

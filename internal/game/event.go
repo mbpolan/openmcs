@@ -20,6 +20,8 @@ const (
 	EventCheckIdleImmediate
 	// EventUpdateTabInterfaces updates all the player's client tab interfaces.
 	EventUpdateTabInterfaces
+	// EventSendInventory sends a complete player inventory update.
+	EventSendInventory
 	// EventFriendList sends a player's entire friends list.
 	EventFriendList
 	// EventSkills sends data about all the player's skills.

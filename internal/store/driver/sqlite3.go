@@ -78,6 +78,12 @@ func (s *SQLite3Driver) SavePlayer(p *model.Player) error {
 		return err
 	}
 
+	// save their inventory
+	err = s.savePlayerInventory(p)
+	if err != nil {
+		return err
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		return err
@@ -121,6 +127,12 @@ func (s *SQLite3Driver) LoadPlayer(username string) (*model.Player, error) {
 
 	// load their skills
 	err = s.loadPlayerSkills(p)
+	if err != nil {
+		return nil, err
+	}
+
+	// load their inventory
+	err = s.loadPlayerInventory(p)
 	if err != nil {
 		return nil, err
 	}
@@ -351,6 +363,46 @@ func (s *SQLite3Driver) loadPlayerSkills(p *model.Player) error {
 			Level:      level,
 			Experience: experience,
 		})
+	}
+
+	return nil
+}
+
+// loadPlayerInventory loads a player's inventory items.
+func (s *SQLite3Driver) loadPlayerInventory(p *model.Player) error {
+	stmt, err := s.db.Prepare(`
+		SELECT
+		    SLOT_ID,
+		    ITEM_ID,
+		    AMOUNT
+		FROM
+		    PLAYER_INVENTORY
+		WHERE
+		    PLAYER_ID = ?
+	`)
+	if err != nil {
+		return err
+	}
+
+	rows, err := stmt.Query(p.ID)
+	if err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		var slotID, itemID, amount int
+		err := rows.Scan(&slotID, &itemID, &amount)
+		if err != nil {
+			return err
+		}
+
+		// create a placeholder item for this item id
+		item := &model.Item{
+			ID: itemID,
+		}
+
+		// set the item into the player's inventory at the specified slot
+		p.SetInventoryItem(item, amount, slotID)
 	}
 
 	return nil
@@ -598,6 +650,73 @@ func (s *SQLite3Driver) savePlayerSkills(p *model.Player) error {
 		values = append(values, int(v.Type))
 		values = append(values, v.Level)
 		values = append(values, v.Experience)
+	}
+
+	// prepare the final insert query
+	insert := fmt.Sprintf(insertTemplate, strings.Join(bulk, ","))
+	stmt, err := s.db.Prepare(insert)
+	if err != nil {
+		return err
+	}
+
+	defer stmt.Close()
+
+	_, err = stmt.Exec(values...)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// savePlayerInventory saves a player's inventory.
+func (s *SQLite3Driver) savePlayerInventory(p *model.Player) error {
+	// prepare a delete to clear out the player's inventory
+	delStmt, err := s.db.Prepare(`
+		DELETE FROM
+		    PLAYER_INVENTORY
+		WHERE
+		    PLAYER_ID = ?
+	`)
+	if err != nil {
+		return err
+	}
+
+	defer delStmt.Close()
+
+	// delete all entries from the player's inventory
+	_, err = delStmt.Exec(p.ID)
+	if err != nil {
+		return err
+	}
+
+	insertTemplate := `
+		INSERT INTO
+			PLAYER_INVENTORY (
+			    PLAYER_ID,
+			    SLOT_ID,
+				ITEM_ID,
+				AMOUNT
+			)
+		VALUES %s
+	`
+
+	valueTemplate := "(?, ?, ?, ?)"
+
+	var bulk []string
+	var values []any
+
+	// collect the items in the player's inventory into tuples
+	for _, v := range p.Inventory {
+		if v == nil {
+			continue
+		}
+
+		bulk = append(bulk, valueTemplate)
+		values = append(values, p.ID)
+		values = append(values, v.ID)
+		values = append(values, v.Item.ID)
+		values = append(values, v.Amount)
 	}
 
 	// prepare the final insert query
