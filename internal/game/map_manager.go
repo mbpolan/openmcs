@@ -27,8 +27,8 @@ type changeDelta struct {
 type MapManager struct {
 	// doneChan is a channel that tracks if the manager should terminate its internal goroutines.
 	doneChan chan bool
-	// resetChan is a channel that forces the manager to rerun its internal goroutines.
-	resetChan chan bool
+	// changeChan is a channel that forces the manager to rerun its internal goroutines.
+	changeChan chan bool
 	// regions is a map of region origins, in global coordinates, to their managers.
 	regions map[model.Vector3D]*RegionManager
 	// pendingRegions is a map of region origins, in global coordinates, to flags if they need to be reconciled.
@@ -52,12 +52,14 @@ func NewMapManager(m *model.Map) *MapManager {
 		regions[origin] = mgr
 	}
 
+	changeChan := make(chan bool, 1)
+
 	mgr := &MapManager{
 		doneChan:       make(chan bool, 1),
-		resetChan:      make(chan bool, 1),
+		changeChan:     changeChan,
 		pendingRegions: map[model.Vector3D]bool{},
 		regions:        regions,
-		scheduler:      NewScheduler(),
+		scheduler:      NewScheduler(changeChan),
 		worldMap:       m,
 	}
 
@@ -107,8 +109,6 @@ func (m *MapManager) AddGroundItem(itemID int, timeoutSeconds *int, globalPos mo
 			InstanceUUID: instanceUUID,
 			GlobalPos:    globalPos,
 		})
-
-		m.resetChan <- true
 	}
 
 	// find each region manager that is aware of this tile and inform them about the change
@@ -253,7 +253,7 @@ func (m *MapManager) loop() {
 			// the processing loop has been shut down
 			run = false
 
-		case <-m.resetChan:
+		case <-m.changeChan:
 			// run another iteration since the scheduler has changed
 
 		case <-time.After(m.scheduler.TimeUntil()):

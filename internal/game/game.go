@@ -656,7 +656,7 @@ func (g *Game) playerLoop(pe *playerEntity) {
 			// terminate this player's loop
 			return
 
-		case <-pe.resetChan:
+		case <-pe.changeChan:
 			// a new event was planned; rerun the loop and let the scheduler report the next process time
 
 		case update := <-pe.updateChan:

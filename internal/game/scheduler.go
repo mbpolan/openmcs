@@ -7,13 +7,16 @@ import (
 
 // Scheduler provides a thread-safe queue of events that can be planned on a time basis.
 type Scheduler struct {
-	events []*Event
-	mu     sync.Mutex
+	changeChan chan bool
+	events     []*Event
+	mu         sync.Mutex
 }
 
-// NewScheduler creates a new event scheduler.
-func NewScheduler() *Scheduler {
-	return &Scheduler{}
+// NewScheduler creates a new event scheduler that will write to the changeChan when new events are scheduled.
+func NewScheduler(changeChan chan bool) *Scheduler {
+	return &Scheduler{
+		changeChan: changeChan,
+	}
 }
 
 // TimeUntil returns the time left until the next event should be processed. If there are no events, then a time
@@ -46,6 +49,10 @@ func (s *Scheduler) Next() *Event {
 
 // Plan schedules an event for later processing.
 func (s *Scheduler) Plan(e *Event) {
+	defer func() {
+		s.changeChan <- true
+	}()
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

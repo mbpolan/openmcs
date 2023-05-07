@@ -41,7 +41,7 @@ type playerEntity struct {
 	lastInteraction     time.Time
 	player              *model.Player
 	tracking            map[int]*playerEntity
-	resetChan           chan bool
+	changeChan          chan bool
 	doneChan            chan bool
 	updateChan          chan *response.PlayerUpdateResponse
 	path                []model.Vector2D
@@ -68,14 +68,16 @@ type playerStatusBroadcast struct {
 
 // newPlayerEntity creates a new player entity.
 func newPlayerEntity(p *model.Player, w *network.ProtocolWriter) *playerEntity {
+	changeChan := make(chan bool)
+
 	return &playerEntity{
 		lastInteraction:  time.Now(),
 		player:           p,
 		tracking:         map[int]*playerEntity{},
-		resetChan:        make(chan bool),
+		changeChan:       changeChan,
 		doneChan:         make(chan bool, 1),
 		updateChan:       make(chan *response.PlayerUpdateResponse, 1),
-		scheduler:        NewScheduler(),
+		scheduler:        NewScheduler(changeChan),
 		privateMessageID: 1,
 		writer:           w,
 	}
@@ -142,5 +144,4 @@ func (pe *playerEntity) Walking() bool {
 // PlanEvent adds a scheduled event to this player's queue and resets the event timer.
 func (pe *playerEntity) PlanEvent(e *Event) {
 	pe.scheduler.Plan(e)
-	pe.resetChan <- true
 }
