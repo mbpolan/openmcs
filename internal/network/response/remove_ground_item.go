@@ -40,7 +40,7 @@ func (p *RemoveGroundItemResponse) Write(w *network.ProtocolWriter) error {
 	}
 
 	// write 2 bytes for the item id
-	err = w.WriteUint16LE(uint16(p.itemID))
+	err = w.WriteUint16(uint16(p.itemID))
 	if err != nil {
 		return err
 	}

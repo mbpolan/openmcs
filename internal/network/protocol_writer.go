@@ -112,12 +112,12 @@ func (w *ProtocolWriter) WriteUint16(n uint16) error {
 
 // WriteUint16LE writes an unsigned, 16-bit (short) integer in little-endian format.
 func (w *ProtocolWriter) WriteUint16LE(n uint16) error {
-	err := w.WriteUint8(byte(n >> 8))
+	err := w.WriteUint8(byte(n))
 	if err != nil {
 		return err
 	}
 
-	err = w.WriteUint8(byte(n))
+	err = w.WriteUint8(byte(n >> 8))
 	if err != nil {
 		return err
 	}

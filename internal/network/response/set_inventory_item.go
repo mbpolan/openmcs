@@ -37,7 +37,7 @@ func (p *SetInventoryItemsResponse) Write(w *network.ProtocolWriter) error {
 	bw := network.NewBufferedWriter()
 
 	// write 2 bytes for the interface id
-	err := bw.WriteUint16LE(uint16(p.interfaceID))
+	err := bw.WriteUint16(uint16(p.interfaceID))
 	if err != nil {
 		return err
 	}
@@ -50,7 +50,7 @@ func (p *SetInventoryItemsResponse) Write(w *network.ProtocolWriter) error {
 		}
 
 		// write 2 bytes for the item id. offset the id by one since the client apparently expects it that way
-		err = bw.WriteUint16LE(uint16(item.itemID + 1))
+		err = bw.WriteUint16(uint16(item.itemID + 1))
 		if err != nil {
 			return err
 		}

@@ -402,6 +402,11 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	// plan an update to the client sidebar interfaces
 	pe.PlanEvent(NewEventWithType(EventUpdateTabInterfaces, time.Now()))
 
+	// plan an event to clear the player's inventory
+	// TODO: the interface id should not be hardcoded
+	inventory := response.NewClearInventoryResponse(3214)
+	pe.PlanEvent(NewSendResponseEvent(inventory, time.Now()))
+
 	// plan an update to the client's interaction modes
 	modes := response.NewSetModesResponse(pe.player.Modes.PublicChat, pe.player.Modes.PrivateChat, pe.player.Modes.Interaction)
 	pe.PlanEvent(NewSendResponseEvent(modes, time.Now()))
