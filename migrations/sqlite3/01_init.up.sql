@@ -1,3 +1,10 @@
+-- Migration: 01_init.up.sql
+-- Description: creates baseline tables and database objects
+
+-- ----------------------------------------------------------------------------
+-- Table: PLAYER
+-- ----------------------------------------------------------------------------
+
 -- create table for storing general player data
 CREATE TABLE PLAYER (
     -- primary key
@@ -24,7 +31,7 @@ CREATE TABLE PLAYER (
     PUBLIC_CHAT_MODE INTEGER NOT NULL,
     -- mode for player's private chat
     PRIVATE_CHAT_MODE INTEGER NOT NULL,
-    -- mode for player's INTEGEReractions
+    -- mode for player's interactions
     INTERACTION_MODE INTEGER NOT NULL,
     -- access rights of the player (normal, mod, admin, etc.)
     TYPE INTEGER NOT NULL,
@@ -66,6 +73,10 @@ BEGIN
     WHERE
         ID = NEW.ID;
 END;
+
+-- ----------------------------------------------------------------------------
+-- Table: PLAYER_EQUIPMENT
+-- ----------------------------------------------------------------------------
 
 -- create table for storing a player's equipped items
 CREATE TABLE PLAYER_EQUIPMENT (
@@ -114,6 +125,10 @@ BEGIN
         ID = NEW.ID;
 END;
 
+-- ----------------------------------------------------------------------------
+-- Table: PLAYER_APPEARANCE
+-- ----------------------------------------------------------------------------
+
 -- create table for storing a player's character appearance
 CREATE TABLE PLAYER_APPEARANCE (
     -- primary key
@@ -160,6 +175,10 @@ BEGIN
     WHERE
         ID = NEW.ID;
 END;
+
+-- ----------------------------------------------------------------------------
+-- Table: PLAYER_LIST
+-- ----------------------------------------------------------------------------
 
 -- create table for storing player friends and ignored lists
 CREATE TABLE PLAYER_LIST (
@@ -208,6 +227,10 @@ BEGIN
         ID = NEW.ID;
 END;
 
+-- ----------------------------------------------------------------------------
+-- Table: SKILL_LOOKUP
+-- ----------------------------------------------------------------------------
+
 -- create a reference table for storing skills
 CREATE TABLE SKILL_LOOKUP (
    -- primary key
@@ -219,6 +242,7 @@ CREATE TABLE SKILL_LOOKUP (
     -- date time when the row was updated
    UPDATED_DTTM TEXT NULL
 );
+
 -- create a trigger on skill_lookup to manage the CREATED_DTTM column
 CREATE TRIGGER
     SKILL_LOOKUP_CREATED_DTTM
@@ -246,6 +270,10 @@ BEGIN
     WHERE
         ID = NEW.ID;
 END;
+
+-- ----------------------------------------------------------------------------
+-- Table: PLAYER_SKILL
+-- ----------------------------------------------------------------------------
 
 -- create table for storing player skill levels
 CREATE TABLE PLAYER_SKILL (
@@ -290,6 +318,61 @@ AFTER UPDATE ON
 BEGIN
     UPDATE
         PLAYER_SKILL
+    SET
+        UPDATED_DTTM = DATETIME('NOW')
+    WHERE
+        ID = NEW.ID;
+END;
+
+-- ----------------------------------------------------------------------------
+-- Table: PLAYER_INVENTORY
+-- ----------------------------------------------------------------------------
+
+-- create table for storing player inventory items
+CREATE TABLE PLAYER_INVENTORY (
+    -- primary key
+    ID INTEGER PRIMARY KEY AUTOINCREMENT,
+    -- owning player
+    PLAYER_ID INTEGER NOT NULL REFERENCES PLAYER(ID) ON DELETE CASCADE,
+    -- slot id
+    SLOT_ID INT NOT NULL CHECK (SLOT_ID >= 0 AND SLOT_ID < 28),
+    -- item id
+    ITEM_ID INT NOT NULL,
+    -- stack size (amount)
+    AMOUNT INT NOT NULL,
+    -- date time when the row was inserted
+    CREATED_DTTM TEXT NOT NULL DEFAULT CURRENT_DATE,
+    -- date time when the row was updated
+    UPDATED_DTTM TEXT NULL,
+    -- enforce uniqueness on the player_id and slot_id
+    UNIQUE (PLAYER_ID, SLOT_ID)
+);
+
+-- create an index on player_inventory.player_id since it will be queried on
+CREATE INDEX IDX_PLAYER_INVENTORY_PLAYER_ID ON PLAYER_LIST(PLAYER_ID);
+
+-- create a trigger on player_inventory to manage the CREATED_DTTM column
+CREATE TRIGGER
+    PLAYER_INVENTORY_CREATED_DTTM
+AFTER INSERT ON
+    PLAYER_INVENTORY
+BEGIN
+    UPDATE
+        PLAYER_INVENTORY
+    SET
+        CREATED_DTTM = DATETIME('NOW')
+    WHERE
+        ID = NEW.ID;
+END;
+
+-- create a trigger on player_inventory to manage the UPDATED_DTTM column
+CREATE TRIGGER
+    PLAYER_INVENTORY_UPDATED_DTTM
+AFTER UPDATE ON
+    PLAYER_INVENTORY
+BEGIN
+    UPDATE
+        PLAYER_INVENTORY
     SET
         UPDATED_DTTM = DATETIME('NOW')
     WHERE

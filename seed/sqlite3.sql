@@ -29,8 +29,8 @@ INSERT INTO SKILL_LOOKUP (
 INSERT INTO PLAYER (
     USERNAME, PASSWORD_HASH, EMAIL, GLOBAL_X, GLOBAL_Y, GLOBAL_Z, GENDER, FLAGGED, MUTED, PUBLIC_CHAT_MODE, PRIVATE_CHAT_MODE, INTERACTION_MODE, TYPE
 ) VALUES
-    ('Mike', 'ab2341a2a5ec2b5ebd0ba195499408ac4ff54e63b52fa25b0b506d9f0a67cd35', 'mike@mbpolan.com', 3116, 3116, 0, 0, 0, 0, 0, 0, 0, 0),
-    ('Hurz', 'cdb162dd4fa9ae4245525a9ec9c2868f19578e00c500cb9f192ea12c9330191d', 'mike@mbpolan.com', 3116, 3116, 0, 0, 0, 0, 0, 0, 0, 0)
+    ('Mike', 'ab2341a2a5ec2b5ebd0ba195499408ac4ff54e63b52fa25b0b506d9f0a67cd35', 'mike@example.com', 3209, 3429, 0, 0, 0, 0, 0, 0, 0, 0),
+    ('Hurz', 'cdb162dd4fa9ae4245525a9ec9c2868f19578e00c500cb9f192ea12c9330191d', 'mike@example.com', 3222, 3428, 0, 0, 0, 0, 0, 0, 0, 0)
 ;
 
 -- add appearance data for seed players

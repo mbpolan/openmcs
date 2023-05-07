@@ -1,6 +1,11 @@
+-- Migration: 01_init.down.sql
+-- Description: rolls back baseline tables and database objects
+
 -- drop the parent schema and all of its tables
 DROP TABLE IF EXISTS IGNORED;
 DROP TABLE IF EXISTS FRIEND;
+DROP TABLE IF EXISTS PLAYER_INVENTORY;
+DROP TABLE IF EXISTS PLAYER_SKILL;
 DROP TABLE IF EXISTS PLAYER_APPEARANCE;
 DROP TABLE IF EXISTS PLAYER_EQUIPMENT;
 DROP TABLE IF EXISTS PLAYER;
