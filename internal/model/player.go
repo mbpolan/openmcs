@@ -13,6 +13,9 @@ const NumPlayerSkills = 21
 // MaxInventorySlots is the maximum number of inventory slots.
 const MaxInventorySlots = 28
 
+// MaxStackableSize is the maximum size of a single stack of an item.
+var MaxStackableSize = int64(math.Pow(2, 31) - 1)
+
 const (
 	PlayerNormal PlayerType = iota
 	PlayerModerator
@@ -106,6 +109,22 @@ func (p *Player) InventorySlotWithItem(itemID int) *InventorySlot {
 	}
 
 	return nil
+}
+
+// InventoryCanHoldItem determines if an item can be added to the player's inventory. This will account for both
+// stackable and non-stackable items.
+func (p *Player) InventoryCanHoldItem(item *Item) bool {
+	if item.Stackable {
+		// see if a slot is already holding this item and its stack size can accommodate another instance
+		slot := p.InventorySlotWithItem(item.ID)
+		if slot != nil && int64(slot.Amount+1) <= MaxStackableSize {
+			return true
+		}
+	}
+
+	// if the item is not stackable, or is stackable but there is no existing slot that can hold it, we need to
+	// use another free slot
+	return p.NextFreeInventorySlot() != -1
 }
 
 // NextFreeInventorySlot returns the ID of the next available slot in the player's inventory. If no slot is free, -1

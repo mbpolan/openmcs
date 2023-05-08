@@ -921,7 +921,6 @@ func (g *Game) addPlayerInventoryItem(pe *playerEntity, item *model.Item) {
 	// find the next available slot in the player's inventory, if one exists
 	slot := pe.player.NextFreeInventorySlot()
 	if slot == -1 {
-		pe.PlanEvent(NewSendResponseEvent(response.NewServerMessageResponse("You cannot carry any more items"), time.Now()))
 		return
 	}
 
@@ -1089,6 +1088,13 @@ func (g *Game) handleGameUpdate() error {
 
 				// pick up a ground item only if the player has reached the position of that item
 				if pe.player.GlobalPos != action.globalPos {
+					break
+				}
+
+				// check if the player has room in their inventory
+				if !pe.player.InventoryCanHoldItem(action.item) {
+					pe.PlanEvent(NewSendResponseEvent(response.NewServerMessageResponse("You cannot carry any more items"), time.Now()))
+					pe.deferredAction = nil
 					break
 				}
 
