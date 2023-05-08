@@ -498,6 +498,22 @@ func (g *Game) DoDropInventoryItem(p *model.Player, itemID, interfaceID, seconda
 	pe.DeferDropInventoryItem(targetItem, interfaceID, secondaryActionID)
 }
 
+// DoSwapInventoryItem handles a player's request to move an item in their inventory to another slot.
+func (g *Game) DoSwapInventoryItem(p *model.Player, fromSlot int, toSlot int, mode int) {
+	pe := g.findPlayer(p)
+	if pe == nil {
+		return
+	}
+
+	// plan an update to the player's inventory slots
+	pe.PlanEvent(&Event{
+		Type:     EventSwapInventoryItem,
+		Schedule: time.Now(),
+		FromSlot: fromSlot,
+		ToSlot:   toSlot,
+	})
+}
+
 // broadcastPlayerStatus sends updates to other players that have them on their friends lists. An optional list of
 // target player usernames can be passed to limit who receives the update.
 //
@@ -1204,7 +1220,8 @@ func (g *Game) handleGameUpdate() error {
 	return nil
 }
 
-// handlePlayerEvent processes the next scheduled event for a player.
+// handlePlayerEvent processes the next scheduled event for a player. These are events that can be done off-tick and do
+// not require synchronization with the overall game state.
 // Concurrency requirements: (a) game state should NOT be locked and (b) this player should NOT be locked.
 func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 	// get the next scheduled event, if any
@@ -1227,10 +1244,10 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 		}
 
 	case EventSendInventory:
+		// send the player's inventory
 		pe.mu.Lock()
 		defer pe.mu.Unlock()
 
-		// send the player's inventory
 		// TODO: the interface id should not be hardcoded
 		inventory := response.NewSetInventoryItemResponse(3214)
 		for id, slot := range pe.player.Inventory {
@@ -1240,6 +1257,39 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 				inventory.AddSlot(slot.ID, slot.Item.ID, slot.Amount)
 			}
 		}
+
+		err := inventory.Write(pe.writer)
+		if err != nil {
+			return err
+		}
+
+	case EventSwapInventoryItem:
+		pe.mu.Lock()
+		defer pe.mu.Unlock()
+
+		// TODO: the interface id should not be hardcoded
+		inventory := response.NewSetInventoryItemResponse(3214)
+
+		// make sure there is still an item at the starting slot
+		fromSlot := pe.player.Inventory[event.FromSlot]
+		if fromSlot == nil {
+			break
+		}
+
+		// if there is already an item at the target slot, move it to the starting slot. otherwise clear the item at
+		// the starting slot
+		toSlot := pe.player.Inventory[event.ToSlot]
+		if toSlot != nil {
+			pe.player.SetInventoryItem(toSlot.Item, toSlot.Amount, fromSlot.ID)
+			inventory.AddSlot(fromSlot.ID, toSlot.Item.ID, toSlot.Amount)
+		} else {
+			pe.player.ClearInventoryItem(event.FromSlot)
+			inventory.ClearSlot(event.FromSlot)
+		}
+
+		// move the item from the starting slot to the target slot
+		pe.player.SetInventoryItem(fromSlot.Item, fromSlot.Amount, event.ToSlot)
+		inventory.AddSlot(event.ToSlot, fromSlot.Item.ID, fromSlot.Amount)
 
 		err := inventory.Write(pe.writer)
 		if err != nil {

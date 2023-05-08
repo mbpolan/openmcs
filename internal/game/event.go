@@ -22,6 +22,8 @@ const (
 	EventUpdateTabInterfaces
 	// EventSendInventory sends a complete player inventory update.
 	EventSendInventory
+	// EventSwapInventoryItem rearranges an item in a player's inventory.
+	EventSwapInventoryItem
 	// EventFriendList sends a player's entire friends list.
 	EventFriendList
 	// EventSkills sends data about all the player's skills.
@@ -37,6 +39,8 @@ type Event struct {
 	Responses    []response.Response
 	InstanceUUID uuid.UUID
 	GlobalPos    model.Vector3D
+	FromSlot     int
+	ToSlot       int
 }
 
 // NewEventWithType creates an event with a specific type that should be processed at the provided time.

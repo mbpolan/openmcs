@@ -332,6 +332,16 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 			c.game.DoDropInventoryItem(c.player, req.ItemID, req.InterfaceID, req.SecondaryActionID)
 		}
 
+	case request.SwapInventoryItemRequestHeader:
+		// the player rearranged an item in their inventory
+		var req request.SwapInventoryItemRequest
+		err = req.Read(c.reader)
+		if err != nil {
+			break
+		}
+
+		c.game.DoSwapInventoryItem(c.player, req.FromSlot, req.ToSlot, req.InterfaceID)
+
 	case request.AddFriendRequestHeader:
 		// the player requested another player be added to their friends list
 		req, err := request.ReadModifyFriendRequest(c.reader)
