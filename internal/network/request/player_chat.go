@@ -17,33 +17,40 @@ type PlayerChatRequest struct {
 	Text   string
 }
 
-func ReadPlayerChatRequest(r *network.ProtocolReader) (*PlayerChatRequest, error) {
+// Read parses the content of the request from a stream. If the data cannot be read, an error will be returned.
+func (p *PlayerChatRequest) Read(r *network.ProtocolReader) error {
+	// read 1 byte for the header
+	_, err := r.Uint8()
+	if err != nil {
+		return err
+	}
+
 	// read 1 byte for the packet size
 	size, err := r.Uint8()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// read 1 byte for the chat effect
 	effectCode, err := r.Uint8()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	effect, ok := common.ChatEffectCodes[0x80-effectCode]
 	if !ok {
-		return nil, fmt.Errorf("unknown chat effect code: %d", effectCode)
+		return fmt.Errorf("unknown chat effect code: %d", effectCode)
 	}
 
 	// read 1 byte for the chat color
 	colorCode, err := r.Uint8()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	color, ok := common.ChatColorCodes[0x80-colorCode]
 	if !ok {
-		return nil, fmt.Errorf("unknown chat color code: %d", colorCode)
+		return fmt.Errorf("unknown chat color code: %d", colorCode)
 	}
 
 	// read bytes corresponding to the text message itself. the packet size includes the two bytes used for chat
@@ -53,7 +60,7 @@ func ReadPlayerChatRequest(r *network.ProtocolReader) (*PlayerChatRequest, error
 	for i := length - 1; i >= 0; i-- {
 		b, err := r.Uint8()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		rawText[i] = b - 0x80
@@ -61,12 +68,11 @@ func ReadPlayerChatRequest(r *network.ProtocolReader) (*PlayerChatRequest, error
 
 	text, err := util.DecodeChat(rawText)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &PlayerChatRequest{
-		Effect: effect,
-		Color:  color,
-		Text:   text,
-	}, nil
+	p.Effect = effect
+	p.Color = color
+	p.Text = text
+	return nil
 }

@@ -9,15 +9,20 @@ type FocusChangeRequest struct {
 	Focused bool
 }
 
-// ReadFocusRequest parses the packet from the connection stream.
-func ReadFocusRequest(r *network.ProtocolReader) (*FocusChangeRequest, error) {
+// Read parses the content of the request from a stream. If the data cannot be read, an error will be returned.
+func (p *FocusChangeRequest) Read(r *network.ProtocolReader) error {
+	// read 1 byte for the header
+	_, err := r.Uint8()
+	if err != nil {
+		return err
+	}
+
 	// read a single byte, indicating if the client window is current focused or not
 	b, err := r.Uint8()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &FocusChangeRequest{
-		Focused: b == 0x01,
-	}, nil
+	p.Focused = b == 0x01
+	return nil
 }

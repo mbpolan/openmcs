@@ -10,21 +10,27 @@ type CameraModeRequest struct {
 	Horizontal int
 }
 
-func ReadCameraModeRequest(r *network.ProtocolReader) (*CameraModeRequest, error) {
+// Read parses the content of the request from a stream. If the data cannot be read, an error will be returned.
+func (p *CameraModeRequest) Read(r *network.ProtocolReader) error {
+	// read 1 byte for the header
+	_, err := r.Uint8()
+	if err != nil {
+		return err
+	}
+
 	// read 2 bytes for the vertical position
 	vertical, err := r.Uint16()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// read 2 bytes for the horizontal position
 	horizontal, err := r.Uint16()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &CameraModeRequest{
-		Vertical:   int(vertical),
-		Horizontal: int(horizontal),
-	}, nil
+	p.Vertical = int(vertical)
+	p.Horizontal = int(horizontal)
+	return nil
 }

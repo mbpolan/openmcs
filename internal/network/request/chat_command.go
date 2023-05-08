@@ -12,25 +12,31 @@ type ChatCommandRequest struct {
 	Text string
 }
 
-func ReadChatCommandRequest(r *network.ProtocolReader) (*ChatCommandRequest, error) {
+// Read parses the content of the request from a stream. If the data cannot be read, an error will be returned.
+func (p *ChatCommandRequest) Read(r *network.ProtocolReader) error {
+	// read 1 byte for the header
+	_, err := r.Uint8()
+	if err != nil {
+		return err
+	}
+
 	// read 1 byte for the string length
 	b, err := r.Uint8()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// read the string itself
 	text, err := r.String()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// validate the string length matches the size
 	if len(text) != int(b)-1 {
-		return nil, fmt.Errorf("expected chat command string length %d, got %d", b-1, len(text))
+		return fmt.Errorf("expected chat command string length %d, got %d", b-1, len(text))
 	}
 
-	return &ChatCommandRequest{
-		Text: text,
-	}, nil
+	p.Text = text
+	return nil
 }

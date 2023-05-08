@@ -13,20 +13,26 @@ type ModifyFriendRequest struct {
 	Username string
 }
 
-func ReadModifyFriendRequest(r *network.ProtocolReader) (*ModifyFriendRequest, error) {
+// Read parses the content of the request from a stream. If the data cannot be read, an error will be returned.
+func (p *ModifyFriendRequest) Read(r *network.ProtocolReader) error {
+	// read 1 byte for the header
+	_, err := r.Uint8()
+	if err != nil {
+		return err
+	}
+
 	// read 8 bytes containing the encoded friend name
 	name, err := r.Uint64()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// decode the name
 	username, err := util.DecodeName(name)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &ModifyFriendRequest{
-		Username: username,
-	}, nil
+	p.Username = username
+	return nil
 }

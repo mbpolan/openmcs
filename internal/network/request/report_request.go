@@ -14,34 +14,34 @@ type ReportRequest struct {
 	EnableMute bool
 }
 
-func ReadReportRequest(r *network.ProtocolReader) (*ReportRequest, error) {
+// Read parses the content of the request from a stream. If the data cannot be read, an error will be returned.
+func (p *ReportRequest) Read(r *network.ProtocolReader) error {
 	// read 8 bytes containing an encoded player name
 	name, err := r.Uint64()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// decode the player name
 	username, err := util.DecodeName(name)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// read 1 byte for the report reason
 	reason, err := r.Uint8()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// read 1 byte for a flag if the player should be muted
 	mute, err := r.Uint8()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &ReportRequest{
-		Username:   username,
-		Reason:     int(reason),
-		EnableMute: mute == 0x01,
-	}, nil
+	p.Username = username
+	p.Reason = int(reason)
+	p.EnableMute = mute == 0x01
+	return nil
 }

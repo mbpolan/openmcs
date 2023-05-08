@@ -11,12 +11,18 @@ type ClientClickRequest struct {
 	PixelOffset uint32
 }
 
-// ReadClientClickRequest parses the packet from the connection stream.
-func ReadClientClickRequest(r *network.ProtocolReader) (*ClientClickRequest, error) {
+// Read parses the content of the request from a stream. If the data cannot be read, an error will be returned.
+func (p *ClientClickRequest) Read(r *network.ProtocolReader) error {
+	// read 1 byte for the header
+	_, err := r.Uint8()
+	if err != nil {
+		return err
+	}
+
 	// read a single integer that contains packed data
 	v, err := r.Uint32()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// time since last click is contained in the high 12 bits
@@ -28,9 +34,8 @@ func ReadClientClickRequest(r *network.ProtocolReader) (*ClientClickRequest, err
 	// pixel offset is in the remaining bits
 	pixelOffset := v & 0x7FFFF
 
-	return &ClientClickRequest{
-		TimeSince:   timeSince,
-		RightClick:  rightClick == 1,
-		PixelOffset: pixelOffset,
-	}, nil
+	p.TimeSince = timeSince
+	p.RightClick = rightClick == 1
+	p.PixelOffset = pixelOffset
+	return nil
 }

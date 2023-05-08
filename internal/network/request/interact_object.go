@@ -13,30 +13,36 @@ type InteractObjectRequest struct {
 	Action    int
 }
 
-func ReadInteractObjectRequest(r *network.ProtocolReader) (*InteractObjectRequest, error) {
+// Read parses the content of the request from a stream. If the data cannot be read, an error will be returned.
+func (p *InteractObjectRequest) Read(r *network.ProtocolReader) error {
+	// read 1 byte for the header
+	_, err := r.Uint8()
+	if err != nil {
+		return err
+	}
+
 	// read 2 bytes for the object's x-coordinate
 	x, err := r.Uint16LEAlt()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// read 2 bytes for the action id
 	action, err := r.Uint16()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// read 2 bytes for the object's y-coordinate
 	y, err := r.Uint16Alt()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &InteractObjectRequest{
-		GlobalPos: model.Vector2D{
-			X: int(x),
-			Y: int(y),
-		},
-		Action: int(action),
-	}, nil
+	p.Action = int(action)
+	p.GlobalPos = model.Vector2D{
+		X: int(x),
+		Y: int(y),
+	}
+	return nil
 }

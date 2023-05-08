@@ -14,6 +14,12 @@ type SwapInventoryItemRequest struct {
 
 // Read parses the content of the request from a stream. If the data cannot be read, an error will be returned.
 func (p *SwapInventoryItemRequest) Read(r *network.ProtocolReader) error {
+	// read 1 byte for the header
+	_, err := r.Uint8()
+	if err != nil {
+		return err
+	}
+
 	// read 2 bytes for the inventory interface id
 	interfaceID, err := r.Uint16LEAlt()
 	if err != nil {

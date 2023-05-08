@@ -9,14 +9,20 @@ type RegionChangeRequest struct {
 	Flag int
 }
 
-func ReadRegionChangeRequest(r *network.ProtocolReader) (*RegionChangeRequest, error) {
+// Read parses the content of the request from a stream. If the data cannot be read, an error will be returned.
+func (p *RegionChangeRequest) Read(r *network.ProtocolReader) error {
+	// read 1 byte for the header
+	_, err := r.Uint8()
+	if err != nil {
+		return err
+	}
+
 	// read 4 bytes containing some unknown value
 	flag, err := r.Uint32()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &RegionChangeRequest{
-		Flag: int(flag),
-	}, nil
+	p.Flag = int(flag)
+	return nil
 }

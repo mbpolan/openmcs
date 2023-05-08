@@ -13,23 +13,30 @@ type PrivateChatRequest struct {
 	Text      string
 }
 
-func ReadPrivateChatRequest(r *network.ProtocolReader) (*PrivateChatRequest, error) {
+// Read parses the content of the request from a stream. If the data cannot be read, an error will be returned.
+func (p *PrivateChatRequest) Read(r *network.ProtocolReader) error {
+	// read 1 byte for the header
+	_, err := r.Uint8()
+	if err != nil {
+		return err
+	}
+
 	// read 1 byte containing packet size
 	size, err := r.Uint8()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// read 8 bytes containing the recipient's encoded name
 	name, err := r.Uint64()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// decode the recipient's username
 	recipient, err := util.DecodeName(name)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// read the encoded chat message, subtracting 8 bytes from the size since we already read past them
@@ -38,18 +45,17 @@ func ReadPrivateChatRequest(r *network.ProtocolReader) (*PrivateChatRequest, err
 	for i := 0; i < length; i++ {
 		rawText[i], err = r.Uint8()
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
 	// decode the message
 	text, err := util.DecodeChat(rawText)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &PrivateChatRequest{
-		Recipient: recipient,
-		Text:      text,
-	}, nil
+	p.Recipient = recipient
+	p.Text = text
+	return nil
 }

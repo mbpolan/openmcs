@@ -9,6 +9,7 @@ const WalkRequestHeader byte = 0xA4
 const WalkOnCommandRequestHeader byte = 0x62
 const WalkMinimap byte = 0xF8
 
+// WalkRequest is sent by the client when the player walks to a position.
 type WalkRequest struct {
 	ControlPressed bool
 	PathLength     int
@@ -16,6 +17,7 @@ type WalkRequest struct {
 	Waypoints      []model.Vector2D
 }
 
+// Read parses the content of the request from a stream. If the data cannot be read, an error will be returned.
 func (p *WalkRequest) Read(r *network.ProtocolReader) error {
 	// read 1 byte for the header
 	header, err := r.Uint8()

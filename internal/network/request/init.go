@@ -13,15 +13,20 @@ type InitRequest struct {
 	NameHash byte
 }
 
-// ReadInitRequest parses the packet from the connection stream.
-func ReadInitRequest(r *network.ProtocolReader) (*InitRequest, error) {
-	// first and only byte is the hash of the player's name
-	hash, err := r.Uint8()
+// Read parses the content of the request from a stream. If the data cannot be read, an error will be returned.
+func (p *InitRequest) Read(r *network.ProtocolReader) error {
+	// read 1 byte for the header
+	_, err := r.Uint8()
 	if err != nil {
-		return nil, fmt.Errorf("expected name hash packet: %s", err)
+		return err
 	}
 
-	return &InitRequest{
-		NameHash: hash,
-	}, nil
+	// read 1 byte for the hash of the player's name
+	hash, err := r.Uint8()
+	if err != nil {
+		return fmt.Errorf("expected name hash packet: %s", err)
+	}
+
+	p.NameHash = hash
+	return nil
 }
