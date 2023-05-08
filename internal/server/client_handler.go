@@ -395,6 +395,37 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 
 		c.game.DoSwapInventoryItem(c.player, req.FromSlot, req.ToSlot, req.InterfaceID)
 
+	case request.EquipItemRequestHeader:
+		// the player equipped an item from their inventory
+		var req request.EquipItemRequest
+		err = req.Read(c.reader)
+		if err != nil {
+			break
+		}
+
+		c.game.DoEquipItem(c.player, req.ItemID, req.InterfaceID, req.SecondaryActionID)
+
+	case request.UseItemRequestHeader:
+		// the player initiated the default action on an item
+		var req request.UseItemRequest
+		err = req.Read(c.reader)
+		if err != nil {
+			break
+		}
+
+		c.game.DoUseItem(c.player, req.ItemID, req.InterfaceID, req.ActionID)
+
+	case request.UseInventoryItemsRequestHeader:
+		// the player used an inventory item on another
+		var req request.UseInventoryItemsRequest
+		err = req.Read(c.reader)
+		if err != nil {
+			break
+		}
+
+		c.game.DoUseInventoryItem(c.player, req.SourceItemID, req.SourceInterfaceID, req.SourceSlotID,
+			req.TargetItemID, req.TargetInterfaceID, req.TargetSlotID)
+
 	case request.AddFriendRequestHeader:
 		// the player requested another player be added to their friends list
 		var req request.ModifyFriendRequest

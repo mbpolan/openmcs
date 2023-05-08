@@ -514,9 +514,24 @@ func (g *Game) DoSwapInventoryItem(p *model.Player, fromSlot int, toSlot int, mo
 	})
 }
 
+// DoEquipItem handles a player's request to equip an item.
+func (g *Game) DoEquipItem(p *model.Player, itemID, interfaceID, secondaryActionID int) {
+	// TODO
+}
+
+// DoUseItem handles a player's request to use an item.
+func (g *Game) DoUseItem(p *model.Player, itemID, interfaceID, actionID int) {
+	// TODO
+}
+
+// DoUseInventoryItem handles a player's request to use an inventory item on another item.
+func (g *Game) DoUseInventoryItem(p *model.Player, sourceItemID, sourceInterfaceID, sourceSlotID,
+	targetItemID, targetInterfaceID, targetSlotID int) {
+	// TODO
+}
+
 // broadcastPlayerStatus sends updates to other players that have them on their friends lists. An optional list of
 // target player usernames can be passed to limit who receives the update.
-//
 // Concurrency requirements: (a) game state should be locked and (b) all players should be locked.
 func (g *Game) broadcastPlayerStatus(pe *playerEntity, targets ...string) {
 	_, online := g.playersOnline.Load(pe.player.Username)
