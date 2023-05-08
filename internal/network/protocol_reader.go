@@ -19,6 +19,16 @@ func NewReader(conn net.Conn) *ProtocolReader {
 	}
 }
 
+// Peek returns the next available byte, without advancing the reader.
+func (r *ProtocolReader) Peek() (uint8, error) {
+	b, err := r.Reader.Peek(1)
+	if err != nil {
+		return 0, err
+	}
+
+	return b[0], nil
+}
+
 // Skip reads exactly n bytes and discards them.
 func (r *ProtocolReader) Skip(n int) error {
 	for i := 0; i < n; i++ {

@@ -235,7 +235,7 @@ func (c *ClientHandler) hashPassword(password string) string {
 }
 
 func (c *ClientHandler) handleLoop() (clientState, error) {
-	b, err := c.reader.Uint8()
+	header, err := c.reader.Peek()
 	if err != nil {
 		return failed, errors.Wrap(err, "unexpected error while waiting for packet header")
 	}
@@ -243,34 +243,41 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 	// maintain current state
 	var nextState = c.state
 
-	switch b {
+	switch header {
 	case request.KeepAliveRequestHeader:
 		// idle/keep-alive
+		c.reader.Skip(1)
 		c.lastHeartbeat = time.Now()
 
 	case request.FocusRequestHeader:
 		// client window focus has changed
+		c.reader.Skip(1)
 		_, err = request.ReadFocusRequest(c.reader)
 
 	case request.ClientClickRequestHeader:
 		// the player clicked somewhere on the client window
+		c.reader.Skip(1)
 		_, err = request.ReadClientClickRequest(c.reader)
 		c.game.MarkPlayerActive(c.player)
 
 	case request.RegionChangeRequestHeader:
 		// the player entered a new map region
+		c.reader.Skip(1)
 		_, err = request.ReadRegionChangeRequest(c.reader)
 
 	case request.CameraModeRequestHeader:
 		// the player moved their client's camera
+		c.reader.Skip(1)
 		_, err = request.ReadCameraModeRequest(c.reader)
 		c.game.MarkPlayerActive(c.player)
 
 	case request.RegionLoadedRequestHeader:
 		// the player's client finished loading a new map region
+		c.reader.Skip(1)
 
 	case request.ReportRequestHeader:
 		// the player sent an abuse report
+		c.reader.Skip(1)
 		req, err := request.ReadReportRequest(c.reader)
 		if err == nil {
 			c.game.ProcessAbuseReport(c.player, req.Username, req.Reason, req.EnableMute)
@@ -278,13 +285,16 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 
 	case request.CloseInterfaceRequestHeader:
 		// the player's client dismissed the current interface, if any
+		c.reader.Skip(1)
 
 	case request.PlayerIdleRequestHeader:
 		// the player has become idle
+		c.reader.Skip(1)
 		c.game.MarkPlayerInactive(c.player)
 
 	case request.PlayerChatRequestHeader:
 		// the player sent a chat message
+		c.reader.Skip(1)
 		req, err := request.ReadPlayerChatRequest(c.reader)
 		if err == nil {
 			c.game.DoPlayerChat(c.player, req.Effect, req.Color, req.Text)
@@ -292,6 +302,7 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 
 	case request.ChatCommandRequestHeader:
 		// the player sent a chat command
+		c.reader.Skip(1)
 		req, err := request.ReadChatCommandRequest(c.reader)
 		if err == nil {
 			c.game.DoPlayerChatCommand(c.player, req.Text)
@@ -299,6 +310,7 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 
 	case request.PrivateChatRequestHeader:
 		// the player sent a private chat message
+		c.reader.Skip(1)
 		req, err := request.ReadPrivateChatRequest(c.reader)
 		if err == nil {
 			c.game.DoPlayerPrivateChat(c.player, req.Recipient, req.Text)
@@ -306,20 +318,23 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 
 	case request.ChangeModesRequestHeader:
 		// the player changed one or more chat or interaction modes
+		c.reader.Skip(1)
 		req, err := request.ReadChangeModesRequest(c.reader)
 		if err == nil {
 			c.game.SetPlayerModes(c.player, req.PublicChat, req.PrivateChat, req.Interaction)
 		}
 
-	case request.WalkRequestHeader, request.WalkOnCommandRequestHeader:
+	case request.WalkRequestHeader, request.WalkOnCommandRequestHeader, request.WalkMinimap:
 		// the player started walking to a destination on the map
-		req, err := request.ReadWalkRequest(c.reader)
+		var req request.WalkRequest
+		err = req.Read(c.reader)
 		if err == nil {
 			c.game.WalkPlayer(c.player, req.Start, req.Waypoints)
 		}
 
 	case request.TakeGroundItemRequestHeader:
 		// the player tried to pick up a ground item
+		c.reader.Skip(1)
 		req, err := request.ReadTakeGroundItemRequest(c.reader)
 		if err == nil {
 			c.game.DoTakeGroundItem(c.player, req.ItemID, req.GlobalPos)
@@ -327,6 +342,7 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 
 	case request.DropInventoryItemRequestHeader:
 		// the player dropped an inventory item
+		c.reader.Skip(1)
 		req, err := request.ReadDropInventoryItemRequest(c.reader)
 		if err == nil {
 			c.game.DoDropInventoryItem(c.player, req.ItemID, req.InterfaceID, req.SecondaryActionID)
@@ -344,6 +360,7 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 
 	case request.AddFriendRequestHeader:
 		// the player requested another player be added to their friends list
+		c.reader.Skip(1)
 		req, err := request.ReadModifyFriendRequest(c.reader)
 		if err == nil {
 			c.game.AddFriend(c.player, req.Username)
@@ -351,6 +368,7 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 
 	case request.RemoveFriendRequestHeader:
 		// the player requested another player be removed from their friends list
+		c.reader.Skip(1)
 		req, err := request.ReadModifyFriendRequest(c.reader)
 		if err == nil {
 			c.game.RemoveFriend(c.player, req.Username)
@@ -358,6 +376,7 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 
 	case request.AddIgnoreRequestHeader:
 		// the player requested another player be added to their ignore list
+		c.reader.Skip(1)
 		req, err := request.ReadModifyIgnoreRequest(c.reader)
 		if err == nil {
 			c.game.AddIgnored(c.player, req.Username)
@@ -365,6 +384,7 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 
 	case request.RemoveIgnoreRequestHeader:
 		// the player requested another player be removed from their ignore list
+		c.reader.Skip(1)
 		req, err := request.ReadModifyIgnoreRequest(c.reader)
 		if err == nil {
 			c.game.RemoveIgnored(c.player, req.Username)
@@ -372,6 +392,7 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 
 	case request.InterfaceActionRequestHeader:
 		// the player has performed an action on an interface
+		c.reader.Skip(1)
 		req, err := request.ReadInterfaceActionRequest(c.reader)
 		if err == nil {
 			c.game.DoInterfaceAction(c.player, req.Action)
@@ -379,6 +400,7 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 
 	case request.InteractObjectRequestHeader:
 		// the player interacted with an object
+		c.reader.Skip(1)
 		req, err := request.ReadInteractObjectRequest(c.reader)
 		if err == nil {
 			c.game.DoInteractWithObject(c.player, req.Action, req.GlobalPos)
@@ -386,7 +408,7 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 
 	default:
 		// unknown packet
-		err = fmt.Errorf("unexpected packet header: %2x", b)
+		err = fmt.Errorf("unexpected packet header: %2x", header)
 	}
 
 	if err != nil {
