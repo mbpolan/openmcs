@@ -8,6 +8,7 @@ import (
 	"github.com/mbpolan/openmcs/internal/model"
 	"github.com/mbpolan/openmcs/internal/network"
 	"github.com/mbpolan/openmcs/internal/network/response"
+	"github.com/mbpolan/openmcs/internal/telemetry"
 	"github.com/mbpolan/openmcs/internal/util"
 	"github.com/pkg/errors"
 	"strings"
@@ -47,13 +48,15 @@ type Game struct {
 	regions          map[model.Vector2D]*RegionManager
 	worldID          int
 	mapManager       *MapManager
+	telemetry        telemetry.Telemetry
 }
 
 // NewGame creates a new game engine using the given configuration.
-func NewGame(cfg *config.Config) (*Game, error) {
+func NewGame(cfg *config.Config, telemetry telemetry.Telemetry) (*Game, error) {
 	g := &Game{
 		doneChan:       make(chan bool, 1),
 		items:          map[int]*model.Item{},
+		telemetry:      telemetry,
 		welcomeMessage: cfg.Server.WelcomeMessage,
 		worldID:        cfg.Server.WorldID,
 	}
@@ -389,6 +392,7 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	g.mu.Unlock()
 
 	// mark the player as being online and broadcast their status
+	g.telemetry.RecordPlayerConnected()
 	g.playersOnline.Store(pe.player.Username, true)
 	pe.MarkStatusBroadcast()
 
@@ -1039,6 +1043,7 @@ func (g *Game) handleGameUpdate() error {
 			g.players = append(g.players[:idx], g.players[idx+1:]...)
 
 			// mark the player as offline and broadcast their status
+			g.telemetry.RecordPlayerDisconnected()
 			g.playersOnline.Delete(pe.player.Username)
 			g.broadcastPlayerStatus(pe)
 

@@ -7,11 +7,18 @@ import (
 	"github.com/mbpolan/openmcs/internal/game"
 	"github.com/mbpolan/openmcs/internal/logger"
 	"github.com/mbpolan/openmcs/internal/store"
+	"github.com/mbpolan/openmcs/internal/telemetry"
 	"github.com/mbpolan/openmcs/internal/util"
 	"github.com/pkg/errors"
 	"net"
 	"sync"
 )
+
+// Options contains parameters to configure a Server instance.
+type Options struct {
+	Config    *config.Config
+	Telemetry telemetry.Telemetry
+}
 
 // Server provides the network infrastructure for a game and login server.
 type Server struct {
@@ -25,18 +32,20 @@ type Server struct {
 	game        *game.Game
 	mu          sync.Mutex
 	sessionKey  uint64
+	telemetry   telemetry.Telemetry
 }
 
 // New creates a server instance with a configuration.
-func New(cfg *config.Config) (*Server, error) {
+func New(opts Options) (*Server, error) {
 	return &Server{
-		bindAddress: fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
+		bindAddress: fmt.Sprintf("%s:%d", opts.Config.Server.Host, opts.Config.Server.Port),
 		clients:     nil,
 		closeChan:   make(chan *ClientHandler),
-		config:      cfg,
+		config:      opts.Config,
 		doneChan:    make(chan bool, 1),
 		mu:          sync.Mutex{},
 		sessionKey:  0,
+		telemetry:   opts.Telemetry,
 	}, nil
 }
 
@@ -65,7 +74,7 @@ func (s *Server) Run() error {
 	}
 
 	// create a new game engine instance
-	s.game, err = game.NewGame(s.config)
+	s.game, err = game.NewGame(s.config, s.telemetry)
 	if err != nil {
 		return errors.Wrap(err, "failed creating game world")
 	}

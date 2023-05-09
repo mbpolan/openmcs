@@ -4,8 +4,9 @@ import "github.com/spf13/viper"
 
 // Config is the top-level configuration for the server and world.
 type Config struct {
-	Store  StoreConfig  `mapstructure:"store"`
-	Server ServerConfig `mapstructure:"server"`
+	Store   StoreConfig   `mapstructure:"store"`
+	Server  ServerConfig  `mapstructure:"server"`
+	Metrics MetricsConfig `mapstructure:"metrics"`
 }
 
 // ServerConfig contains parameters for the game server.
@@ -28,6 +29,12 @@ type StoreConfig struct {
 // SQLite3DatabaseConfig contains parameters for a SQLIte3 database.
 type SQLite3DatabaseConfig struct {
 	URI string `mapstructure:"uri"`
+}
+
+// MetricsConfig contains metrics and telemetry configuration options.
+type MetricsConfig struct {
+	Enabled bool `mapstructure:"enabled"`
+	Port    int  `mapstructure:"port"`
 }
 
 // Load reads the game server configuration file from the given path.

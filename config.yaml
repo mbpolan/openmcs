@@ -13,6 +13,13 @@ server:
   # verbosity for logging (debug, info, error)
   logLevel: info
 
+# configuration for metrics and observability data
+metrics:
+  # control if metrics are collected or not
+  enabled: true
+  # the port number for exposing metrics
+  port: 2112
+
 # configuration for persistent storage
 store:
   # directory containing schema migrations

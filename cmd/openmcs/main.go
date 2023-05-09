@@ -6,6 +6,7 @@ import (
 	"github.com/mbpolan/openmcs/internal/config"
 	"github.com/mbpolan/openmcs/internal/logger"
 	"github.com/mbpolan/openmcs/internal/server"
+	"github.com/mbpolan/openmcs/internal/telemetry"
 	"os"
 	"os/signal"
 )
@@ -36,8 +37,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	// ser up game server
-	srv, err := server.New(cfg)
+	// prepare the telemetry provider
+	tel, err := telemetry.Setup(cfg)
+	if err != nil {
+		logger.Fatalf("failed to set up telemetry provider: %s", err)
+	}
+
+	// start the telemetry provider if enabled
+	if cfg.Metrics.Enabled {
+		tel.Start()
+	}
+
+	// setup up the game server
+	srv, err := server.New(server.Options{
+		Config:    cfg,
+		Telemetry: tel,
+	})
 	if err != nil {
 		logger.Fatalf("failed to prepare server: %s", err)
 	}
@@ -47,9 +62,10 @@ func main() {
 	signal.Notify(sigChan, os.Interrupt)
 	go func() {
 		<-sigChan
-
 		logger.Infof("received interrupt, stopping server")
+
 		srv.Stop()
+		_ = tel.Stop()
 	}()
 
 	// start the server
