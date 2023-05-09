@@ -813,9 +813,11 @@ func (g *Game) playerRegionPosition(pe *playerEntity) (model.Vector2D, model.Vec
 func (g *Game) handleChatCommand(pe *playerEntity, command *ChatCommand) {
 	switch command.Type {
 	case ChatCommandTypeSpawnItem:
+		params := command.SpawnItem
+
 		// prevent invalid items from being spawned
-		if _, ok := g.items[command.SpawnItem.ItemID]; ok {
-			g.mapManager.AddGroundItem(command.SpawnItem.ItemID, command.SpawnItem.DespawnTimeSeconds, pe.player.GlobalPos)
+		if _, ok := g.items[params.ItemID]; ok {
+			g.mapManager.AddGroundItem(params.ItemID, params.Amount, params.Amount > 1, params.DespawnTimeSeconds, pe.player.GlobalPos)
 		} else {
 			pe.PlanEvent(NewSendResponseEvent(
 				response.NewServerMessageResponse(fmt.Sprintf("Invalid item: %d", command.SpawnItem.ItemID)),
@@ -943,25 +945,43 @@ func (g *Game) removeFromList(p *model.Player, username string, friend bool) {
 // addPlayerInventoryItem adds an item to the player's inventory, if there is room, and plans an update to the player's
 // client. The item may or may not be stackable.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) addPlayerInventoryItem(pe *playerEntity, item *model.Item) {
+func (g *Game) addPlayerInventoryItem(pe *playerEntity, item *model.Item, amount int) {
+	slotID := -1
+	totalAmount := amount
+
+	// stackable items occupy the same slot, so we need to handle them separately
 	if item.Stackable {
-		// TODO
-		return
+		// find an existing slot that has this item, if one exists. if there isn't one, fall through and treat this
+		// stackable as a new item
+		slot := pe.player.InventorySlotWithItem(item.ID)
+		if slot != nil {
+			// can this slot accommodate the additional stack amount? if not, the player cannot hold this item
+			if int64(slot.Amount+amount) > model.MaxStackableSize {
+				return
+			}
+
+			slotID = slot.ID
+			totalAmount = slot.Amount + amount
+		}
 	}
 
 	// find the next available slot in the player's inventory, if one exists
-	slot := pe.player.NextFreeInventorySlot()
-	if slot == -1 {
+	if slotID == -1 {
+		slotID = pe.player.NextFreeInventorySlot()
+	}
+
+	// if there is no available slot, the player cannot hold this item
+	if slotID == -1 {
 		return
 	}
 
 	// set the item on the slot
-	pe.player.SetInventoryItem(item, 1, slot)
+	pe.player.SetInventoryItem(item, totalAmount, slotID)
 
 	// update the player's inventory
 	// FIXME: the interface id should not be hardcoded
 	inventory := response.NewSetInventoryItemResponse(3214)
-	inventory.AddSlot(slot, item.ID, 1)
+	inventory.AddSlot(slotID, item.ID, totalAmount)
 	pe.PlanEvent(NewSendResponseEvent(inventory, time.Now()))
 }
 
@@ -1131,9 +1151,10 @@ func (g *Game) handleGameUpdate() error {
 
 				// remove the ground item if it still exists, and allow the next reconciliation to take care of
 				// updating the state of the map
-				if g.mapManager.RemoveGroundItem(action.item.ID, action.globalPos) {
+				item := g.mapManager.RemoveGroundItem(action.item.ID, action.globalPos)
+				if item != nil {
 					// add the item to the player's inventory
-					g.addPlayerInventoryItem(pe, action.item)
+					g.addPlayerInventoryItem(pe, action.item, item.Amount)
 				}
 
 				pe.deferredAction = nil
@@ -1147,7 +1168,7 @@ func (g *Game) handleGameUpdate() error {
 					// put the item on the tile the player's standing on, and let the next reconciliation take care of
 					// updating the state of the map
 					timeout := int(itemDespawnInterval.Seconds())
-					g.mapManager.AddGroundItem(slot.Item.ID, &timeout, pe.player.GlobalPos)
+					g.mapManager.AddGroundItem(slot.Item.ID, slot.Amount, action.item.Stackable, &timeout, pe.player.GlobalPos)
 				}
 
 				pe.deferredAction = nil

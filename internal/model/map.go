@@ -9,6 +9,7 @@ import (
 type TileGroundItem struct {
 	InstanceUUID uuid.UUID
 	ItemID       int
+	Amount       int
 }
 
 // Tile is the smallest unit of space on the world map.
@@ -30,13 +31,14 @@ func (t *Tile) AddObject(object *WorldObject) {
 	t.objects = append(t.objects, object)
 }
 
-// AddItem adds a ground item to the tile returning its unique instance UUID.
+// AddItem adds a non-stackable ground item to the tile, returning its unique instance UUID.
 func (t *Tile) AddItem(id int) uuid.UUID {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	item := &TileGroundItem{
 		InstanceUUID: uuid.New(),
+		Amount:       1,
 		ItemID:       id,
 	}
 
@@ -44,33 +46,64 @@ func (t *Tile) AddItem(id int) uuid.UUID {
 	return item.InstanceUUID
 }
 
-// GroundItemIDs returns a slice of ground item IDs located on this tile.
-func (t *Tile) GroundItemIDs() []int {
+// AddStackableItem adds a stackable ground item with a stack amount to the tile, returning its unique instance UUID.
+// If a new item was added to the tile, true will be returned in the second tuple element, otherwise false if an
+// existing item's stack was updated. If an existing item was updated, the previous stack amount will be returned in
+// the third tuple element.
+func (t *Tile) AddStackableItem(id, amount int) (uuid.UUID, bool, int) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	ids := make([]int, len(t.groundItems))
-	for i, item := range t.groundItems {
-		ids[i] = item.ItemID
+	// try to find an existing item we can add the stack amount to
+	for _, item := range t.groundItems {
+		if item.ItemID == id && int64(item.Amount+amount) < MaxStackableSize {
+			// reset the item's instance uuid and add the amount to the stack
+			item.InstanceUUID = uuid.New()
+			oldAmount := item.Amount
+			item.Amount += amount
+			return item.InstanceUUID, false, oldAmount
+		}
 	}
 
-	return ids
+	// otherwise add this as a new item
+	item := &TileGroundItem{
+		InstanceUUID: uuid.New(),
+		Amount:       amount,
+		ItemID:       id,
+	}
+
+	t.groundItems = append([]*TileGroundItem{item}, t.groundItems...)
+	return item.InstanceUUID, true, 0
 }
 
-// RemoveItemByID removes the first ground item that matches the item ID. If the item was found and removed, true will
-// be returned. If there are multiple ground items with the same item ID, only the first will be removed.
-func (t *Tile) RemoveItemByID(id int) bool {
+// GroundItems returns a slice of ground items located on this tile.
+func (t *Tile) GroundItems() []*TileGroundItem {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	items := make([]*TileGroundItem, len(t.groundItems))
+	for i, item := range t.groundItems {
+		items[i] = item
+	}
+
+	return items
+}
+
+// RemoveItemByID removes the first ground item that matches the item ID. If the item was found and removed, a pointer
+// to the TileGroundItem model will be returned. If there are multiple ground items with the same item ID, only the
+// first will be removed.
+func (t *Tile) RemoveItemByID(id int) *TileGroundItem {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	for i, item := range t.groundItems {
 		if item.ItemID == id {
 			t.groundItems = append(t.groundItems[:i], t.groundItems[i+1:]...)
-			return true
+			return item
 		}
 	}
 
-	return false
+	return nil
 }
 
 // RemoveItemByInstanceUUID removes a ground item that matches the instance UUID. If the item was found and removed, its item ID will

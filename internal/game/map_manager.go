@@ -1,6 +1,7 @@
 package game
 
 import (
+	"github.com/google/uuid"
 	"github.com/mbpolan/openmcs/internal/model"
 	"github.com/mbpolan/openmcs/internal/network/response"
 	"github.com/mbpolan/openmcs/internal/util"
@@ -14,13 +15,21 @@ type changeEventType int
 const (
 	changeEventAddGroundItem changeEventType = iota
 	changeEventRemoveGroundItem
+	changeEventUpdateGroundItem
 )
+
+// changeDeltaItem is an item that was added or removed on a tile.
+type changeDeltaItem struct {
+	itemID    int
+	amount    int
+	oldAmount int
+}
 
 // changeDelta is a mutation to a tile that should be tracked.
 type changeDelta struct {
 	eventType changeEventType
 	globalPos model.Vector3D
-	itemIDs   []int
+	items     []changeDeltaItem
 }
 
 // MapManager is responsible for managing the state of the entire world map.
@@ -90,15 +99,39 @@ func (m *MapManager) State(origin model.Vector3D, trim model.Boundary) []respons
 }
 
 // AddGroundItem adds a ground item to the top of a tile with an optional timeout (in seconds) when that item should
-// automatically be removed.
-func (m *MapManager) AddGroundItem(itemID int, timeoutSeconds *int, globalPos model.Vector3D) {
+// automatically be removed. Stackable items will be added to an existing stackable with the same item ID, if one
+// exists, or they will be placed as new items on the tile.
+func (m *MapManager) AddGroundItem(itemID, amount int, stackable bool, timeoutSeconds *int, globalPos model.Vector3D) {
 	tile := m.worldMap.Tile(globalPos)
 	if tile == nil {
 		return
 	}
 
-	// add the item to the tile
-	instanceUUID := tile.AddItem(itemID)
+	var instanceUUID uuid.UUID
+	newlyAdded := false
+	oldAmount := 0
+
+	// add the item to the tile. if the item is stackable, attempt to find an update an newlyAdded stackable with the
+	// same item id
+	if stackable {
+		instanceUUID, newlyAdded, oldAmount = tile.AddStackableItem(itemID, amount)
+	} else {
+		instanceUUID = tile.AddItem(itemID)
+	}
+
+	// find each region manager that is aware of this tile and inform them about the change
+	regions := m.findOverlappingRegions(globalPos)
+	for _, origin := range regions {
+		region := m.regions[origin]
+
+		if newlyAdded {
+			region.MarkGroundItemAdded(itemID, amount, globalPos)
+		} else {
+			region.MarkGroundItemUpdated(itemID, oldAmount, amount+oldAmount, globalPos)
+		}
+
+		m.addPendingRegion(origin)
+	}
 
 	// if this item has an expiration, schedule an event to remove it after the fact
 	if timeoutSeconds != nil {
@@ -110,28 +143,20 @@ func (m *MapManager) AddGroundItem(itemID int, timeoutSeconds *int, globalPos mo
 			GlobalPos:    globalPos,
 		})
 	}
-
-	// find each region manager that is aware of this tile and inform them about the change
-	regions := m.findOverlappingRegions(globalPos)
-	for _, origin := range regions {
-		region := m.regions[origin]
-
-		region.MarkGroundItemAdded(itemID, globalPos)
-		m.addPendingRegion(origin)
-	}
 }
 
 // RemoveGroundItem attempts to remove a ground item with the given ID at a position, in global coordinates. If the item
-// was found and removed, true will be returned.
-func (m *MapManager) RemoveGroundItem(itemID int, globalPos model.Vector3D) bool {
+// was found and removed, a pointer to its model.TileGroundItem model will be returned.
+func (m *MapManager) RemoveGroundItem(itemID int, globalPos model.Vector3D) *model.TileGroundItem {
 	tile := m.worldMap.Tile(globalPos)
 	if tile == nil {
-		return false
+		return nil
 	}
 
 	// attempt to remove the ground item, if it still exists on this tile
-	if !tile.RemoveItemByID(itemID) {
-		return false
+	item := tile.RemoveItemByID(itemID)
+	if item == nil {
+		return nil
 	}
 
 	// find each region manager that is aware of this tile and inform them about the change
@@ -143,7 +168,7 @@ func (m *MapManager) RemoveGroundItem(itemID int, globalPos model.Vector3D) bool
 		m.addPendingRegion(origin)
 	}
 
-	return true
+	return item
 }
 
 // ClearGroundItems removes all ground items on a tile.
@@ -153,8 +178,13 @@ func (m *MapManager) ClearGroundItems(globalPos model.Vector3D) {
 		return
 	}
 
-	itemIDs := tile.GroundItemIDs()
+	items := tile.GroundItems()
 	tile.Clear()
+
+	itemIDs := make([]int, len(items))
+	for i, item := range items {
+		itemIDs[i] = item.ItemID
+	}
 
 	// find each region manager that is aware of this tile and inform them about the change
 	regions := m.findOverlappingRegions(globalPos)

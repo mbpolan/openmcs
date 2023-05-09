@@ -98,22 +98,50 @@ func (r *RegionManager) State(trim model.Boundary) []response.Response {
 	return state
 }
 
-// MarkGroundItemAdded informs the region manager that a ground item was placed on a tile.
-func (r *RegionManager) MarkGroundItemAdded(itemID int, globalPos model.Vector3D) {
+// MarkGroundItemAdded informs the region manager that a ground item with a stack amount was placed on a tile.
+func (r *RegionManager) MarkGroundItemAdded(itemID, amount int, globalPos model.Vector3D) {
 	// track this change to the region state
 	r.addDelta(&changeDelta{
 		eventType: changeEventAddGroundItem,
 		globalPos: globalPos,
-		itemIDs:   []int{itemID},
+		items: []changeDeltaItem{
+			{
+				itemID: itemID,
+				amount: amount,
+			},
+		},
+	})
+}
+
+// MarkGroundItemUpdated informs the region manager that a ground item's stack amount was updated.
+func (r *RegionManager) MarkGroundItemUpdated(itemID, oldAmount, newAmount int, globalPos model.Vector3D) {
+	// track this change to the region state
+	r.addDelta(&changeDelta{
+		eventType: changeEventUpdateGroundItem,
+		globalPos: globalPos,
+		items: []changeDeltaItem{
+			{
+				itemID:    itemID,
+				amount:    newAmount,
+				oldAmount: oldAmount,
+			},
+		},
 	})
 }
 
 // MarkGroundItemsCleared informs the region manager that all ground items on a tile have been removed.
 func (r *RegionManager) MarkGroundItemsCleared(itemIDs []int, globalPos model.Vector3D) {
+	items := make([]changeDeltaItem, len(itemIDs))
+	for i, id := range itemIDs {
+		items[i] = changeDeltaItem{
+			itemID: id,
+		}
+	}
+
 	r.addDelta(&changeDelta{
 		eventType: changeEventRemoveGroundItem,
 		globalPos: globalPos,
-		itemIDs:   itemIDs,
+		items:     items,
 	})
 }
 
@@ -140,14 +168,20 @@ func (r *RegionManager) Reconcile() []response.Response {
 		switch e.eventType {
 		case changeEventAddGroundItem:
 			// one or more ground items were added to a tile
-			for _, itemID := range e.itemIDs {
-				updates[chunkRelative] = append(updates[chunkRelative], response.NewShowGroundItemResponse(itemID, 1, tileRelative))
+			for _, item := range e.items {
+				updates[chunkRelative] = append(updates[chunkRelative], response.NewShowGroundItemResponse(item.itemID, item.amount, tileRelative))
 			}
 
 		case changeEventRemoveGroundItem:
 			// one or more ground items on a tile were removed
-			for _, itemID := range e.itemIDs {
-				updates[chunkRelative] = append(updates[chunkRelative], response.NewRemoveGroundItemResponse(itemID, tileRelative))
+			for _, item := range e.items {
+				updates[chunkRelative] = append(updates[chunkRelative], response.NewRemoveGroundItemResponse(item.itemID, tileRelative))
+			}
+
+		case changeEventUpdateGroundItem:
+			// one or more ground item stack amounts has changed
+			for _, item := range e.items {
+				updates[chunkRelative] = append(updates[chunkRelative], response.NewUpdateGroundItemResponse(item.itemID, item.oldAmount, item.amount, tileRelative))
 			}
 
 		default:
@@ -341,8 +375,8 @@ func (r *RegionManager) computeTile(tilePosGlobal model.Vector3D, relative model
 
 	// describe ground items at this tile
 	var batched []response.Response
-	for _, item := range tile.GroundItemIDs() {
-		batched = append(batched, response.NewShowGroundItemResponse(item, 1, relative))
+	for _, item := range tile.GroundItems() {
+		batched = append(batched, response.NewShowGroundItemResponse(item.ItemID, item.Amount, relative))
 	}
 
 	return batched

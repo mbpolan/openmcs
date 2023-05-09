@@ -20,6 +20,7 @@ const (
 // ChatCommandSpawnItemParams contains parameters for a chat command that spawns a ground item.
 type ChatCommandSpawnItemParams struct {
 	ItemID             int
+	Amount             int
 	DespawnTimeSeconds *int
 }
 
@@ -55,9 +56,20 @@ func ParseChatCommand(text string) *ChatCommand {
 			return nil
 		}
 
-		// second optional argument is a despawn time in seconds
-		var despawnTimeSeconds *int
+		// second optional argument is the stack amount
+		amount := 1
 		if len(args) > 1 {
+			i, err := strconv.Atoi(args[1])
+			if err != nil {
+				return nil
+			}
+
+			amount = i
+		}
+
+		// third optional argument is a despawn time in seconds
+		var despawnTimeSeconds *int
+		if len(args) > 2 {
 			timeout, err := strconv.Atoi(args[1])
 			if err != nil {
 				return nil
@@ -70,6 +82,7 @@ func ParseChatCommand(text string) *ChatCommand {
 			Type: ChatCommandTypeSpawnItem,
 			SpawnItem: &ChatCommandSpawnItemParams{
 				ItemID:             itemID,
+				Amount:             amount,
 				DespawnTimeSeconds: despawnTimeSeconds,
 			},
 		}
