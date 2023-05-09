@@ -108,7 +108,7 @@ func (m *MapManager) AddGroundItem(itemID, amount int, stackable bool, timeoutSe
 	}
 
 	var instanceUUID uuid.UUID
-	newlyAdded := false
+	newlyAdded := true
 	oldAmount := 0
 
 	// add the item to the tile. if the item is stackable, attempt to find an update an newlyAdded stackable with the
