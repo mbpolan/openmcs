@@ -8,6 +8,8 @@ type Telemetry interface {
 	Start()
 	// Stop terminates the metrics server.
 	Stop() error
+	// RecordGameStateUpdateDuration records the duration a game state update took to complete.
+	RecordGameStateUpdateDuration(duration float64)
 	// RecordPlayerConnected tracks a player that was connected to the server.
 	RecordPlayerConnected()
 	// RecordPlayerDisconnected tracks a player that was disconnected from the server.

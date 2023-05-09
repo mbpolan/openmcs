@@ -20,6 +20,8 @@ type prometheusTelemetry struct {
 	enabled bool
 	// server is the HTTP server that provides endpoints for scraping Prometheus metrics.
 	server *http.Server
+	// gameStateUpdateDuration measures how long each game state update takes to complete.
+	gameStateUpdateDuration prometheus.Histogram
 	// usersOnlineGauge counts the current online player count.
 	usersOnlineGauge prometheus.Gauge
 }
@@ -37,16 +39,33 @@ func newPrometheusTelemetry(cfg *config.Config) (Telemetry, error) {
 		Handler: mux,
 	}
 
-	// create metrics
+	// create histogram metrics
+	gameStateUpdateDuration := promauto.NewHistogram(prometheus.HistogramOpts{
+		Name: "game_state_update_duration",
+		Help: "The amount of time (in nanoseconds) a game state update took to complete",
+		Buckets: []float64{
+			1000.0,
+			5000.0,
+			10000.0,
+			50000.0,
+			100000.0,
+			1000000.0,
+			50000000.0,
+			100000000.0,
+		},
+	})
+
+	// create gauge metrics
 	usersOnlineGauge := promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "users_online_total",
 		Help: "The total number of users connected to the server",
 	})
 
 	return &prometheusTelemetry{
-		bindAddress:      bindAddress,
-		server:           server,
-		usersOnlineGauge: usersOnlineGauge,
+		bindAddress:             bindAddress,
+		server:                  server,
+		gameStateUpdateDuration: gameStateUpdateDuration,
+		usersOnlineGauge:        usersOnlineGauge,
 	}, nil
 }
 
@@ -75,6 +94,15 @@ func (p *prometheusTelemetry) Stop() error {
 	}
 
 	return nil
+}
+
+// RecordGameStateUpdateDuration records the duration a game state update took to complete.
+func (p *prometheusTelemetry) RecordGameStateUpdateDuration(duration float64) {
+	if !p.enabled {
+		return
+	}
+
+	p.gameStateUpdateDuration.Observe(duration)
 }
 
 // RecordPlayerConnected tracks that a player has connected to the server.

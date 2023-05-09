@@ -672,11 +672,17 @@ func (g *Game) loop() {
 			logger.Infof("stopping game engine")
 			return
 		case <-g.ticker.C:
+			start := time.Now()
+
 			err := g.handleGameUpdate()
 			if err != nil {
 				logger.Errorf("ending game state update due to error: %s", err)
 				return
 			}
+
+			// record how long this game state update took
+			end := time.Now().Sub(start)
+			g.telemetry.RecordGameStateUpdateDuration(float64(end.Nanoseconds()))
 		}
 	}
 }
