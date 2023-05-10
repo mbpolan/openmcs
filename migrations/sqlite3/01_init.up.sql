@@ -378,3 +378,53 @@ BEGIN
     WHERE
         ID = NEW.ID;
 END;
+
+-- ----------------------------------------------------------------------------
+-- Table: ITEM_ATTRIBUTES
+-- ----------------------------------------------------------------------------
+
+-- create table for storing item attributes
+CREATE TABLE ITEM_ATTRIBUTES (
+    -- primary key
+    ITEM_ID INTEGER PRIMARY KEY,
+    -- the slot this item is equipped into
+    EQUIP_SLOT_ID INTEGER NULL,
+    -- the speed at which this item deals damage
+    SPEED INTEGER NULL,
+    -- flag if the item requires two hand slots to wield
+    TWO_HANDED INT NULL,
+    -- the weight of the item
+    WEIGHT REAL NOT NULL,
+    -- date time when the row was inserted
+    CREATED_DTTM TEXT NOT NULL DEFAULT CURRENT_DATE,
+    -- date time when the row was updated
+    UPDATED_DTTM TEXT NULL
+);
+
+-- create a trigger on item_attributes to manage the CREATED_DTTM column
+CREATE TRIGGER
+    ITEM_ATTRIBUTES_CREATED_DTTM
+AFTER INSERT ON
+    ITEM_ATTRIBUTES
+BEGIN
+    UPDATE
+        ITEM_ATTRIBUTES
+    SET
+        CREATED_DTTM = DATETIME('NOW')
+    WHERE
+        ITEM_ID = NEW.ITEM_ID;
+END;
+
+-- create a trigger on item_attributes to manage the UPDATED_DTTM column
+CREATE TRIGGER
+    ITEM_ATTRIBUTES_UPDATED_DTTM
+AFTER UPDATE ON
+    ITEM_ATTRIBUTES
+BEGIN
+    UPDATE
+        ITEM_ATTRIBUTES
+    SET
+        UPDATED_DTTM = DATETIME('NOW')
+    WHERE
+        ITEM_ID = NEW.ITEM_ID;
+END;
