@@ -40,6 +40,75 @@ func (s *SQLite3Driver) Migration() (database.Driver, error) {
 	return sqlite3.WithInstance(s.db, &sqlite3.Config{})
 }
 
+// LoadItemAttributes loads information about all item attributes from a SQLite3 database.
+func (s *SQLite3Driver) LoadItemAttributes() ([]*model.ItemAttributes, error) {
+	stmt, err := s.db.Prepare(`
+		SELECT
+		    ITEM_ID,
+		    EQUIP_SLOT_ID,
+		    SPEED,
+		    WEIGHT,
+		    TWO_HANDED
+		FROM
+		    ITEM_ATTRIBUTES
+	`)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := stmt.Query()
+	if err != nil {
+		return nil, err
+	}
+
+	var attributes []*model.ItemAttributes
+
+	defer rows.Close()
+	for rows.Next() {
+		var itemID int
+		var weight float64
+		var slotID, speed, twoHanded sql.NullInt32
+		err := rows.Scan(&itemID, &slotID, &speed, &weight, &twoHanded)
+		if err != nil {
+			return nil, err
+		}
+
+		nature := model.ItemNatureNotUsable
+		if slotID.Valid {
+			if twoHanded.Valid && twoHanded.Int32 == 1 {
+				nature |= model.ItemNatureEquipmentTwoHanded
+			} else {
+				nature |= model.ItemNatureEquipmentOneHanded
+			}
+		}
+
+		equipSlotID := -1
+		if slotID.Valid {
+			equipSlotID = int(slotID.Int32)
+		}
+
+		itemSpeed := 0
+		if speed.Valid {
+			itemSpeed = int(speed.Int32)
+		}
+
+		attributes = append(attributes, &model.ItemAttributes{
+			ItemID:      itemID,
+			Nature:      nature,
+			EquipSlotID: equipSlotID,
+			Speed:       itemSpeed,
+			Weight:      weight,
+		})
+	}
+
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+
+	return attributes, nil
+}
+
 // SavePlayer updates a player's information in a SQLite3 database.
 func (s *SQLite3Driver) SavePlayer(p *model.Player) error {
 	tx, err := s.db.Begin()

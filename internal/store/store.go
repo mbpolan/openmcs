@@ -78,6 +78,11 @@ func (s *Store) Close() error {
 	return s.driver.Close()
 }
 
+// LoadItemAttributes loads information about all equipment items.
+func (s *Store) LoadItemAttributes() ([]*model.ItemAttributes, error) {
+	return s.driver.LoadItemAttributes()
+}
+
 // SavePlayer saves data about a player.
 func (s *Store) SavePlayer(p *model.Player) error {
 	return s.driver.SavePlayer(p)

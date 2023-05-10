@@ -32,6 +32,13 @@ const itemDespawnInterval = 3 * time.Minute
 // ErrConflict is reported when a player is already connected to the game.
 var ErrConflict = errors.New("already logged in")
 
+// Options are parameters that configure how the game engine behaves.
+type Options struct {
+	Config         *config.Config
+	ItemAttributes []*model.ItemAttributes
+	Telemetry      telemetry.Telemetry
+}
+
 // Game is the game engine and representation of the game world.
 type Game struct {
 	items            map[int]*model.Item
@@ -52,19 +59,19 @@ type Game struct {
 }
 
 // NewGame creates a new game engine using the given configuration.
-func NewGame(cfg *config.Config, telemetry telemetry.Telemetry) (*Game, error) {
+func NewGame(opts Options) (*Game, error) {
 	g := &Game{
 		doneChan:       make(chan bool, 1),
 		items:          map[int]*model.Item{},
-		telemetry:      telemetry,
-		welcomeMessage: cfg.Server.WelcomeMessage,
-		worldID:        cfg.Server.WorldID,
+		telemetry:      opts.Telemetry,
+		welcomeMessage: opts.Config.Server.WelcomeMessage,
+		worldID:        opts.Config.Server.WorldID,
 	}
 
 	start := time.Now()
 
 	// load game assets
-	err := g.loadAssets(cfg.Server.AssetDir)
+	err := g.loadAssets(opts.Config.Server.AssetDir, opts.ItemAttributes)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load game asset")
 	}
@@ -721,7 +728,7 @@ func (g *Game) playerLoop(pe *playerEntity) {
 
 // loadAssets reads and parses all game asset.
 // Concurrency requirements: none (any locks may be held).
-func (g *Game) loadAssets(assetDir string) error {
+func (g *Game) loadAssets(assetDir string, itemAttributes []*model.ItemAttributes) error {
 	var err error
 	manager := asset.NewManager(assetDir)
 
@@ -748,24 +755,17 @@ func (g *Game) loadAssets(assetDir string) error {
 		g.items[item.ID] = item
 	}
 
-	// FIXME: spawn some ground items for testing
-	g.worldMap.Tile(model.Vector3D{X: 3209, Y: 3433}).AddItem(2)
-	g.worldMap.Tile(model.Vector3D{X: 3209, Y: 3432}).AddItem(1)
+	// assign item attributes to items
+	for _, attr := range itemAttributes {
+		item, ok := g.items[attr.ItemID]
+		if !ok {
+			logger.Warnf("item attribute does not match any known item with ID: %d", attr.ItemID)
+			continue
+		}
 
-	//g.worldMap.Tile(model.Vector3D{X: 3209, Y: 3429}).AddItem(54)
-
-	//g.worldMap.Tile(model.Vector3D{X: 3213, Y: 3423}).AddItem(54)
-	//g.worldMap.Tile(model.Vector3D{X: 3213, Y: 3424}).AddItem(249)
-
-	//g.worldMap.Tile(model.Vector3D{X: 3242, Y: 3429}).AddItem(1052)
-	//g.worldMap.Tile(model.Vector3D{X: 3243, Y: 3429}).AddItem(1187)
-	//g.worldMap.Tile(model.Vector3D{X: 3243, Y: 3430}).AddItem(775)
-	//g.worldMap.Tile(model.Vector3D{X: 3242, Y: 3430}).AddItem(861)
-	//g.worldMap.Tile(model.Vector3D{X: 3241, Y: 3430}).AddItem(560)
-	//g.worldMap.Tile(model.Vector3D{X: 3241, Y: 3429}).AddItem(962)
-	//g.worldMap.Tile(model.Vector3D{X: 3241, Y: 3428}).AddItem(1053)
-	//g.worldMap.Tile(model.Vector3D{X: 3242, Y: 3428}).AddItem(2550)
-
+		item.Attributes = attr
+	}
+	
 	return nil
 }
 

@@ -40,6 +40,11 @@ func Infof(fmt string, args ...any) {
 	log.Infof(fmt, args)
 }
 
+// Warnf logs a warning message.
+func Warnf(fmt string, args ...any) {
+	log.Warnf(fmt, args)
+}
+
 // Errorf logs an error message.
 func Errorf(fmt string, args ...any) {
 	log.Errorf(fmt, args)

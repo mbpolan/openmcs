@@ -73,8 +73,18 @@ func (s *Server) Run() error {
 		return errors.Wrap(err, "failed running persistent store migrations")
 	}
 
+	// load server-side game data
+	attributes, err := s.store.LoadItemAttributes()
+	if err != nil {
+		return errors.Wrap(err, "failed to load item attributes")
+	}
+
 	// create a new game engine instance
-	s.game, err = game.NewGame(s.config, s.telemetry)
+	s.game, err = game.NewGame(game.Options{
+		Config:         s.config,
+		ItemAttributes: attributes,
+		Telemetry:      s.telemetry,
+	})
 	if err != nil {
 		return errors.Wrap(err, "failed creating game world")
 	}
