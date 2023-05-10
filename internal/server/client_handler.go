@@ -20,6 +20,9 @@ import (
 
 type clientState int
 
+// clientVersion is the client version that is supported by the server.
+const clientVersion = 317
+
 const (
 	initializing clientState = iota
 	loggingIn
@@ -169,6 +172,13 @@ func (c *ClientHandler) handleLogin() (clientState, error) {
 	err = req.Read(c.reader)
 	if err != nil {
 		return failed, errors.Wrap(err, "unexpected login request contents")
+	}
+
+	// validate if the client is supported by the server
+	if req.Version != clientVersion {
+		resp := response.NewFailedInitResponse(response.InitGameUpdated)
+		err := resp.Write(c.writer)
+		return failed, err
 	}
 
 	// load the player's data, if it exists
