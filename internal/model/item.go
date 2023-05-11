@@ -15,6 +15,20 @@ type ItemStackable struct {
 	Amount int
 }
 
+// ItemAttributes are additional properties for an item.
+type ItemAttributes struct {
+	// ItemID is the ID of the item.
+	ItemID int
+	// Nature describes the uses for the item.
+	Nature ItemNature
+	// EquipSlotID is the equipment slot where the item is equipped to.
+	EquipSlotID EquipmentSlot
+	// Speed is the amount of milliseconds between item actions.
+	Speed int
+	// Weight is the weight of the item.
+	Weight float64
+}
+
 // Item represents a player-usable object.
 type Item struct {
 	ID             int
@@ -33,16 +47,11 @@ type Item struct {
 	Attributes     *ItemAttributes
 }
 
-// ItemAttributes are additional properties for an item.
-type ItemAttributes struct {
-	// ItemID is the ID of the item.
-	ItemID int
-	// Nature describes the uses for the item.
-	Nature ItemNature
-	// EquipSlotID is the equipment slot where the item is equipped to.
-	EquipSlotID int
-	// Speed is the amount of milliseconds between item actions.
-	Speed int
-	// Weight is the weight of the item.
-	Weight float64
+// CanEquip returns true if the item can be equipped, or false if not.
+func (i *Item) CanEquip() bool {
+	if i.Attributes == nil {
+		return false
+	}
+
+	return i.Attributes.Nature&ItemNatureEquipmentOneHanded != 0 || i.Attributes.Nature&ItemNatureEquipmentTwoHanded != 0
 }

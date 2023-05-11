@@ -85,6 +85,16 @@ func (p *Player) SetSkill(skill *Skill) {
 	p.recomputeSkills()
 }
 
+// SetEquippedItem sets an item to be equipped at a slot.
+func (p *Player) SetEquippedItem(item *Item, slot EquipmentSlot) {
+	p.Appearance.Equipment[slot] = item.ID
+}
+
+// ClearEquippedItem removes any equipped item at a slot.
+func (p *Player) ClearEquippedItem(slot EquipmentSlot) {
+	delete(p.Appearance.Equipment, slot)
+}
+
 // SetInventoryItem puts an item in a slot of the player's inventory. This will replace any existing items at that slot.
 func (p *Player) SetInventoryItem(item *Item, amount, slot int) {
 	p.Inventory[slot] = &InventorySlot{

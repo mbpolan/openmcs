@@ -98,9 +98,9 @@ func (s *SQLite3Driver) LoadItemAttributes() ([]*model.ItemAttributes, error) {
 			}
 		}
 
-		equipSlotID := -1
+		equipSlotID := model.EquipmentSlotHead
 		if slotID.Valid {
-			equipSlotID = int(slotID.Int32)
+			equipSlotID = slotIDsToEquipmentSlots[int(slotID.Int32)]
 		}
 
 		itemSpeed := 0

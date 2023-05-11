@@ -14,6 +14,7 @@ type pendingActionType int
 const (
 	pendingActionTakeGroundItem pendingActionType = iota
 	pendingActionDropInventoryItem
+	pendingActionEquipItem
 )
 
 // pendingAction is a deferred action that a player has requested be done.
@@ -21,6 +22,7 @@ type pendingAction struct {
 	actionType              pendingActionType
 	takeGroundItem          *takeGroundItemAction
 	dropInventoryItemAction *dropInventoryItemAction
+	equipItemAction         *equipItemAction
 }
 
 // takeGroundItemAction is an action to pick up a ground item that should occur at a position.
@@ -34,6 +36,12 @@ type dropInventoryItemAction struct {
 	interfaceID       int
 	item              *model.Item
 	secondaryActionID int
+}
+
+// equipItemAction is an action to equip an item from the player's inventory
+type equipItemAction struct {
+	interfaceID int
+	item        *model.Item
 }
 
 // playerEntity represents a player and their state while they are logged into the game world.
@@ -122,6 +130,18 @@ func (pe *playerEntity) DeferDropInventoryItem(item *model.Item, interfaceID, se
 			interfaceID:       interfaceID,
 			item:              item,
 			secondaryActionID: secondaryActionID,
+		},
+	}
+}
+
+// DeferEquipItem sets the player's pending action to equip an inventory item. This will overwrite any previously
+// deferred action.
+func (pe *playerEntity) DeferEquipItem(item *model.Item, interfaceID int) {
+	pe.deferredAction = &pendingAction{
+		actionType: pendingActionEquipItem,
+		equipItemAction: &equipItemAction{
+			interfaceID: interfaceID,
+			item:        item,
 		},
 	}
 }
