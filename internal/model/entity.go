@@ -3,23 +3,39 @@ package model
 // NumEquipmentSlots is the number of slots available for equipping items.
 const NumEquipmentSlots = 12
 
-// EquipmentSlot enumerates what equipment slot corresponds to what body part.
-type EquipmentSlot int
+// EquipmentSlotType enumerates what equipment slot corresponds to what body part.
+type EquipmentSlotType int
 
 const (
-	EquipmentSlotHead        EquipmentSlot = 0
-	EquipmentSlotCape                      = 1
-	EquipmentSlotNecklace                  = 2
-	EquipmentSlotPrimaryHand               = 3
-	EquipmentSlotBody                      = 4
-	EquipmentSlotOffHand                   = 5
-	EquipmentSlotFace                      = 6
-	EquipmentSlotLegs                      = 7
-	EquipmentSlotHands                     = 9
-	EquipmentSlotFeet                      = 10
-	EquipmentSlotRing                      = 12
-	EquipmentSlotAmmo                      = 13
+	EquipmentSlotTypeHead     EquipmentSlotType = 0
+	EquipmentSlotTypeCape                       = 1
+	EquipmentSlotTypeNecklace                   = 2
+	EquipmentSlotTypeWeapon                     = 3
+	EquipmentSlotTypeBody                       = 4
+	EquipmentSlotTypeShield                     = 5
+	EquipmentSlotTypeFace                       = 6
+	EquipmentSlotTypeLegs                       = 7
+	EquipmentSlotTypeHands                      = 9
+	EquipmentSlotTypeFeet                       = 10
+	EquipmentSlotTypeRing                       = 12
+	EquipmentSlotTypeAmmo                       = 13
 )
+
+// EquipmentSlotTypes is a slice of all EquipmentSlotType enums sorted according to their slot IDs in ascending order.
+var EquipmentSlotTypes = []EquipmentSlotType{
+	EquipmentSlotTypeHead,
+	EquipmentSlotTypeCape,
+	EquipmentSlotTypeNecklace,
+	EquipmentSlotTypeWeapon,
+	EquipmentSlotTypeBody,
+	EquipmentSlotTypeShield,
+	EquipmentSlotTypeFace,
+	EquipmentSlotTypeLegs,
+	EquipmentSlotTypeHands,
+	EquipmentSlotTypeFeet,
+	EquipmentSlotTypeRing,
+	EquipmentSlotTypeAmmo,
+}
 
 // NumBodyParts is the number of customizable character body parts.
 const NumBodyParts = 5
@@ -44,10 +60,17 @@ const (
 	AnimationRun
 )
 
+// EquipmentSlot is an item equipped in an entity's equipment.
+type EquipmentSlot struct {
+	Type   EquipmentSlotType
+	Item   *Item
+	Amount int
+}
+
 // EntityAppearance describes the properties of an entity such as a player or NPC.
 type EntityAppearance struct {
 	NPCAppearance  int
-	Equipment      map[EquipmentSlot]int
+	Equipment      map[EquipmentSlotType]*EquipmentSlot
 	Body           []int
 	Animations     map[AnimationID]int
 	Gender         EntityGender
@@ -57,14 +80,12 @@ type EntityAppearance struct {
 	Updated        bool
 }
 
-// IsNPCAppearance returns if the appearance should take that of a predefined NPC.
+// IsNPCAppearance returns true if the appearance should take that of a predefined NPC, false if not.
 func (a *EntityAppearance) IsNPCAppearance() bool {
-	return a.Equipment[0] == 0xFFFF
+	return a.NPCAppearance > 0
 }
 
 // SetNPCAppearance sets the ID of an NPC to use for the appearance.
 func (a *EntityAppearance) SetNPCAppearance(id int) {
-	// clear out the first slot and set the npc appearance id
-	a.Equipment[0] = 0xFFFF
 	a.NPCAppearance = id
 }

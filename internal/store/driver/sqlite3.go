@@ -14,20 +14,20 @@ import (
 const playerListTypeFriend int = 0
 const playerListTypeIgnored int = 1
 
-// slotIDsToEquipmentSlots maps numeric slot IDs from the database to model.EquipmentSlot values.
-var slotIDsToEquipmentSlots = map[int]model.EquipmentSlot{
-	0:  model.EquipmentSlotHead,
-	1:  model.EquipmentSlotCape,
-	2:  model.EquipmentSlotNecklace,
-	3:  model.EquipmentSlotPrimaryHand,
-	4:  model.EquipmentSlotBody,
-	5:  model.EquipmentSlotOffHand,
-	6:  model.EquipmentSlotFace,
-	7:  model.EquipmentSlotLegs,
-	9:  model.EquipmentSlotHands,
-	10: model.EquipmentSlotFeet,
-	12: model.EquipmentSlotRing,
-	13: model.EquipmentSlotAmmo,
+// slotIDsToEquipmentSlots maps numeric slot IDs from the database to model.EquipmentSlotType values.
+var slotIDsToEquipmentSlots = map[int]model.EquipmentSlotType{
+	0:  model.EquipmentSlotTypeHead,
+	1:  model.EquipmentSlotTypeCape,
+	2:  model.EquipmentSlotTypeNecklace,
+	3:  model.EquipmentSlotTypeWeapon,
+	4:  model.EquipmentSlotTypeBody,
+	5:  model.EquipmentSlotTypeShield,
+	6:  model.EquipmentSlotTypeFace,
+	7:  model.EquipmentSlotTypeLegs,
+	9:  model.EquipmentSlotTypeHands,
+	10: model.EquipmentSlotTypeFeet,
+	12: model.EquipmentSlotTypeRing,
+	13: model.EquipmentSlotTypeAmmo,
 }
 
 // SQLite3Driver is a driver that interfaces with a SQLite3 database.
@@ -98,7 +98,7 @@ func (s *SQLite3Driver) LoadItemAttributes() ([]*model.ItemAttributes, error) {
 			}
 		}
 
-		equipSlotID := model.EquipmentSlotHead
+		equipSlotID := model.EquipmentSlotTypeHead
 		if slotID.Valid {
 			equipSlotID = slotIDsToEquipmentSlots[int(slotID.Int32)]
 		}
@@ -109,11 +109,11 @@ func (s *SQLite3Driver) LoadItemAttributes() ([]*model.ItemAttributes, error) {
 		}
 
 		attributes = append(attributes, &model.ItemAttributes{
-			ItemID:      itemID,
-			Nature:      nature,
-			EquipSlotID: equipSlotID,
-			Speed:       itemSpeed,
-			Weight:      weight,
+			ItemID:        itemID,
+			Nature:        nature,
+			EquipSlotType: equipSlotID,
+			Speed:         itemSpeed,
+			Weight:        weight,
 		})
 	}
 
@@ -318,7 +318,12 @@ func (s *SQLite3Driver) loadPlayerEquipment(id int, p *model.Player) error {
 			return fmt.Errorf("slot ID out of bounds: %d", slotID)
 		}
 
-		p.Appearance.Equipment[slot] = itemID
+		item := &model.Item{
+			ID: itemID,
+		}
+
+		// FIXME: need to store amount
+		p.SetEquippedItem(item, 1, slot)
 	}
 
 	err = rows.Err()
@@ -564,7 +569,7 @@ func (s *SQLite3Driver) savePlayerEquipment(p *model.Player) error {
 	defer stmt.Close()
 
 	for slotID, itemID := range p.Appearance.Equipment {
-		rs, err := stmt.Exec(itemID, p.ID, slotID)
+		rs, err := stmt.Exec(itemID, p.ID, int(slotID))
 		if err != nil {
 			return err
 		}

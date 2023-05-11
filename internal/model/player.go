@@ -67,7 +67,7 @@ func NewPlayer(username string) *Player {
 			AnimationTurnLeft:  0xFFFF, // turn left
 			AnimationRun:       0x067D, // run
 		},
-		Equipment: map[EquipmentSlot]int{},
+		Equipment: map[EquipmentSlotType]*EquipmentSlot{},
 		Body:      make([]int, NumBodyParts),
 		Updated:   false,
 	}
@@ -86,13 +86,28 @@ func (p *Player) SetSkill(skill *Skill) {
 }
 
 // SetEquippedItem sets an item to be equipped at a slot.
-func (p *Player) SetEquippedItem(item *Item, slot EquipmentSlot) {
-	p.Appearance.Equipment[slot] = item.ID
+func (p *Player) SetEquippedItem(item *Item, amount int, slot EquipmentSlotType) {
+	p.Appearance.Equipment[slot] = &EquipmentSlot{
+		Type:   slot,
+		Item:   item,
+		Amount: amount,
+	}
 }
 
 // ClearEquippedItem removes any equipped item at a slot.
-func (p *Player) ClearEquippedItem(slot EquipmentSlot) {
+func (p *Player) ClearEquippedItem(slot EquipmentSlotType) {
 	delete(p.Appearance.Equipment, slot)
+}
+
+// EquipmentSlot returns an EquipmentSlot for a slot. If no item is equipped, nil will be returned instead.
+func (p *Player) EquipmentSlot(slot EquipmentSlotType) *EquipmentSlot {
+	return p.Appearance.Equipment[slot]
+}
+
+// IsEquipmentSlotUsed returns true if an equipment slot is in use, false if it's free.
+func (p *Player) IsEquipmentSlotUsed(slot EquipmentSlotType) bool {
+	_, ok := p.Appearance.Equipment[slot]
+	return ok
 }
 
 // SetInventoryItem puts an item in a slot of the player's inventory. This will replace any existing items at that slot.

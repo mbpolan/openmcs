@@ -20,6 +20,8 @@ const (
 	EventCheckIdleImmediate
 	// EventUpdateTabInterfaces updates all the player's client tab interfaces.
 	EventUpdateTabInterfaces
+	// EventSendEquipment sends a complete player equipment update.
+	EventSendEquipment
 	// EventSendInventory sends a complete player inventory update.
 	EventSendInventory
 	// EventSwapInventoryItem rearranges an item in a player's inventory.

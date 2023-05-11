@@ -432,6 +432,9 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	// plan an update to the client sidebar interfaces
 	pe.PlanEvent(NewEventWithType(EventUpdateTabInterfaces, time.Now()))
 
+	// plan an event to clear the player's equipment
+	pe.PlanEvent(NewEventWithType(EventSendEquipment, time.Now()))
+
 	// plan an event to clear the player's inventory
 	pe.PlanEvent(NewEventWithType(EventSendInventory, time.Now()))
 
@@ -1047,7 +1050,7 @@ func (g *Game) equipPlayerInventoryItem(pe *playerEntity, item *model.Item) {
 
 	// remove the item from the player's inventory and equip it at its appropriate slot
 	pe.player.ClearInventoryItem(slot.ID)
-	pe.player.SetEquippedItem(item, item.Attributes.EquipSlotID)
+	pe.player.SetEquippedItem(item, slot.Amount, item.Attributes.EquipSlotType)
 
 	// TODO: these interface ids should not be hardcoded
 
@@ -1058,7 +1061,7 @@ func (g *Game) equipPlayerInventoryItem(pe *playerEntity, item *model.Item) {
 
 	// update the player's equipment status
 	equipment := response.NewSetInventoryItemResponse(1688)
-	equipment.AddSlot(int(item.Attributes.EquipSlotID), 1187, slot.Amount)
+	equipment.AddSlot(int(item.Attributes.EquipSlotType), slot.Item.ID, slot.Amount)
 	pe.PlanEvent(NewSendResponseEvent(equipment, time.Now()))
 }
 
@@ -1343,6 +1346,26 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 		// schedule the next idle check event if this check was not on-demand
 		if event.Type != EventCheckIdleImmediate {
 			pe.scheduler.Plan(NewEventWithType(EventCheckIdle, time.Now().Add(playerMaxIdleInterval)))
+		}
+
+	case EventSendEquipment:
+		// send the player's equipment
+		pe.mu.Lock()
+		defer pe.mu.Unlock()
+
+		equipment := response.NewSetInventoryItemResponse(1688)
+		for _, slotType := range model.EquipmentSlotTypes {
+			slot := pe.player.EquipmentSlot(slotType)
+			if slot == nil {
+				equipment.ClearSlot(int(slotType))
+			} else {
+				equipment.AddSlot(int(slotType), slot.Item.ID, slot.Amount)
+			}
+		}
+
+		err := equipment.Write(pe.writer)
+		if err != nil {
+			return err
 		}
 
 	case EventSendInventory:

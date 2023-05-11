@@ -21,8 +21,8 @@ type ItemAttributes struct {
 	ItemID int
 	// Nature describes the uses for the item.
 	Nature ItemNature
-	// EquipSlotID is the equipment slot where the item is equipped to.
-	EquipSlotID EquipmentSlot
+	// EquipSlotType is the equipment slot where the item is equipped to.
+	EquipSlotType EquipmentSlotType
 	// Speed is the amount of milliseconds between item actions.
 	Speed int
 	// Weight is the weight of the item.
