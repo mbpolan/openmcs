@@ -3,6 +3,24 @@ package model
 // NumEquipmentSlots is the number of slots available for equipping items.
 const NumEquipmentSlots = 12
 
+// EquipmentSlot enumerates what equipment slot corresponds to what body part.
+type EquipmentSlot int
+
+const (
+	EquipmentSlotHead        EquipmentSlot = 0
+	EquipmentSlotCape                      = 1
+	EquipmentSlotNecklace                  = 2
+	EquipmentSlotPrimaryHand               = 3
+	EquipmentSlotBody                      = 4
+	EquipmentSlotOffHand                   = 5
+	EquipmentSlotFace                      = 6
+	EquipmentSlotLegs                      = 7
+	EquipmentSlotHands                     = 9
+	EquipmentSlotFeet                      = 10
+	EquipmentSlotRing                      = 12
+	EquipmentSlotAmmo                      = 13
+)
+
 // NumBodyParts is the number of customizable character body parts.
 const NumBodyParts = 5
 
@@ -29,7 +47,7 @@ const (
 // EntityAppearance describes the properties of an entity such as a player or NPC.
 type EntityAppearance struct {
 	NPCAppearance  int
-	Equipment      []int
+	Equipment      map[EquipmentSlot]int
 	Body           []int
 	Animations     map[AnimationID]int
 	Gender         EntityGender

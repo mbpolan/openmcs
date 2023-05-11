@@ -14,6 +14,22 @@ import (
 const playerListTypeFriend int = 0
 const playerListTypeIgnored int = 1
 
+// slotIDsToEquipmentSlots maps numeric slot IDs from the database to model.EquipmentSlot values.
+var slotIDsToEquipmentSlots = map[int]model.EquipmentSlot{
+	0:  model.EquipmentSlotHead,
+	1:  model.EquipmentSlotCape,
+	2:  model.EquipmentSlotNecklace,
+	3:  model.EquipmentSlotPrimaryHand,
+	4:  model.EquipmentSlotBody,
+	5:  model.EquipmentSlotOffHand,
+	6:  model.EquipmentSlotFace,
+	7:  model.EquipmentSlotLegs,
+	9:  model.EquipmentSlotHands,
+	10: model.EquipmentSlotFeet,
+	12: model.EquipmentSlotRing,
+	13: model.EquipmentSlotAmmo,
+}
+
 // SQLite3Driver is a driver that interfaces with a SQLite3 database.
 type SQLite3Driver struct {
 	db *sql.DB
@@ -297,11 +313,12 @@ func (s *SQLite3Driver) loadPlayerEquipment(id int, p *model.Player) error {
 			return err
 		}
 
-		if slotID < 0 || slotID >= len(p.Appearance.Equipment) {
+		slot, ok := slotIDsToEquipmentSlots[slotID]
+		if !ok {
 			return fmt.Errorf("slot ID out of bounds: %d", slotID)
 		}
 
-		p.Appearance.Equipment[slotID] = itemID
+		p.Appearance.Equipment[slot] = itemID
 	}
 
 	err = rows.Err()

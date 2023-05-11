@@ -56,6 +56,21 @@ var directionCodes = map[model.Direction]byte{
 	model.DirectionNorthEast: 0x02,
 }
 
+var equipmentSlotOrder = []model.EquipmentSlot{
+	model.EquipmentSlotHead,
+	model.EquipmentSlotCape,
+	model.EquipmentSlotNecklace,
+	model.EquipmentSlotPrimaryHand,
+	model.EquipmentSlotBody,
+	model.EquipmentSlotOffHand,
+	model.EquipmentSlotFace,
+	model.EquipmentSlotLegs,
+	model.EquipmentSlotHands,
+	model.EquipmentSlotFeet,
+	model.EquipmentSlotRing,
+	model.EquipmentSlotAmmo,
+}
+
 type playerUpdate struct {
 	mask        uint16
 	appearance  *entityAppearance
@@ -521,9 +536,11 @@ func (p *PlayerUpdateResponse) writeAppearance(ea *entityAppearance, w *network.
 	}
 
 	// write each equipment slot
-	for _, id := range a.Equipment {
-		// if nothing is equipped at this slot, write one byte only
-		if id == 0 {
+	for _, slot := range equipmentSlotOrder {
+		id, ok := a.Equipment[slot]
+
+		// if nothing is present at this slot, write one byte only
+		if id == 0 || !ok {
 			err = bw.WriteUint8(0)
 			if err != nil {
 				return err
