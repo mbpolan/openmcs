@@ -549,6 +549,26 @@ func (g *Game) DoEquipItem(p *model.Player, itemID, interfaceID, secondaryAction
 	pe.DeferEquipItem(targetItem, interfaceID)
 }
 
+// DoUnequipItem handles a player's request to unequip an item.
+func (g *Game) DoUnequipItem(p *model.Player, itemID, interfaceID int, slotType model.EquipmentSlotType) {
+	// validate the item is known
+	targetItem := g.items[itemID]
+	if targetItem == nil {
+		return
+	}
+
+	pe := g.findPlayer(p)
+	if pe == nil {
+		return
+	}
+
+	pe.mu.Lock()
+	defer pe.mu.Unlock()
+
+	// defer the action to the next tick
+	pe.DeferUnequipItem(targetItem, interfaceID, slotType)
+}
+
 // DoUseItem handles a player's request to use an item.
 func (g *Game) DoUseItem(p *model.Player, itemID, interfaceID, actionID int) {
 	// TODO
@@ -1065,6 +1085,28 @@ func (g *Game) equipPlayerInventoryItem(pe *playerEntity, item *model.Item) {
 	pe.PlanEvent(NewSendResponseEvent(equipment, time.Now()))
 }
 
+// unequipPlayerInventoryItem removes an equipped item and places it in the player's inventory. The player should have
+// room in their inventory prior to calling this method.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) unequipPlayerInventoryItem(pe *playerEntity, item *model.Item, slotType model.EquipmentSlotType) {
+	// validate the player still has this item equipped
+	slot := pe.player.EquipmentSlot(slotType)
+	if slot == nil {
+		return
+	}
+
+	// remove the item from the player's equipment
+	pe.player.ClearEquippedItem(slotType)
+
+	// add it to their inventory
+	g.addPlayerInventoryItem(pe, slot.Item, slot.Amount)
+
+	// update the player's equipment status
+	equipment := response.NewSetInventoryItemResponse(1688)
+	equipment.ClearSlot(int(item.Attributes.EquipSlotType))
+	pe.PlanEvent(NewSendResponseEvent(equipment, time.Now()))
+}
+
 // handleGameUpdate performs a game state update.
 // Concurrency requirements: (a) game state should NOT be locked and (b) all players should NOT be locked.
 func (g *Game) handleGameUpdate() error {
@@ -1187,6 +1229,19 @@ func (g *Game) handleGameUpdate() error {
 				action := pe.deferredAction.equipItemAction
 
 				g.equipPlayerInventoryItem(pe, action.item)
+				pe.deferredAction = nil
+
+			case pendingActionUnequipItem:
+				action := pe.deferredAction.unequipItemAction
+
+				// validate that the player has room in their inventory
+				if !pe.player.InventoryCanHoldItem(action.item) {
+					pe.PlanEvent(NewSendResponseEvent(response.NewServerMessageResponse("You have no room for this item in your inventory"), time.Now()))
+					pe.deferredAction = nil
+					break
+				}
+
+				g.unequipPlayerInventoryItem(pe, action.item, action.slotType)
 				pe.deferredAction = nil
 
 			default:

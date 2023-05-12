@@ -415,6 +415,16 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 
 		c.game.DoEquipItem(c.player, req.ItemID, req.InterfaceID, req.SecondaryActionID)
 
+	case request.UnequipItemRequestHeader:
+		// the player unequipped an item from their equipment
+		var req request.UnequipItemRequest
+		err = req.Read(c.reader)
+		if err != nil {
+			break
+		}
+
+		c.game.DoUnequipItem(c.player, req.ItemID, req.InterfaceID, req.SlotType)
+
 	case request.UseItemRequestHeader:
 		// the player initiated the default action on an item
 		var req request.UseItemRequest

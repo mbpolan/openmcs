@@ -15,6 +15,7 @@ const (
 	pendingActionTakeGroundItem pendingActionType = iota
 	pendingActionDropInventoryItem
 	pendingActionEquipItem
+	pendingActionUnequipItem
 )
 
 // pendingAction is a deferred action that a player has requested be done.
@@ -23,6 +24,7 @@ type pendingAction struct {
 	takeGroundItem          *takeGroundItemAction
 	dropInventoryItemAction *dropInventoryItemAction
 	equipItemAction         *equipItemAction
+	unequipItemAction       *unequipItemAction
 }
 
 // takeGroundItemAction is an action to pick up a ground item that should occur at a position.
@@ -42,6 +44,13 @@ type dropInventoryItemAction struct {
 type equipItemAction struct {
 	interfaceID int
 	item        *model.Item
+}
+
+// unequipItemAction is an action to unequip an item from the player's equipment
+type unequipItemAction struct {
+	interfaceID int
+	item        *model.Item
+	slotType    model.EquipmentSlotType
 }
 
 // playerEntity represents a player and their state while they are logged into the game world.
@@ -142,6 +151,19 @@ func (pe *playerEntity) DeferEquipItem(item *model.Item, interfaceID int) {
 		equipItemAction: &equipItemAction{
 			interfaceID: interfaceID,
 			item:        item,
+		},
+	}
+}
+
+// DeferUnequipItem sets the player's pending action to equip an inventory item. This will overwrite any previously
+// deferred action.
+func (pe *playerEntity) DeferUnequipItem(item *model.Item, interfaceID int, slotType model.EquipmentSlotType) {
+	pe.deferredAction = &pendingAction{
+		actionType: pendingActionUnequipItem,
+		unequipItemAction: &unequipItemAction{
+			interfaceID: interfaceID,
+			item:        item,
+			slotType:    slotType,
 		},
 	}
 }
