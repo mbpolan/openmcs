@@ -127,7 +127,11 @@ func (p *PlayerUpdateResponse) SetLocalPlayerNoMovement() {
 func (p *PlayerUpdateResponse) SetLocalPlayerWalk(dir model.Direction) {
 	p.local.moveType = playerMoveWalk
 	p.local.walkDirection = dir
-	p.list[localPlayerID] = &trackedPlayer{}
+
+	// start tracking the local player
+	if p.list[localPlayerID] == nil {
+		p.list[localPlayerID] = &trackedPlayer{}
+	}
 }
 
 // SetLocalPlayerPosition reports the local player's position in region local coordinates. The clearWaypoints flag
@@ -286,20 +290,26 @@ func (p *PlayerUpdateResponse) writePayload(w *network.ProtocolWriter) error {
 }
 
 func (p *PlayerUpdateResponse) writeLocalPlayer(bs *network.BitSet) {
+	moveType := p.local.moveType
+
 	// first bit is a flag if there is an update for the local player
-	if p.local.moveType == playerMoveNoUpdate {
-		// clear the first bit and bail out since there is nothing else to do
-		bs.Clear()
-		return
+	if moveType == playerMoveNoUpdate {
+		if p.list[localPlayerID] == nil || p.list[localPlayerID].update == nil {
+			// if the local player does have an update pending, we need to send an unchanged movement type instead
+			bs.Clear()
+			return
+		}
+
+		moveType = playerMoveUnchanged
 	}
 
 	// set the first bit to indicate we have an update
 	bs.Set()
 
 	// two bits represent the local player update type
-	bs.SetBits(uint32(p.local.moveType), 2)
+	bs.SetBits(uint32(moveType), 2)
 
-	switch p.local.moveType {
+	switch moveType {
 	case playerMoveUnchanged:
 		// nothing to do
 
@@ -618,9 +628,9 @@ func (p *PlayerUpdateResponse) appearanceIDForSlot(ea *entityAppearance, slot in
 
 	switch slot {
 	case 0:
-		return p.equippedItemIDOrDefault(ea, model.EquipmentSlotTypeHead, a.Base.Head)
+		return a.Base.Head
 	case 1:
-		return p.equippedItemIDOrDefault(ea, model.EquipmentSlotTypeCape, 0)
+		return a.Base.Face
 	case 2:
 		return p.equippedItemIDOrDefault(ea, model.EquipmentSlotTypeNecklace, 0)
 	case 3:
@@ -630,7 +640,7 @@ func (p *PlayerUpdateResponse) appearanceIDForSlot(ea *entityAppearance, slot in
 	case 5:
 		return p.equippedItemIDOrDefault(ea, model.EquipmentSlotTypeShield, 0)
 	case 6:
-		return a.Base.Face
+		return p.equippedItemIDOrDefault(ea, model.EquipmentSlotTypeCape, 0)
 	case 7:
 		return p.equippedItemIDOrDefault(ea, model.EquipmentSlotTypeLegs, a.Base.Legs)
 	case 8:
@@ -640,9 +650,9 @@ func (p *PlayerUpdateResponse) appearanceIDForSlot(ea *entityAppearance, slot in
 	case 10:
 		return p.equippedItemIDOrDefault(ea, model.EquipmentSlotTypeFeet, a.Base.Feet)
 	case 11:
-		return p.equippedItemIDOrDefault(ea, model.EquipmentSlotTypeRing, 0)
+		return p.equippedItemIDOrDefault(ea, model.EquipmentSlotTypeHead, 0)
 	case 12:
-		return 0
+		return p.equippedItemIDOrDefault(ea, model.EquipmentSlotTypeRing, 0)
 	}
 
 	return 0
@@ -652,7 +662,8 @@ func (p *PlayerUpdateResponse) appearanceIDForSlot(ea *entityAppearance, slot in
 func (p *PlayerUpdateResponse) equippedItemIDOrDefault(ea *entityAppearance, slotType model.EquipmentSlotType, i int) int {
 	slot, ok := ea.appearance.Equipment[slotType]
 	if ok {
-		return slot.Item.ID
+		// offset the appearance id to differentiate it from the non-item ids
+		return slot.Item.ID + 0x200
 	}
 
 	return i
