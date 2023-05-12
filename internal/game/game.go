@@ -1054,8 +1054,8 @@ func (g *Game) dropPlayerInventoryItem(pe *playerEntity, item *model.Item) *mode
 	return slot
 }
 
-// equipPlayerInventoryItem removes the first occurance of an item in the player's inventory and adds it to their
-// currently equipped item set.
+// equipPlayerInventoryItem removes the first occurrence of an item in the player's inventory and adds it to their
+// currently equipped item set. If an item of the same slot type is already equipped, the two will be swapped.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) equipPlayerInventoryItem(pe *playerEntity, item *model.Item) {
 	if !item.CanEquip() {
@@ -1068,15 +1068,28 @@ func (g *Game) equipPlayerInventoryItem(pe *playerEntity, item *model.Item) {
 		return
 	}
 
-	// remove the item from the player's inventory and equip it at its appropriate slot
-	pe.player.ClearInventoryItem(slot.ID)
-	pe.player.SetEquippedItem(item, slot.Amount, item.Attributes.EquipSlotType)
-
 	// TODO: these interface ids should not be hardcoded
 
-	// update the player's inventory
+	// prepare an update for the player's inventory
 	inventory := response.NewSetInventoryItemResponse(3214)
-	inventory.ClearSlot(slot.ID)
+
+	// find the target equipment slot. if there is already an item equipped, we need to swap it with the one in
+	// the player's inventory
+	equipSlot := pe.player.EquipmentSlot(item.Attributes.EquipSlotType)
+	if equipSlot != nil {
+		// put the equipped item into the same inventory slot as the incoming item
+		pe.player.SetInventoryItem(equipSlot.Item, equipSlot.Amount, slot.ID)
+		inventory.AddSlot(slot.ID, equipSlot.Item.ID, equipSlot.Amount)
+	} else {
+		// remove the item from its inventory slot
+		pe.player.ClearInventoryItem(slot.ID)
+		inventory.ClearSlot(slot.ID)
+	}
+
+	// equip the item into the slot
+	pe.player.SetEquippedItem(item, slot.Amount, item.Attributes.EquipSlotType)
+
+	// update the player's inventory
 	pe.PlanEvent(NewSendResponseEvent(inventory, time.Now()))
 
 	// update the player's equipment status
