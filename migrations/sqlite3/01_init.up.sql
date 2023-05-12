@@ -88,6 +88,8 @@ CREATE TABLE PLAYER_EQUIPMENT (
     SLOT_ID INTEGER NOT NULL,
     -- equipped item id
     ITEM_ID INTEGER NOT NULL,
+    -- stack amount for the item
+    AMOUNT INTEGER NOT NULL,
     -- date time when the row was inserted
     CREATED_DTTM TEXT NOT NULL DEFAULT CURRENT_DATE,
     -- date time when the row was updated
@@ -131,22 +133,27 @@ END;
 
 -- create table for storing a player's character appearance
 CREATE TABLE PLAYER_APPEARANCE (
-    -- primary key
-    ID INTEGER PRIMARY KEY AUTOINCREMENT,
     -- owning player
     PLAYER_ID INTEGER NOT NULL REFERENCES USERS(ID) ON DELETE CASCADE,
-    -- body part id
+    -- head model id
+    HEAD_ID INTEGER NOT NULL,
+    -- face model id
+    FACE_ID INTEGER NOT NULL,
+    -- body model id
     BODY_ID INTEGER NOT NULL,
-    -- appearance modifier id
-    APPEARANCE_ID INTEGER NOT NULL,
+    -- arms model id
+    ARMS_ID INTEGER NOT NULL,
+    -- hands model id
+    HANDS_ID INTEGER NOT NULL,
+    -- legs model id
+    LEGS_ID INTEGER NOT NULL,
+    -- feet model id
+    FEET_ID INTEGER NOT NULL,
     -- date time when the row was inserted
     CREATED_DTTM TEXT NOT NULL DEFAULT CURRENT_DATE,
     -- date time when the row was updated
     UPDATED_DTTM TEXT NULL
 );
-
--- create an index on player_appearance.player_id since it will be queried on
-CREATE INDEX IDX_PLAYER_APPEARANCE_PLAYER_ID ON PLAYER_APPEARANCE(PLAYER_ID);
 
 -- create a trigger on player_equipment to manage the CREATED_DTTM column
 CREATE TRIGGER
@@ -159,7 +166,7 @@ BEGIN
     SET
         CREATED_DTTM = DATETIME('NOW')
     WHERE
-        ID = NEW.ID;
+        PLAYER_ID = NEW.PLAYER_ID;
 END;
 
 -- create a trigger on player_appearance to manage the UPDATED_DTTM column
@@ -173,7 +180,7 @@ BEGIN
     SET
         UPDATED_DTTM = DATETIME('NOW')
     WHERE
-        ID = NEW.ID;
+        PLAYER_ID = NEW.PLAYER_ID;
 END;
 
 -- ----------------------------------------------------------------------------

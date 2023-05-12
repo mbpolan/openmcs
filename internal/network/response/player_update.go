@@ -521,11 +521,11 @@ func (p *PlayerUpdateResponse) writeAppearance(ea *entityAppearance, w *network.
 	}
 
 	// write each equipment slot
-	for _, slotType := range model.EquipmentSlotTypes {
-		slot, ok := a.Equipment[slotType]
+	for i := 0; i < 12; i++ {
+		appearanceID := p.appearanceIDForSlot(ea, i)
 
 		// if nothing is present at this slot, write one byte only
-		if !ok {
+		if appearanceID == 0 {
 			err = bw.WriteUint8(0)
 			if err != nil {
 				return err
@@ -534,8 +534,8 @@ func (p *PlayerUpdateResponse) writeAppearance(ea *entityAppearance, w *network.
 			continue
 		}
 
-		// write 2 bytes for an equipped item
-		err = bw.WriteUint16(uint16(slot.Item.ID))
+		// write 2 bytes for an equipped item or model id
+		err = bw.WriteUint16(uint16(appearanceID))
 		if err != nil {
 			return err
 		}
@@ -610,4 +610,50 @@ func (p *PlayerUpdateResponse) writeAppearance(ea *entityAppearance, w *network.
 	}
 
 	return nil
+}
+
+// appearanceIDForSlot returns the ID to use for an entity's appearance in a particular slot.
+func (p *PlayerUpdateResponse) appearanceIDForSlot(ea *entityAppearance, slot int) int {
+	a := ea.appearance
+
+	switch slot {
+	case 0:
+		return p.equippedItemIDOrDefault(ea, model.EquipmentSlotTypeHead, a.Base.Head)
+	case 1:
+		return p.equippedItemIDOrDefault(ea, model.EquipmentSlotTypeCape, 0)
+	case 2:
+		return p.equippedItemIDOrDefault(ea, model.EquipmentSlotTypeNecklace, 0)
+	case 3:
+		return p.equippedItemIDOrDefault(ea, model.EquipmentSlotTypeWeapon, 0)
+	case 4:
+		return p.equippedItemIDOrDefault(ea, model.EquipmentSlotTypeBody, a.Base.Body)
+	case 5:
+		return p.equippedItemIDOrDefault(ea, model.EquipmentSlotTypeShield, 0)
+	case 6:
+		return a.Base.Face
+	case 7:
+		return p.equippedItemIDOrDefault(ea, model.EquipmentSlotTypeLegs, a.Base.Legs)
+	case 8:
+		return a.Base.Arms
+	case 9:
+		return p.equippedItemIDOrDefault(ea, model.EquipmentSlotTypeHands, a.Base.Hands)
+	case 10:
+		return p.equippedItemIDOrDefault(ea, model.EquipmentSlotTypeFeet, a.Base.Feet)
+	case 11:
+		return p.equippedItemIDOrDefault(ea, model.EquipmentSlotTypeRing, 0)
+	case 12:
+		return 0
+	}
+
+	return 0
+}
+
+// equippedItemIDOrDefault returns the item ID of an entity's equipment, or a default ID if nothing is equipped there.
+func (p *PlayerUpdateResponse) equippedItemIDOrDefault(ea *entityAppearance, slotType model.EquipmentSlotType, i int) int {
+	slot, ok := ea.appearance.Equipment[slotType]
+	if ok {
+		return slot.Item.ID
+	}
+
+	return i
 }

@@ -1,9 +1,6 @@
 package model
 
-// NumEquipmentSlots is the number of slots available for equipping items.
-const NumEquipmentSlots = 12
-
-// EquipmentSlotType enumerates what equipment slot corresponds to what body part.
+// EquipmentSlotType enumerates the different slots items may be equipped to.
 type EquipmentSlotType int
 
 const (
@@ -13,7 +10,6 @@ const (
 	EquipmentSlotTypeWeapon                     = 3
 	EquipmentSlotTypeBody                       = 4
 	EquipmentSlotTypeShield                     = 5
-	EquipmentSlotTypeFace                       = 6
 	EquipmentSlotTypeLegs                       = 7
 	EquipmentSlotTypeHands                      = 9
 	EquipmentSlotTypeFeet                       = 10
@@ -29,7 +25,6 @@ var EquipmentSlotTypes = []EquipmentSlotType{
 	EquipmentSlotTypeWeapon,
 	EquipmentSlotTypeBody,
 	EquipmentSlotTypeShield,
-	EquipmentSlotTypeFace,
 	EquipmentSlotTypeLegs,
 	EquipmentSlotTypeHands,
 	EquipmentSlotTypeFeet,
@@ -62,13 +57,26 @@ const (
 
 // EquipmentSlot is an item equipped in an entity's equipment.
 type EquipmentSlot struct {
-	Type   EquipmentSlotType
-	Item   *Item
-	Amount int
+	SlotType EquipmentSlotType
+	Item     *Item
+	Amount   int
+}
+
+// EntityBase describes the entity's base model. Each entity model has a fixed amount of slots that can be assigned
+// model IDs, which comprise the entity if it has no items equipped.
+type EntityBase struct {
+	Head  int
+	Face  int
+	Body  int
+	Arms  int
+	Hands int
+	Legs  int
+	Feet  int
 }
 
 // EntityAppearance describes the properties of an entity such as a player or NPC.
 type EntityAppearance struct {
+	Base           EntityBase
 	NPCAppearance  int
 	Equipment      map[EquipmentSlotType]*EquipmentSlot
 	Body           []int

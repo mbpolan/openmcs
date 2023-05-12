@@ -88,9 +88,9 @@ func (p *Player) SetSkill(skill *Skill) {
 // SetEquippedItem sets an item to be equipped at a slot.
 func (p *Player) SetEquippedItem(item *Item, amount int, slot EquipmentSlotType) {
 	p.Appearance.Equipment[slot] = &EquipmentSlot{
-		Type:   slot,
-		Item:   item,
-		Amount: amount,
+		SlotType: slot,
+		Item:     item,
+		Amount:   amount,
 	}
 }
 

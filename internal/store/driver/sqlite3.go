@@ -22,7 +22,6 @@ var slotIDsToEquipmentSlots = map[int]model.EquipmentSlotType{
 	3:  model.EquipmentSlotTypeWeapon,
 	4:  model.EquipmentSlotTypeBody,
 	5:  model.EquipmentSlotTypeShield,
-	6:  model.EquipmentSlotTypeFace,
 	7:  model.EquipmentSlotTypeLegs,
 	9:  model.EquipmentSlotTypeHands,
 	10: model.EquipmentSlotTypeFeet,
@@ -339,8 +338,13 @@ func (s *SQLite3Driver) loadPlayerAppearance(id int, p *model.Player) error {
 	// query for each body the player has an appearance attribute
 	stmt, err := s.db.Prepare(`
 		SELECT
+		    HEAD_ID,
+		    FACE_ID,
 		    BODY_ID,
-		    APPEARANCE_ID
+		    ARMS_ID,
+		    HANDS_ID,
+		    LEGS_ID,
+		    FEET_ID
 		FROM
 		    PLAYER_APPEARANCE
 		WHERE
@@ -357,17 +361,21 @@ func (s *SQLite3Driver) loadPlayerAppearance(id int, p *model.Player) error {
 
 	defer rows.Close()
 	for rows.Next() {
-		var bodyID, itemID int
-		err := rows.Scan(&bodyID, &itemID)
+		var headID, faceID, bodyID, armsID, handsID, legsID, feedID int
+		err := rows.Scan(&headID, &faceID, &bodyID, &armsID, &handsID, &legsID, &feedID)
 		if err != nil {
 			return err
 		}
 
-		if bodyID < 0 || bodyID >= len(p.Appearance.Body) {
-			return fmt.Errorf("body ID out of bounds: %d", bodyID)
+		p.Appearance.Base = model.EntityBase{
+			Head:  headID,
+			Face:  faceID,
+			Body:  bodyID,
+			Arms:  armsID,
+			Hands: handsID,
+			Legs:  legsID,
+			Feet:  feedID,
 		}
-
-		p.Appearance.Body[bodyID] = itemID
 	}
 
 	err = rows.Err()
@@ -553,35 +561,67 @@ func (s *SQLite3Driver) savePlayerInfo(p *model.Player) error {
 
 // savePlayerEquipment saves a player's equipment.
 func (s *SQLite3Driver) savePlayerEquipment(p *model.Player) error {
-	stmt, err := s.db.Prepare(`
-		UPDATE
-			PLAYER_EQUIPMENT
-		SET
-		    ITEM_ID = ?
+	// prepare a delete to clear out the player's equipment
+	delStmt, err := s.db.Prepare(`
+		DELETE FROM
+		    PLAYER_EQUIPMENT
 		WHERE
-		    PLAYER_ID = ? AND
-		    SLOT_ID = ?
+		    PLAYER_ID = ?
 	`)
+	if err != nil {
+		return err
+	}
+
+	defer delStmt.Close()
+
+	// delete all records for the player's equipment
+	_, err = delStmt.Exec(p.ID)
+	if err != nil {
+		return err
+	}
+
+	insertTemplate := `
+		INSERT INTO
+			PLAYER_EQUIPMENT (
+			    PLAYER_ID,
+				SLOT_ID,
+				ITEM_ID,
+				AMOUNT
+			)
+		VALUES %s
+	`
+
+	valueTemplate := "(?, ?, ?, ?)"
+
+	var bulk []string
+	var values []any
+
+	// collect the items in the player's equipment into tuples
+	for slotID, slot := range p.Appearance.Equipment {
+		bulk = append(bulk, valueTemplate)
+		values = append(values, p.ID)
+		values = append(values, int(slotID))
+		values = append(values, slot.Item.ID)
+		values = append(values, slot.Amount)
+	}
+
+	// bail out if there are no equipment items
+	if len(bulk) == 0 {
+		return nil
+	}
+
+	// prepare the final insert query
+	insert := fmt.Sprintf(insertTemplate, strings.Join(bulk, ","))
+	stmt, err := s.db.Prepare(insert)
 	if err != nil {
 		return err
 	}
 
 	defer stmt.Close()
 
-	for slotID, itemID := range p.Appearance.Equipment {
-		rs, err := stmt.Exec(itemID, p.ID, int(slotID))
-		if err != nil {
-			return err
-		}
-
-		count, err := rs.RowsAffected()
-		if err != nil {
-			return err
-		}
-
-		if count != 1 {
-			return fmt.Errorf("expected 1 row for slot ID %d and player ID %d, got %d", slotID, p.ID, count)
-		}
+	_, err = stmt.Exec(values...)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -593,10 +633,15 @@ func (s *SQLite3Driver) savePlayerAppearance(p *model.Player) error {
 		UPDATE
 			PLAYER_APPEARANCE
 		SET
-		    APPEARANCE_ID = ?
+		    HEAD_ID = ?,
+		    FACE_ID = ?,
+		    BODY_ID = ?,
+		    ARMS_ID = ?,
+		    HANDS_ID = ?,
+		    LEGS_ID = ?,
+		    FEET_ID = ?
 		WHERE
-		    PLAYER_ID = ? AND
-		    BODY_ID = ?
+		    PLAYER_ID = ?
 	`)
 	if err != nil {
 		return err
@@ -604,20 +649,25 @@ func (s *SQLite3Driver) savePlayerAppearance(p *model.Player) error {
 
 	defer stmt.Close()
 
-	for bodyID, appearanceID := range p.Appearance.Body {
-		rs, err := stmt.Exec(appearanceID, p.ID, bodyID)
-		if err != nil {
-			return err
-		}
+	rs, err := stmt.Exec(p.Appearance.Base.Head,
+		p.Appearance.Base.Face,
+		p.Appearance.Base.Body,
+		p.Appearance.Base.Arms,
+		p.Appearance.Base.Hands,
+		p.Appearance.Base.Legs,
+		p.Appearance.Base.Feet,
+		p.ID)
+	if err != nil {
+		return err
+	}
 
-		count, err := rs.RowsAffected()
-		if err != nil {
-			return err
-		}
+	count, err := rs.RowsAffected()
+	if err != nil {
+		return err
+	}
 
-		if count != 1 {
-			return fmt.Errorf("expected 1 row for appearance ID %d and player ID %d, got %d", appearanceID, p.ID, count)
-		}
+	if count != 1 {
+		return fmt.Errorf("expected 1 row for appearance player ID %d, got %d", p.ID, count)
 	}
 
 	return nil
@@ -808,6 +858,11 @@ func (s *SQLite3Driver) savePlayerInventory(p *model.Player) error {
 		values = append(values, v.ID)
 		values = append(values, v.Item.ID)
 		values = append(values, v.Amount)
+	}
+
+	// bail out if there are no inventory items
+	if len(bulk) == 0 {
+		return nil
 	}
 
 	// prepare the final insert query

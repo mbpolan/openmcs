@@ -35,53 +35,45 @@ INSERT INTO PLAYER (
 
 -- add appearance data for seed players
 INSERT INTO PLAYER_APPEARANCE (
-    PLAYER_ID, BODY_ID, APPEARANCE_ID
+    PLAYER_ID, HEAD_ID, FACE_ID, BODY_ID, ARMS_ID, HANDS_ID, LEGS_ID, FEET_ID
 ) VALUES
     -- mike
-    (1, 0, 0),
-    (1, 1, 0),
-    (1, 2, 0),
-    (1, 3, 0),
-    (1, 4, 0),
+    (1, 256, 266, 274, 282, 289, 292, 298),
     -- hurz
-    (2, 0, 0),
-    (2, 1, 0),
-    (2, 2, 0),
-    (2, 3, 0),
-    (2, 4, 0)
+    (2, 256, 266, 274, 282, 289, 292, 298)
 ;
 
 -- add equipped item data for seed players
-INSERT INTO PLAYER_EQUIPMENT (
-    PLAYER_ID, SLOT_ID, ITEM_ID
-) VALUES
-    -- mike
-    (1, 0, 256),
-    (1, 1, 266),
-    (1, 2, 274),
-    (1, 3, 282),
-    (1, 4, 292),
-    (1, 5, 298),
-    (1, 6, 289),
-    (1, 7, 1564),
-    (1, 8, 1552),
-    (1, 9, 1699),
-    (1, 10, 1817),
-    (1, 11, 2216),
-    -- hurz
-    (2, 0, 256),
-    (2, 1, 266),
-    (2, 2, 274),
-    (2, 3, 282),
-    (2, 4, 292),
-    (2, 5, 298),
-    (2, 6, 289),
-    (2, 7, 1564),
-    (2, 8, 1552),
-    (2, 9, 1699),
-    (2, 10, 1817),
-    (2, 11, 2216)
-;
+-- INSERT INTO PLAYER_EQUIPMENT (
+--     PLAYER_ID, SLOT_ID, ITEM_ID
+-- ) VALUES
+--     -- mike
+--     (1, 0, 0),
+--     (1, 1, 266),
+--     (1, 2, 274),
+--     (1, 3, 282),
+--     (1, 4, 292),
+--     (1, 5, 298),
+--     (1, 6, 289),
+--     (1, 7, 1564),
+--     (1, 8, 1552),
+--     (1, 9, 1699),
+--     (1, 10, 1817),
+--     (1, 11, 2216),
+--     -- hurz
+--     (2, 0, 256),
+--     (2, 1, 266),
+--     (2, 2, 274),
+--     (2, 3, 282),
+--     (2, 4, 292),
+--     (2, 5, 298),
+--     (2, 6, 289),
+--     (2, 7, 1564),
+--     (2, 8, 1552),
+--     (2, 9, 1699),
+--     (2, 10, 1817),
+--     (2, 11, 2216)
+-- ;
 
 -- initialize skills for players
 INSERT INTO PLAYER_SKILL (PLAYER_ID, SKILL_ID, LEVEL, EXPERIENCE)
