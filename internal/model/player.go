@@ -67,9 +67,9 @@ func NewPlayer(username string) *Player {
 			AnimationTurnLeft:  0xFFFF, // turn left
 			AnimationRun:       0x067D, // run
 		},
-		Equipment: map[EquipmentSlotType]*EquipmentSlot{},
-		Body:      make([]int, NumBodyParts),
-		Updated:   false,
+		Equipment:  map[EquipmentSlotType]*EquipmentSlot{},
+		BodyColors: make([]int, NumBodyColors),
+		Updated:    false,
 	}
 
 	return &Player{

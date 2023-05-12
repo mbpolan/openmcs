@@ -32,8 +32,8 @@ var EquipmentSlotTypes = []EquipmentSlotType{
 	EquipmentSlotTypeAmmo,
 }
 
-// NumBodyParts is the number of customizable character body parts.
-const NumBodyParts = 5
+// NumBodyColors is the number of customizable character body parts.
+const NumBodyColors = 5
 
 // EntityGender enumerates valid genders for players or NPCs.
 type EntityGender int
@@ -79,7 +79,7 @@ type EntityAppearance struct {
 	Base           EntityBase
 	NPCAppearance  int
 	Equipment      map[EquipmentSlotType]*EquipmentSlot
-	Body           []int
+	BodyColors     []int
 	Animations     map[AnimationID]int
 	Gender         EntityGender
 	OverheadIconID int

@@ -553,7 +553,7 @@ func (p *PlayerUpdateResponse) writeAppearance(ea *entityAppearance, w *network.
 	}
 
 	// write each body part color
-	for _, color := range a.Body {
+	for _, color := range a.BodyColors {
 		err = bw.WriteUint8(byte(color))
 		if err != nil {
 			return err
