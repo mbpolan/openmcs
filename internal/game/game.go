@@ -1368,17 +1368,19 @@ func (g *Game) handleGameUpdate() error {
 
 				update.AddAppearanceUpdate(other.player.ID, other.player.Username, other.player.Appearance)
 				pe.tracking[other.player.ID] = other
-			} else if !update.Tracking(other.player.ID) {
-				theirUpdate := other.nextUpdate
-
-				// if the other player does not have an update, do not change their posture relative to us. otherwise
-				// synchronize with their local movement
-				if theirUpdate == nil {
-					update.AddOtherPlayerNoUpdate(other.player.ID)
-				} else {
-					update.SyncLocalMovement(other.player.ID, theirUpdate)
-				}
 			} else {
+				if !update.Tracking(other.player.ID) {
+					theirUpdate := other.nextUpdate
+
+					// if the other player does not have an update, do not change their posture relative to us. otherwise
+					// synchronize with their local movement
+					if theirUpdate == nil {
+						update.AddOtherPlayerNoUpdate(other.player.ID)
+					} else {
+						update.SyncLocalMovement(other.player.ID, theirUpdate)
+					}
+				}
+
 				if changedAppearance[other.player.ID] {
 					update.AddAppearanceUpdate(other.player.ID, other.player.Username, other.player.Appearance)
 				}
