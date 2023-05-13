@@ -20,11 +20,8 @@ import (
 // TODO: this should be configurable
 const playerMaxIdleInterval = 3 * time.Minute
 
-// playerUpdateInterval defines how often player updates are sent.
-const playerUpdateInterval = 200 * time.Millisecond
-
-// playerWalkInterval defines how long to wait between a player walks to their next waypoint.
-const playerWalkInterval = 600 * time.Millisecond
+// tickInterval defines how long a single tick is.
+const tickInterval = 600 * time.Millisecond
 
 // itemDespawnInterval defines how long an item remains on the map before despawning.
 const itemDespawnInterval = 3 * time.Minute
@@ -56,6 +53,7 @@ type Game struct {
 	worldID          int
 	mapManager       *MapManager
 	telemetry        telemetry.Telemetry
+	tick             uint64
 }
 
 // NewGame creates a new game engine using the given configuration.
@@ -64,6 +62,7 @@ func NewGame(opts Options) (*Game, error) {
 		doneChan:       make(chan bool, 1),
 		items:          map[int]*model.Item{},
 		telemetry:      opts.Telemetry,
+		tick:           0,
 		welcomeMessage: opts.Config.Server.WelcomeMessage,
 		worldID:        opts.Config.Server.WorldID,
 	}
@@ -99,7 +98,7 @@ func (g *Game) Stop() {
 // Run starts the game loop and begins processing events. You need to call this method before players can connect
 // and interact with the game.
 func (g *Game) Run() {
-	g.ticker = time.NewTicker(50 * time.Millisecond)
+	g.ticker = time.NewTicker(tickInterval)
 	go g.loop()
 }
 
@@ -345,7 +344,6 @@ func (g *Game) WalkPlayer(p *model.Player, start model.Vector2D, waypoints []mod
 	logger.Debugf("path player %s via %+v", p.Username, path)
 	pe.path = path
 	pe.nextPathIdx = 0
-	pe.lastWalkTime = time.Now().Add(-1 * playerWalkInterval)
 }
 
 // ValidatePlayer checks if a player can be added to the game.
@@ -1141,16 +1139,10 @@ func (g *Game) unequipPlayerInventoryItem(pe *playerEntity, item *model.Item, sl
 func (g *Game) handleGameUpdate() error {
 	g.mu.Lock()
 
-	// determine if it's time to send game state updates to players
-	sendUpdates := time.Now().Sub(g.lastPlayerUpdate) >= playerUpdateInterval
-
 	// lock all players
 	for _, pe := range g.players {
 		pe.mu.Lock()
 	}
-
-	// reconcile the map state
-	mapUpdates := g.mapManager.Reconcile()
 
 	// remove any disconnected players first
 	for _, pe := range g.removePlayers {
@@ -1181,17 +1173,15 @@ func (g *Game) handleGameUpdate() error {
 
 	g.removePlayers = nil
 	changedAppearance := map[int]bool{}
+	changedRegions := map[int]bool{}
 
-	// update each player's own movements and send related updates
+	// process each player, handling deferred actions and movement sequences
 	for _, pe := range g.players {
 		// prepare a new player update or use the pending, existing one
 		if pe.nextUpdate == nil {
 			pe.nextUpdate = response.NewPlayerUpdateResponse(pe.player.ID)
 		}
 		update := pe.nextUpdate
-
-		// track if this player has moved to a new region
-		hasChangedRegions := false
 
 		// has this player teleported to a new location?
 		if pe.teleportGlobal != nil {
@@ -1209,15 +1199,15 @@ func (g *Game) handleGameUpdate() error {
 			relocate.SetLocalPlayerPosition(relative, true)
 			pe.PlanEvent(NewSendResponseEvent(relocate, time.Now()))
 
-			hasChangedRegions = true
+			changedRegions[pe.player.ID] = true
 			pe.teleportGlobal = nil
 		}
 
 		// handle a deferred action for the player
-		if pe.deferredAction != nil {
-			switch pe.deferredAction.actionType {
+		if deferred := pe.PollDeferredAction(); deferred != nil {
+			switch deferred.actionType {
 			case pendingActionTakeGroundItem:
-				action := pe.deferredAction.takeGroundItem
+				action := deferred.takeGroundItem
 
 				// pick up a ground item only if the player has reached the position of that item
 				if pe.player.GlobalPos != action.globalPos {
@@ -1242,7 +1232,7 @@ func (g *Game) handleGameUpdate() error {
 				pe.deferredAction = nil
 
 			case pendingActionDropInventoryItem:
-				action := pe.deferredAction.dropInventoryItemAction
+				action := deferred.dropInventoryItemAction
 
 				// remove the item from the player's inventory
 				slot := g.dropPlayerInventoryItem(pe, action.item)
@@ -1256,13 +1246,13 @@ func (g *Game) handleGameUpdate() error {
 				pe.deferredAction = nil
 
 			case pendingActionEquipItem:
-				action := pe.deferredAction.equipItemAction
+				action := deferred.equipItemAction
 
 				g.equipPlayerInventoryItem(pe, action.item)
 				pe.deferredAction = nil
 
 			case pendingActionUnequipItem:
-				action := pe.deferredAction.unequipItemAction
+				action := deferred.unequipItemAction
 
 				// validate that the player has room in their inventory
 				if !pe.player.InventoryCanHoldItem(action.item) {
@@ -1285,8 +1275,8 @@ func (g *Game) handleGameUpdate() error {
 			changedAppearance[pe.player.ID] = true
 		}
 
-		// check if the player is walking, and it's time to move to the next waypoint
-		if pe.Walking() && time.Now().Sub(pe.lastWalkTime) >= playerWalkInterval {
+		// check if the player is walking
+		if pe.Walking() {
 			next := pe.path[pe.nextPathIdx]
 
 			// add the change in direction to the local player's movement
@@ -1297,9 +1287,8 @@ func (g *Game) handleGameUpdate() error {
 			pe.player.GlobalPos.X = next.X
 			pe.player.GlobalPos.Y = next.Y
 
-			// move past this path segment and mark this as the last time the player was moved
+			// move past this path segment
 			pe.nextPathIdx++
-			pe.lastWalkTime = time.Now()
 
 			// check if the player has moved into a new map region, and schedule a map region load is that's the case
 			origin := g.findEffectiveRegion(pe)
@@ -1332,7 +1321,7 @@ func (g *Game) handleGameUpdate() error {
 
 				// mark this as the current region the player's client has loaded
 				pe.regionOrigin = origin
-				hasChangedRegions = true
+				changedRegions[pe.player.ID] = true
 			}
 		}
 
@@ -1341,17 +1330,20 @@ func (g *Game) handleGameUpdate() error {
 			g.broadcastPlayerStatus(pe, pe.nextStatusBroadcast.targets...)
 			pe.nextStatusBroadcast = nil
 		}
+	}
+
+	// reconcile the map state now that players have taken their actions
+	mapUpdates := g.mapManager.Reconcile()
+
+	// update each player with actions and movements of those nearby
+	for _, pe := range g.players {
+		update := pe.nextUpdate
 
 		// is this player in a region that has map updates? only send updates if they have not left this region
 		regionGlobal := util.RegionOriginToGlobal(g.findEffectiveRegion(pe))
-		if updates, ok := mapUpdates[regionGlobal]; ok && !hasChangedRegions {
+		if updates, ok := mapUpdates[regionGlobal]; ok && !changedRegions[pe.player.ID] {
 			pe.PlanEvent(NewSendMultipleResponsesEvent(updates, time.Now()))
 		}
-	}
-
-	// update each player with nearby players' updates
-	for _, pe := range g.players {
-		update := pe.nextUpdate
 
 		// find players within visual distance of this player
 		others := g.findSpectators(pe)
@@ -1381,6 +1373,7 @@ func (g *Game) handleGameUpdate() error {
 					}
 				}
 
+				// if the player has changed their appearance, include it in the update
 				if changedAppearance[other.player.ID] {
 					update.AddAppearanceUpdate(other.player.ID, other.player.Username, other.player.Appearance)
 				}
@@ -1414,14 +1407,8 @@ func (g *Game) handleGameUpdate() error {
 
 		// unlock the player and send an update if needed
 		pe.mu.Unlock()
-		if sendUpdates {
-			pe.updateChan <- pe.nextUpdate
-			pe.nextUpdate = nil
-		}
-	}
-
-	if sendUpdates {
-		g.lastPlayerUpdate = time.Now()
+		pe.updateChan <- pe.nextUpdate
+		pe.nextUpdate = nil
 	}
 
 	g.mu.Unlock()
@@ -1609,24 +1596,6 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 				return err
 			}
 		}
-	}
-
-	return nil
-}
-
-// sendPlayerUpdate sends a game state update to the player.
-// Concurrency requirements: (a) game state may be locked (b) this player should NOT be locked.
-func (g *Game) sendPlayerUpdate(pe *playerEntity) error {
-	pe.mu.Lock()
-	defer pe.mu.Unlock()
-
-	if pe.nextUpdate != nil {
-		err := pe.nextUpdate.Write(pe.writer)
-		if err != nil {
-			return err
-		}
-
-		pe.nextUpdate = nil
 	}
 
 	return nil

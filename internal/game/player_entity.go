@@ -18,9 +18,10 @@ const (
 	pendingActionUnequipItem
 )
 
-// pendingAction is a deferred action that a player has requested be done.
-type pendingAction struct {
+// deferredAction is an action that will be performed after a number of game ticks have elapsed.
+type deferredAction struct {
 	actionType              pendingActionType
+	tickDelay               uint
 	takeGroundItem          *takeGroundItemAction
 	dropInventoryItemAction *dropInventoryItemAction
 	equipItemAction         *equipItemAction
@@ -65,7 +66,6 @@ type playerEntity struct {
 	nextPathIdx         int
 	scheduler           *Scheduler
 	writer              *network.ProtocolWriter
-	lastWalkTime        time.Time
 	lastChatMessage     *model.ChatMessage
 	lastChatTime        time.Time
 	chatHighWater       time.Time
@@ -76,7 +76,7 @@ type playerEntity struct {
 	appearanceChanged   bool
 	nextStatusBroadcast *playerStatusBroadcast
 	nextUpdate          *response.PlayerUpdateResponse
-	deferredAction      *pendingAction
+	deferredAction      *deferredAction
 	mu                  sync.Mutex
 }
 
@@ -119,11 +119,28 @@ func (pe *playerEntity) MarkStatusBroadcastTarget(target string) {
 	pe.nextStatusBroadcast.targets = append(pe.nextStatusBroadcast.targets, target)
 }
 
+// PollDeferredAction decrements the tick delay on the next deferred action. If the delay has expired, the action will
+// be returned. If there is no deferred action, or if it's not yet time to process the action, nil will be returned
+// instead.
+func (pe *playerEntity) PollDeferredAction() *deferredAction {
+	if pe.deferredAction != nil {
+		if pe.deferredAction.tickDelay >= 1 {
+			pe.deferredAction.tickDelay--
+			return nil
+		}
+
+		return pe.deferredAction
+	}
+
+	return nil
+}
+
 // DeferTakeGroundItemAction sets the player's pending action to pick up a specific ground item at a position, in
 // global coordinates. This will overwrite any previously deferred action.
 func (pe *playerEntity) DeferTakeGroundItemAction(item *model.Item, globalPos model.Vector3D) {
-	pe.deferredAction = &pendingAction{
+	pe.deferredAction = &deferredAction{
 		actionType: pendingActionTakeGroundItem,
+		tickDelay:  1,
 		takeGroundItem: &takeGroundItemAction{
 			globalPos: globalPos,
 			item:      item,
@@ -134,8 +151,9 @@ func (pe *playerEntity) DeferTakeGroundItemAction(item *model.Item, globalPos mo
 // DeferDropInventoryItem sets the player's pending action to drop an inventory item. This will overwrite any previously
 // deferred action.
 func (pe *playerEntity) DeferDropInventoryItem(item *model.Item, interfaceID, secondaryActionID int) {
-	pe.deferredAction = &pendingAction{
+	pe.deferredAction = &deferredAction{
 		actionType: pendingActionDropInventoryItem,
+		tickDelay:  1,
 		dropInventoryItemAction: &dropInventoryItemAction{
 			interfaceID:       interfaceID,
 			item:              item,
@@ -147,8 +165,9 @@ func (pe *playerEntity) DeferDropInventoryItem(item *model.Item, interfaceID, se
 // DeferEquipItem sets the player's pending action to equip an inventory item. This will overwrite any previously
 // deferred action.
 func (pe *playerEntity) DeferEquipItem(item *model.Item, interfaceID int) {
-	pe.deferredAction = &pendingAction{
+	pe.deferredAction = &deferredAction{
 		actionType: pendingActionEquipItem,
+		tickDelay:  1,
 		equipItemAction: &equipItemAction{
 			interfaceID: interfaceID,
 			item:        item,
@@ -159,8 +178,9 @@ func (pe *playerEntity) DeferEquipItem(item *model.Item, interfaceID int) {
 // DeferUnequipItem sets the player's pending action to equip an inventory item. This will overwrite any previously
 // deferred action.
 func (pe *playerEntity) DeferUnequipItem(item *model.Item, interfaceID int, slotType model.EquipmentSlotType) {
-	pe.deferredAction = &pendingAction{
+	pe.deferredAction = &deferredAction{
 		actionType: pendingActionUnequipItem,
+		tickDelay:  1,
 		unequipItemAction: &unequipItemAction{
 			interfaceID: interfaceID,
 			item:        item,
