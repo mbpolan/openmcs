@@ -13,7 +13,10 @@ build:
 # creates seed data for a SQLite3 database
 .PHONY: seed-sqlite3
 seed-sqlite3:
-	cat seed/sqlite3.sql | sqlite3 data/game.db
+	@for file in seed/sqlite3/*.sql; do \
+  		echo $$file; \
+  		cat $$file | sqlite3 data/game.db; \
+  	done
 
 # removes transient data including default databases
 .PHONY: clean
