@@ -367,7 +367,8 @@ func (g *Game) ValidatePlayer(p *model.Player) error {
 func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	pe := newPlayerEntity(p, writer)
 
-	// update the player's inventory to ensure items match their expected models
+	// update the player's inventory and equipment to ensure items match their expected models. if an item does not
+	// match, remove it from its respective location
 	for _, slot := range pe.player.Inventory {
 		if slot == nil {
 			continue
@@ -378,6 +379,15 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 			pe.player.ClearInventoryItem(slot.ID)
 		} else {
 			pe.player.SetInventoryItem(item, slot.Amount, slot.ID)
+		}
+	}
+
+	for slotType, slot := range pe.player.Appearance.Equipment {
+		item := g.items[slot.Item.ID]
+		if item == nil {
+			pe.player.ClearEquippedItem(slotType)
+		} else {
+			pe.player.SetEquippedItem(item, slot.Amount, slotType)
 		}
 	}
 
@@ -1096,6 +1106,9 @@ func (g *Game) equipPlayerInventoryItem(pe *playerEntity, item *model.Item) {
 	equipment := response.NewSetInventoryItemResponse(1688)
 	equipment.AddSlot(int(item.Attributes.EquipSlotType), slot.Item.ID, slot.Amount)
 	pe.PlanEvent(NewSendResponseEvent(equipment, time.Now()))
+
+	// mark that we need to update the player's appearance
+	pe.appearanceChanged = true
 }
 
 // unequipPlayerInventoryItem removes an equipped item and places it in the player's inventory. The player should have
@@ -1118,6 +1131,9 @@ func (g *Game) unequipPlayerInventoryItem(pe *playerEntity, item *model.Item, sl
 	equipment := response.NewSetInventoryItemResponse(1688)
 	equipment.ClearSlot(int(item.Attributes.EquipSlotType))
 	pe.PlanEvent(NewSendResponseEvent(equipment, time.Now()))
+
+	// mark that we need to update the player's appearance
+	pe.appearanceChanged = true
 }
 
 // handleGameUpdate performs a game state update.
@@ -1164,6 +1180,7 @@ func (g *Game) handleGameUpdate() error {
 	}
 
 	g.removePlayers = nil
+	changedAppearance := map[int]bool{}
 
 	// update each player's own movements and send related updates
 	for _, pe := range g.players {
@@ -1261,6 +1278,13 @@ func (g *Game) handleGameUpdate() error {
 			}
 		}
 
+		// if this player's appearance has changed, we need to include it in their update
+		if pe.appearanceChanged {
+			update.AddAppearanceUpdate(pe.player.ID, pe.player.Username, pe.player.Appearance)
+			pe.appearanceChanged = false
+			changedAppearance[pe.player.ID] = true
+		}
+
 		// check if the player is walking, and it's time to move to the next waypoint
 		if pe.Walking() && time.Now().Sub(pe.lastWalkTime) >= playerWalkInterval {
 			next := pe.path[pe.nextPathIdx]
@@ -1332,8 +1356,13 @@ func (g *Game) handleGameUpdate() error {
 		// find players within visual distance of this player
 		others := g.findSpectators(pe)
 		for _, other := range others {
-			// is this player new to us? if so we need to send an initial position and appearance update
-			if _, ok := pe.tracking[other.player.ID]; !ok {
+			_, known := pe.tracking[other.player.ID]
+
+			// determine what to do with this player. there are several possibilities:
+			// (a) this is the first time we've seen them: send an update including their appearance and location
+			// (b) we've seen them before, but we don't yet have their update captured
+			// (c) we've seen them before and know their last update: no action needed
+			if !known {
 				posOffset := other.player.GlobalPos.Sub(pe.player.GlobalPos).To2D()
 				update.AddToPlayerList(other.player.ID, posOffset, true, true)
 
@@ -1348,6 +1377,10 @@ func (g *Game) handleGameUpdate() error {
 					update.AddOtherPlayerNoUpdate(other.player.ID)
 				} else {
 					update.SyncLocalMovement(other.player.ID, theirUpdate)
+				}
+			} else {
+				if changedAppearance[other.player.ID] {
+					update.AddAppearanceUpdate(other.player.ID, other.player.Username, other.player.Appearance)
 				}
 			}
 

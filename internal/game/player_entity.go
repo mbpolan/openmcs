@@ -73,6 +73,7 @@ type playerEntity struct {
 	teleportGlobal      *model.Vector3D
 	privateMessageID    int
 	regionOrigin        model.Vector2D
+	appearanceChanged   bool
 	nextStatusBroadcast *playerStatusBroadcast
 	nextUpdate          *response.PlayerUpdateResponse
 	deferredAction      *pendingAction
