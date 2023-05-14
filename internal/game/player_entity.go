@@ -140,6 +140,14 @@ func (pe *playerEntity) DeferSendInterfaces() {
 	})
 }
 
+// DeferSendModes plans an action to send a player their current chat modes.
+func (pe *playerEntity) DeferSendModes() {
+	pe.deferredActions = append(pe.deferredActions, &Action{
+		ActionType: ActionSendModes,
+		TickDelay:  1,
+	})
+}
+
 // DeferSendEquipment plans an action to send a player their current equipped items.
 func (pe *playerEntity) DeferSendEquipment() {
 	pe.deferredActions = append(pe.deferredActions, &Action{
@@ -160,7 +168,7 @@ func (pe *playerEntity) DeferSendInventory() {
 func (pe *playerEntity) DeferSendFriendList() {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionSendFriendList,
-		TickDelay:  0,
+		TickDelay:  1,
 	})
 }
 
@@ -168,7 +176,7 @@ func (pe *playerEntity) DeferSendFriendList() {
 func (pe *playerEntity) DeferSendIgnoreList() {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionSendIgnoreList,
-		TickDelay:  0,
+		TickDelay:  1,
 	})
 }
 

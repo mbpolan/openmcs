@@ -399,7 +399,7 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 		model.ClientTabIgnoreList:  5715,
 		model.ClientTabLogout:      2449,
 	}
-	
+
 	// add the player to the player list
 	g.mu.Lock()
 	g.players = append(g.players, pe)
@@ -445,8 +445,7 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	pe.DeferSendInventory()
 
 	// plan an update to the client's interaction modes
-	modes := response.NewSetModesResponse(pe.player.Modes.PublicChat, pe.player.Modes.PrivateChat, pe.player.Modes.Interaction)
-	pe.PlanEvent(NewSendResponseEvent(modes, time.Now()))
+	pe.DeferSendModes()
 
 	// plan an update to the player's skills
 	pe.DeferSendSkills()
@@ -1195,102 +1194,7 @@ func (g *Game) handleGameUpdate() error {
 		}
 
 		// handle a deferred action for the player
-		deferredActions := pe.TickDeferredActions()
-		for _, deferred := range deferredActions {
-			switch deferred.ActionType {
-			case ActionSendServerMessage:
-				g.handleServerMessage(pe, deferred.ServerMessageAction.Message)
-				pe.RemoveDeferredAction(deferred)
-
-			case ActionMoveInventoryItem:
-				g.handlePlayerSwapInventoryItem(pe, deferred.MoveInventoryItemAction)
-				pe.RemoveDeferredAction(deferred)
-
-			case ActionSendSkills:
-				g.handleSendPlayerSkills(pe)
-				pe.RemoveDeferredAction(deferred)
-
-			case ActionSendInterfaces:
-				g.handleSendPlayerInterfaces(pe)
-				pe.RemoveDeferredAction(deferred)
-
-			case ActionSendFriendList:
-				g.handleSendPlayerFriendList(pe)
-				pe.RemoveDeferredAction(deferred)
-
-			case ActionSendIgnoreList:
-				g.handleSendPlayerIgnoreList(pe)
-				pe.RemoveDeferredAction(deferred)
-
-			case ActionSendEquipment:
-				g.handleSendPlayerEquipment(pe)
-				pe.RemoveDeferredAction(deferred)
-
-			case ActionSendInventory:
-				g.handleSendPlayerInventory(pe)
-				pe.RemoveDeferredAction(deferred)
-
-			case ActionTakeGroundItem:
-				action := deferred.TakeGroundItem
-
-				// pick up a ground Item only if the player has reached the position of that Item
-				if pe.player.GlobalPos != action.GlobalPos {
-					break
-				}
-
-				// check if the player has room in their inventory
-				if !pe.player.InventoryCanHoldItem(action.Item) {
-					pe.PlanEvent(NewSendResponseEvent(response.NewServerMessageResponse("You cannot carry any more items"), time.Now()))
-					pe.RemoveDeferredAction(deferred)
-					break
-				}
-
-				// remove the ground Item if it still exists, and allow the next reconciliation to take care of
-				// updating the state of the map
-				item := g.mapManager.RemoveGroundItem(action.Item.ID, action.GlobalPos)
-				if item != nil {
-					// add the Item to the player's inventory
-					g.addPlayerInventoryItem(pe, action.Item, item.Amount)
-				}
-
-				pe.RemoveDeferredAction(deferred)
-
-			case ActionDropInventoryItem:
-				action := deferred.DropInventoryItemAction
-
-				// remove the Item from the player's inventory
-				slot := g.dropPlayerInventoryItem(pe, action.Item)
-				if slot != nil {
-					// put the Item on the tile the player's standing on, and let the next reconciliation take care of
-					// updating the state of the map
-					timeout := int(itemDespawnInterval.Seconds())
-					g.mapManager.AddGroundItem(slot.Item.ID, slot.Amount, action.Item.Stackable, &timeout, pe.player.GlobalPos)
-				}
-
-				pe.RemoveDeferredAction(deferred)
-
-			case ActionEquipItem:
-				action := deferred.EquipItemAction
-
-				g.equipPlayerInventoryItem(pe, action.Item)
-				pe.RemoveDeferredAction(deferred)
-
-			case ActionUnequipItem:
-				action := deferred.UnequipItemAction
-
-				// validate that the player has room in their inventory
-				if !pe.player.InventoryCanHoldItem(action.Item) {
-					pe.PlanEvent(NewSendResponseEvent(response.NewServerMessageResponse("You have no room for this Item in your inventory"), time.Now()))
-					pe.RemoveDeferredAction(deferred)
-					break
-				}
-
-				g.unequipPlayerInventoryItem(pe, action.Item, action.SlotType)
-				pe.RemoveDeferredAction(deferred)
-
-			default:
-			}
-		}
+		g.handleDeferredActions(pe)
 
 		// if this player's appearance has changed, we need to include it in their update
 		if pe.appearanceChanged {
@@ -1385,16 +1289,14 @@ func (g *Game) handleGameUpdate() error {
 				update.AddAppearanceUpdate(other.player.ID, other.player.Username, other.player.Appearance)
 				pe.tracking[other.player.ID] = other
 			} else {
-				if !update.Tracking(other.player.ID) {
-					theirUpdate := other.nextUpdate
+				theirUpdate := other.nextUpdate
 
-					// if the other player does not have an update, do not change their posture relative to us. otherwise
-					// synchronize with their local movement
-					if theirUpdate == nil {
-						update.AddOtherPlayerNoUpdate(other.player.ID)
-					} else {
-						update.SyncLocalMovement(other.player.ID, theirUpdate)
-					}
+				// if the other player does not have an update, do not change their posture relative to us. otherwise
+				// synchronize with their local movement
+				if theirUpdate == nil {
+					update.AddOtherPlayerNoUpdate(other.player.ID)
+				} else {
+					update.SyncLocalMovement(other.player.ID, theirUpdate)
 				}
 
 				// if the player has changed their appearance, include it in the update
@@ -1428,8 +1330,10 @@ func (g *Game) handleGameUpdate() error {
 		}
 
 		pe.chatHighWater = time.Now()
+	}
 
-		// unlock the player and send an update if needed
+	// unlock all players and dispatch their updates
+	for _, pe := range g.players {
 		pe.mu.Unlock()
 		pe.updateChan <- pe.nextUpdate
 		pe.nextUpdate = nil
@@ -1437,6 +1341,111 @@ func (g *Game) handleGameUpdate() error {
 
 	g.mu.Unlock()
 	return nil
+}
+
+// handleDeferredActions processes scheduled actions for a player.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleDeferredActions(pe *playerEntity) {
+	deferredActions := pe.TickDeferredActions()
+	for _, deferred := range deferredActions {
+		switch deferred.ActionType {
+		case ActionSendServerMessage:
+			g.handleServerMessage(pe, deferred.ServerMessageAction.Message)
+			pe.RemoveDeferredAction(deferred)
+
+		case ActionMoveInventoryItem:
+			g.handlePlayerSwapInventoryItem(pe, deferred.MoveInventoryItemAction)
+			pe.RemoveDeferredAction(deferred)
+
+		case ActionSendSkills:
+			g.handleSendPlayerSkills(pe)
+			pe.RemoveDeferredAction(deferred)
+
+		case ActionSendInterfaces:
+			g.handleSendPlayerInterfaces(pe)
+			pe.RemoveDeferredAction(deferred)
+
+		case ActionSendModes:
+			g.handleSendPlayerModes(pe)
+			pe.RemoveDeferredAction(deferred)
+
+		case ActionSendFriendList:
+			g.handleSendPlayerFriendList(pe)
+			pe.RemoveDeferredAction(deferred)
+
+		case ActionSendIgnoreList:
+			g.handleSendPlayerIgnoreList(pe)
+			pe.RemoveDeferredAction(deferred)
+
+		case ActionSendEquipment:
+			g.handleSendPlayerEquipment(pe)
+			pe.RemoveDeferredAction(deferred)
+
+		case ActionSendInventory:
+			g.handleSendPlayerInventory(pe)
+			pe.RemoveDeferredAction(deferred)
+
+		case ActionTakeGroundItem:
+			action := deferred.TakeGroundItem
+
+			// pick up a ground Item only if the player has reached the position of that Item
+			if pe.player.GlobalPos != action.GlobalPos {
+				break
+			}
+
+			// check if the player has room in their inventory
+			if !pe.player.InventoryCanHoldItem(action.Item) {
+				pe.PlanEvent(NewSendResponseEvent(response.NewServerMessageResponse("You cannot carry any more items"), time.Now()))
+				pe.RemoveDeferredAction(deferred)
+				break
+			}
+
+			// remove the ground Item if it still exists, and allow the next reconciliation to take care of
+			// updating the state of the map
+			item := g.mapManager.RemoveGroundItem(action.Item.ID, action.GlobalPos)
+			if item != nil {
+				// add the Item to the player's inventory
+				g.addPlayerInventoryItem(pe, action.Item, item.Amount)
+			}
+
+			pe.RemoveDeferredAction(deferred)
+
+		case ActionDropInventoryItem:
+			action := deferred.DropInventoryItemAction
+
+			// remove the Item from the player's inventory
+			slot := g.dropPlayerInventoryItem(pe, action.Item)
+			if slot != nil {
+				// put the Item on the tile the player's standing on, and let the next reconciliation take care of
+				// updating the state of the map
+				timeout := int(itemDespawnInterval.Seconds())
+				g.mapManager.AddGroundItem(slot.Item.ID, slot.Amount, action.Item.Stackable, &timeout, pe.player.GlobalPos)
+			}
+
+			pe.RemoveDeferredAction(deferred)
+
+		case ActionEquipItem:
+			action := deferred.EquipItemAction
+
+			g.equipPlayerInventoryItem(pe, action.Item)
+			pe.RemoveDeferredAction(deferred)
+
+		case ActionUnequipItem:
+			action := deferred.UnequipItemAction
+
+			// validate that the player has room in their inventory
+			if !pe.player.InventoryCanHoldItem(action.Item) {
+				pe.PlanEvent(NewSendResponseEvent(response.NewServerMessageResponse("You have no room for this Item in your inventory"), time.Now()))
+				pe.RemoveDeferredAction(deferred)
+				break
+			}
+
+			g.unequipPlayerInventoryItem(pe, action.Item, action.SlotType)
+			pe.RemoveDeferredAction(deferred)
+
+		default:
+		}
+	}
 }
 
 // handleSendPlayerSkills handles sending a player their current skill levels and experience.
@@ -1501,6 +1510,13 @@ func (g *Game) handleSendPlayerInterfaces(pe *playerEntity) {
 	}
 
 	pe.PlanEvent(NewSendMultipleResponsesEvent(responses, time.Now()))
+}
+
+// handleSendPlayerModes handles sending a player their current chat modes.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleSendPlayerModes(pe *playerEntity) {
+	modes := response.NewSetModesResponse(pe.player.Modes.PublicChat, pe.player.Modes.PrivateChat, pe.player.Modes.Interaction)
+	pe.PlanEvent(NewSendResponseEvent(modes, time.Now()))
 }
 
 // handleSendPlayerFriendList handles sending a player their friends list and the status of each friend.

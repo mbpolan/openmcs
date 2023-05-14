@@ -10,6 +10,7 @@ const (
 	ActionSendServerMessage
 	ActionSendSkills
 	ActionSendInterfaces
+	ActionSendModes
 	ActionSendFriendList
 	ActionSendIgnoreList
 	ActionSendEquipment
