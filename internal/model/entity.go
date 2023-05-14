@@ -17,6 +17,11 @@ const (
 	EquipmentSlotTypeAmmo                       = 13
 )
 
+// Visible returns true if the equipment slot affects an entity's appearance, false if not.
+func (s EquipmentSlotType) Visible() bool {
+	return s != EquipmentSlotTypeRing && s != EquipmentSlotTypeAmmo
+}
+
 // EquipmentSlotTypes is a slice of all EquipmentSlotType enums sorted according to their slot IDs in ascending order.
 var EquipmentSlotTypes = []EquipmentSlotType{
 	EquipmentSlotTypeHead,

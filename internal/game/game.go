@@ -1096,8 +1096,10 @@ func (g *Game) equipPlayerInventoryItem(pe *playerEntity, item *model.Item) {
 	equipment.AddSlot(int(item.Attributes.EquipSlotType), invSlot.Item.ID, invSlot.Amount)
 	pe.Send(equipment)
 
-	// mark that we need to update the player's appearance
-	pe.appearanceChanged = true
+	// mark that we need to update the player's appearance if necessary
+	if item.Attributes.EquipSlotType.Visible() {
+		pe.appearanceChanged = true
+	}
 }
 
 // unequipPlayerInventoryItem removes an equipped Item and places it in the player's inventory. The player should have
@@ -1121,8 +1123,10 @@ func (g *Game) unequipPlayerInventoryItem(pe *playerEntity, item *model.Item, sl
 	equipment.ClearSlot(int(item.Attributes.EquipSlotType))
 	pe.Send(equipment)
 
-	// mark that we need to update the player's appearance
-	pe.appearanceChanged = true
+	// mark that we need to update the player's appearance if necessary
+	if slotType.Visible() {
+		pe.appearanceChanged = true
+	}
 }
 
 // handleGameUpdate performs a game state update.
