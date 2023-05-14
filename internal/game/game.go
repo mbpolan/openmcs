@@ -399,12 +399,10 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 		model.ClientTabIgnoreList:  5715,
 		model.ClientTabLogout:      2449,
 	}
-
-	g.mu.Lock()
-
+	
 	// add the player to the player list
+	g.mu.Lock()
 	g.players = append(g.players, pe)
-
 	g.mu.Unlock()
 
 	// mark the player as being online and broadcast their status
@@ -438,31 +436,29 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	}
 
 	// plan an update to the client sidebar interfaces
-	pe.PlanEvent(NewEventWithType(EventUpdateTabInterfaces, time.Now()))
+	pe.DeferSendInterfaces()
 
 	// plan an event to clear the player's equipment
-	pe.PlanEvent(NewEventWithType(EventSendEquipment, time.Now()))
+	pe.DeferSendEquipment()
 
 	// plan an event to clear the player's inventory
-	pe.PlanEvent(NewEventWithType(EventSendInventory, time.Now()))
+	pe.DeferSendInventory()
 
 	// plan an update to the client's interaction modes
 	modes := response.NewSetModesResponse(pe.player.Modes.PublicChat, pe.player.Modes.PrivateChat, pe.player.Modes.Interaction)
 	pe.PlanEvent(NewSendResponseEvent(modes, time.Now()))
 
 	// plan an update to the player's skills
-	pe.PlanEvent(NewEventWithType(EventSkills, time.Now()))
+	pe.DeferSendSkills()
 
 	// plan an update to the player's friends list
-	pe.PlanEvent(NewEventWithType(EventFriendList, time.Now()))
+	pe.DeferSendFriendList()
 
 	// plan an update to the player's ignored list
-	ignored := response.NewIgnoredListResponse(pe.player.Ignored)
-	pe.PlanEvent(NewSendResponseEvent(ignored, time.Now()))
+	pe.DeferSendIgnoreList()
 
 	// plan a welcome message
-	msg := response.NewServerMessageResponse(g.welcomeMessage)
-	pe.PlanEvent(NewSendResponseEvent(msg, time.Now()))
+	pe.DeferSendServerMessage(g.welcomeMessage)
 
 	// plan the first continuous idle check event
 	pe.PlanEvent(NewEventWithType(EventCheckIdle, time.Now().Add(playerMaxIdleInterval)))
@@ -1202,11 +1198,39 @@ func (g *Game) handleGameUpdate() error {
 		deferredActions := pe.TickDeferredActions()
 		for _, deferred := range deferredActions {
 			switch deferred.ActionType {
-			case pendingActionMoveInventoryItem:
+			case ActionSendServerMessage:
+				g.handleServerMessage(pe, deferred.ServerMessageAction.Message)
+				pe.RemoveDeferredAction(deferred)
+
+			case ActionMoveInventoryItem:
 				g.handlePlayerSwapInventoryItem(pe, deferred.MoveInventoryItemAction)
 				pe.RemoveDeferredAction(deferred)
 
-			case pendingActionTakeGroundItem:
+			case ActionSendSkills:
+				g.handleSendPlayerSkills(pe)
+				pe.RemoveDeferredAction(deferred)
+
+			case ActionSendInterfaces:
+				g.handleSendPlayerInterfaces(pe)
+				pe.RemoveDeferredAction(deferred)
+
+			case ActionSendFriendList:
+				g.handleSendPlayerFriendList(pe)
+				pe.RemoveDeferredAction(deferred)
+
+			case ActionSendIgnoreList:
+				g.handleSendPlayerIgnoreList(pe)
+				pe.RemoveDeferredAction(deferred)
+
+			case ActionSendEquipment:
+				g.handleSendPlayerEquipment(pe)
+				pe.RemoveDeferredAction(deferred)
+
+			case ActionSendInventory:
+				g.handleSendPlayerInventory(pe)
+				pe.RemoveDeferredAction(deferred)
+
+			case ActionTakeGroundItem:
 				action := deferred.TakeGroundItem
 
 				// pick up a ground Item only if the player has reached the position of that Item
@@ -1231,7 +1255,7 @@ func (g *Game) handleGameUpdate() error {
 
 				pe.RemoveDeferredAction(deferred)
 
-			case pendingActionDropInventoryItem:
+			case ActionDropInventoryItem:
 				action := deferred.DropInventoryItemAction
 
 				// remove the Item from the player's inventory
@@ -1245,13 +1269,13 @@ func (g *Game) handleGameUpdate() error {
 
 				pe.RemoveDeferredAction(deferred)
 
-			case pendingActionEquipItem:
+			case ActionEquipItem:
 				action := deferred.EquipItemAction
 
 				g.equipPlayerInventoryItem(pe, action.Item)
 				pe.RemoveDeferredAction(deferred)
 
-			case pendingActionUnequipItem:
+			case ActionUnequipItem:
 				action := deferred.UnequipItemAction
 
 				// validate that the player has room in their inventory
@@ -1415,6 +1439,113 @@ func (g *Game) handleGameUpdate() error {
 	return nil
 }
 
+// handleSendPlayerSkills handles sending a player their current skill levels and experience.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleSendPlayerSkills(pe *playerEntity) {
+	var responses []response.Response
+
+	for _, skill := range pe.player.Skills {
+		responses = append(responses, response.NewSkillDataResponse(skill))
+	}
+
+	pe.PlanEvent(NewSendMultipleResponsesEvent(responses, time.Now()))
+}
+
+// handleSendPlayerEquipment handles sending a player their current equipped items.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleSendPlayerEquipment(pe *playerEntity) {
+	equipment := response.NewSetInventoryItemResponse(1688)
+	for _, slotType := range model.EquipmentSlotTypes {
+		slot := pe.player.EquipmentSlot(slotType)
+		if slot == nil {
+			equipment.ClearSlot(int(slotType))
+		} else {
+			equipment.AddSlot(int(slotType), slot.Item.ID, slot.Amount)
+		}
+	}
+
+	pe.PlanEvent(NewSendResponseEvent(equipment, time.Now()))
+}
+
+// handleSendPlayerEquipment handles sending a player their current inventory items.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleSendPlayerInventory(pe *playerEntity) {
+	// TODO: the interface id should not be hardcoded
+	inventory := response.NewSetInventoryItemResponse(3214)
+	for id, slot := range pe.player.Inventory {
+		if slot == nil {
+			inventory.ClearSlot(id)
+		} else {
+			inventory.AddSlot(slot.ID, slot.Item.ID, slot.Amount)
+		}
+	}
+
+	pe.PlanEvent(NewSendResponseEvent(inventory, time.Now()))
+}
+
+// handleSendPlayerInterfaces handles sending a player the tab interfaces their client should display.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleSendPlayerInterfaces(pe *playerEntity) {
+	var responses []response.Response
+
+	for _, tab := range model.ClientTabs {
+		// does the player have an interface for this tab?
+		var r *response.SidebarInterfaceResponse
+		if id, ok := pe.tabInterfaces[tab]; ok {
+			r = response.NewSidebarInterfaceResponse(tab, id)
+		} else {
+			r = response.NewRemoveSidebarInterfaceResponse(tab)
+		}
+
+		responses = append(responses, r)
+	}
+
+	pe.PlanEvent(NewSendMultipleResponsesEvent(responses, time.Now()))
+}
+
+// handleSendPlayerFriendList handles sending a player their friends list and the status of each friend.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleSendPlayerFriendList(pe *playerEntity) {
+	// tell the client the list is loading
+	status := response.NewFriendsListStatusResponse(model.FriendsListStatusLoading)
+	pe.PlanEvent(NewSendResponseEvent(status, time.Now()))
+
+	// send the status for each friends list entry
+	var responses []response.Response
+	for _, username := range pe.player.Friends {
+		var friend *response.FriendStatusResponse
+
+		// send a status for this player if they are online or not
+		_, ok := g.playersOnline.Load(username)
+		if ok {
+			friend = response.NewFriendStatusResponse(username, 69)
+		} else {
+			friend = response.NewOfflineFriendStatusResponse(username)
+		}
+
+		responses = append(responses, friend)
+	}
+
+	// finally, tell the client the list has been sent
+	status = response.NewFriendsListStatusResponse(model.FriendsListStatusLoaded)
+	responses = append(responses, status)
+	pe.PlanEvent(NewSendMultipleResponsesEvent(responses, time.Now()))
+}
+
+// handleSendPlayerIgnoreList handles sending a player their ignore list.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleSendPlayerIgnoreList(pe *playerEntity) {
+	ignored := response.NewIgnoredListResponse(pe.player.Ignored)
+	pe.PlanEvent(NewSendResponseEvent(ignored, time.Now()))
+}
+
+// handleServerMessage handles sending a player a server message.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleServerMessage(pe *playerEntity, message string) {
+	msg := response.NewServerMessageResponse(message)
+	pe.PlanEvent(NewSendResponseEvent(msg, time.Now()))
+}
+
 // handlePlayerSwapInventoryItem handles moving an item from one slot to another in a player's inventory.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) handlePlayerSwapInventoryItem(pe *playerEntity, action *MoveInventoryItemAction) {
@@ -1466,116 +1597,6 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 		// schedule the next idle check event if this check was not on-demand
 		if event.Type != EventCheckIdleImmediate {
 			pe.scheduler.Plan(NewEventWithType(EventCheckIdle, time.Now().Add(playerMaxIdleInterval)))
-		}
-
-	case EventSendEquipment:
-		// send the player's equipment
-		pe.mu.Lock()
-		defer pe.mu.Unlock()
-
-		equipment := response.NewSetInventoryItemResponse(1688)
-		for _, slotType := range model.EquipmentSlotTypes {
-			slot := pe.player.EquipmentSlot(slotType)
-			if slot == nil {
-				equipment.ClearSlot(int(slotType))
-			} else {
-				equipment.AddSlot(int(slotType), slot.Item.ID, slot.Amount)
-			}
-		}
-
-		err := equipment.Write(pe.writer)
-		if err != nil {
-			return err
-		}
-
-	case EventSendInventory:
-		// send the player's inventory
-		pe.mu.Lock()
-		defer pe.mu.Unlock()
-
-		// TODO: the interface id should not be hardcoded
-		inventory := response.NewSetInventoryItemResponse(3214)
-		for id, slot := range pe.player.Inventory {
-			if slot == nil {
-				inventory.ClearSlot(id)
-			} else {
-				inventory.AddSlot(slot.ID, slot.Item.ID, slot.Amount)
-			}
-		}
-
-		err := inventory.Write(pe.writer)
-		if err != nil {
-			return err
-		}
-
-	case EventFriendList:
-		// send a player their entire friends list
-		pe.mu.Lock()
-		defer pe.mu.Unlock()
-
-		// tell the client the list is loading
-		status := response.NewFriendsListStatusResponse(model.FriendsListStatusLoading)
-		err := status.Write(pe.writer)
-		if err != nil {
-			return err
-		}
-
-		// send the status for each friends list entry
-		for _, username := range pe.player.Friends {
-			var friend *response.FriendStatusResponse
-
-			// send a status for this player if they are online or not
-			_, ok := g.playersOnline.Load(username)
-			if ok {
-				friend = response.NewFriendStatusResponse(username, 69)
-			} else {
-				friend = response.NewOfflineFriendStatusResponse(username)
-			}
-
-			err := friend.Write(pe.writer)
-			if err != nil {
-				return err
-			}
-		}
-
-		// finally, tell the client the list has been sent
-		status = response.NewFriendsListStatusResponse(model.FriendsListStatusLoaded)
-		err = status.Write(pe.writer)
-		if err != nil {
-			return err
-		}
-
-	case EventUpdateTabInterfaces:
-		// send all client tab interface ids
-		pe.mu.Lock()
-		defer pe.mu.Unlock()
-
-		for _, tab := range model.ClientTabs {
-			// does the player have an interface for this tab?
-			var r *response.SidebarInterfaceResponse
-			if id, ok := pe.tabInterfaces[tab]; ok {
-				r = response.NewSidebarInterfaceResponse(tab, id)
-			} else {
-				r = response.NewRemoveSidebarInterfaceResponse(tab)
-			}
-
-			err := r.Write(pe.writer)
-			if err != nil {
-				return err
-			}
-		}
-
-	case EventSkills:
-		// send each skill to the client
-		pe.mu.Lock()
-		defer pe.mu.Unlock()
-
-		for _, skill := range pe.player.Skills {
-			resp := response.NewSkillDataResponse(skill)
-			err := resp.Write(pe.writer)
-			if err != nil {
-				return err
-			}
 		}
 
 	case EventSendResponse:

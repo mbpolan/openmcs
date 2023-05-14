@@ -18,16 +18,6 @@ const (
 	EventCheckIdle
 	// EventCheckIdleImmediate is a one-off check for player inactivity.
 	EventCheckIdleImmediate
-	// EventUpdateTabInterfaces updates all the player's client tab interfaces.
-	EventUpdateTabInterfaces
-	// EventSendEquipment sends a complete player equipment update.
-	EventSendEquipment
-	// EventSendInventory sends a complete player inventory update.
-	EventSendInventory
-	// EventFriendList sends a player's entire friends list.
-	EventFriendList
-	// EventSkills sends data about all the player's skills.
-	EventSkills
 	// EventRemoveExpiredGroundItem removes a ground Item on a tile after it has expired.
 	EventRemoveExpiredGroundItem
 )

@@ -2,15 +2,39 @@ package game
 
 import "github.com/mbpolan/openmcs/internal/model"
 
+// ActionType enumerates deferred actions that a player can take.
+type ActionType int
+
+const (
+	ActionMoveInventoryItem ActionType = iota
+	ActionSendServerMessage
+	ActionSendSkills
+	ActionSendInterfaces
+	ActionSendFriendList
+	ActionSendIgnoreList
+	ActionSendEquipment
+	ActionSendInventory
+	ActionTakeGroundItem
+	ActionDropInventoryItem
+	ActionEquipItem
+	ActionUnequipItem
+)
+
 // Action is an action that will be performed after a number of game ticks have elapsed.
 type Action struct {
-	ActionType              pendingActionType
+	ActionType              ActionType
 	TickDelay               uint
+	ServerMessageAction     *ServerMessageAction
 	MoveInventoryItemAction *MoveInventoryItemAction
 	TakeGroundItem          *TakeGroundItemAction
 	DropInventoryItemAction *DropInventoryItemAction
 	EquipItemAction         *EquipItemAction
 	UnequipItemAction       *UnequipItemAction
+}
+
+// ServerMessageAction is an action to send the player a server message.
+type ServerMessageAction struct {
+	Message string
 }
 
 // MoveInventoryItemAction is an action to move or swap the position of an inventory item.
