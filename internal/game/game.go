@@ -48,7 +48,7 @@ type Game struct {
 	worldMap         *model.Map
 	mu               sync.RWMutex
 	welcomeMessage   string
-	removePlayers    []*playerEntity
+	removePlayers    map[int]*playerEntity
 	regions          map[model.Vector2D]*RegionManager
 	worldID          int
 	mapManager       *MapManager
@@ -61,6 +61,7 @@ func NewGame(opts Options) (*Game, error) {
 	g := &Game{
 		doneChan:       make(chan bool, 1),
 		items:          map[int]*model.Item{},
+		removePlayers:  map[int]*playerEntity{},
 		telemetry:      opts.Telemetry,
 		tick:           0,
 		welcomeMessage: opts.Config.Server.WelcomeMessage,
@@ -174,7 +175,8 @@ func (g *Game) MarkPlayerInactive(p *model.Player) {
 		return
 	}
 
-	pe.scheduler.Plan(NewEventWithType(EventCheckIdleImmediate, time.Now()))
+	// TODO: still needed?
+	//pe.scheduler.Plan(NewEventWithType(EventCheckIdleImmediate, time.Now()))
 }
 
 // DoInterfaceAction processes an action that a player performed on an interface.
@@ -189,7 +191,7 @@ func (g *Game) DoInterfaceAction(p *model.Player, action int) {
 	// action on client logout button
 	if action == 2458 {
 		// TODO: check if player can be logged out (ie: are they in combat, etc.)
-		_ = g.disconnect(pe)
+		pe.Drop()
 	}
 }
 
@@ -276,7 +278,7 @@ func (g *Game) DoPlayerPrivateChat(p *model.Player, recipient string, text strin
 
 	// all good; plan sending the message to the other player
 	pm := response.NewPrivateChatResponse(target.privateMessageID, pe.player.Username, pe.player.Type, text)
-	target.PlanEvent(NewSendResponseEvent(pm, time.Now()))
+	target.Send(pm)
 	target.privateMessageID++
 }
 
@@ -419,20 +421,20 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 
 	// plan an initial map region load
 	region := response.NewLoadRegionResponse(regionOrigin)
-	pe.PlanEvent(NewSendResponseEvent(region, time.Now()))
+	pe.Send(region)
 
 	// plan an initial player update
 	update := response.NewPlayerUpdateResponse(p.ID)
 	update.SetLocalPlayerPosition(regionRelative, true)
 	update.AddAppearanceUpdate(p.ID, p.Username, p.Appearance)
-	pe.PlanEvent(NewSendResponseEvent(update, time.Now()))
+	pe.Send(update)
 
 	// describe the local region
 	// FIXME: this should be done in the game loop
 	rg := util.RegionOriginToGlobal(regionOrigin)
 	mapUpdates := g.mapManager.State(rg, model.BoundaryNone)
 	if len(mapUpdates) > 0 {
-		pe.PlanEvent(NewSendMultipleResponsesEvent(mapUpdates, time.Now()))
+		pe.Send(mapUpdates...)
 	}
 
 	// plan an update to the client sidebar interfaces
@@ -458,9 +460,6 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 
 	// plan a welcome message
 	pe.DeferSendServerMessage(g.welcomeMessage)
-
-	// plan the first continuous idle check event
-	pe.PlanEvent(NewEventWithType(EventCheckIdle, time.Now().Add(playerMaxIdleInterval)))
 }
 
 // RemovePlayer removes a previously joined player from the world.
@@ -473,7 +472,7 @@ func (g *Game) RemovePlayer(p *model.Player) {
 	}
 
 	// add this player to the removal list, and let the next state update actually remove them
-	g.removePlayers = append(g.removePlayers, pe)
+	g.removePlayers[pe.player.ID] = pe
 }
 
 // DoTakeGroundItem handles a player's request to pick up a ground Item at a position, in global coordinates.
@@ -699,15 +698,6 @@ func (g *Game) findPlayer(p *model.Player) *playerEntity {
 	return tpe
 }
 
-// disconnect tells a player's client to disconnect from the server and terminates their connection.
-// Concurrency requirements: none (any locks may be held).
-func (g *Game) disconnect(pe *playerEntity) error {
-	err := pe.writer.WriteUint8(response.DisconnectResponseHeader)
-	pe.doneChan <- true
-
-	return err
-}
-
 // loop continuously runs the main game server update cycle.
 func (g *Game) loop() {
 	for {
@@ -731,32 +721,25 @@ func (g *Game) loop() {
 	}
 }
 
-// playerLoop continuously runs a game update cycle for a single player.
+// playerLoop continuously monitors for player-bound events.
 // Concurrency requirements: (a) game state should NOT be locked and (b) this player should NOT be locked.
 func (g *Game) playerLoop(pe *playerEntity) {
 	for {
 		select {
 		case <-pe.doneChan:
-			// terminate this player's loop
+			// send a graceful disconnect to the client if possible
+			err := pe.writer.WriteUint8(response.DisconnectResponseHeader)
+			if err != nil {
+				logger.Debugf("failed to write disconnect response to player %d: %s", pe.player.ID, err)
+			}
+
 			return
 
-		case <-pe.changeChan:
-			// a new event was planned; rerun the loop and let the scheduler report the next process time
-
-		case update := <-pe.updateChan:
-			// send a game state update, which takes priority over other pending events
-			// TODO: should this be an event itself instead?
+		case update := <-pe.outChan:
+			// send a response to the player
 			err := update.Write(pe.writer)
 			if err != nil {
 				logger.Errorf("ending player loop due to error on update: %s", err)
-				return
-			}
-
-		case <-time.After(pe.scheduler.TimeUntil()):
-			// handle an event that is now ready for processing
-			err := g.handlePlayerEvent(pe)
-			if err != nil {
-				logger.Errorf("ending player loop due to error: %s", err)
 				return
 			}
 		}
@@ -866,9 +849,7 @@ func (g *Game) handleChatCommand(pe *playerEntity, command *ChatCommand) {
 		if _, ok := g.items[params.ItemID]; ok {
 			g.mapManager.AddGroundItem(params.ItemID, params.Amount, params.Amount > 1, params.DespawnTimeSeconds, pe.player.GlobalPos)
 		} else {
-			pe.PlanEvent(NewSendResponseEvent(
-				response.NewServerMessageResponse(fmt.Sprintf("Invalid Item: %d", command.SpawnItem.ItemID)),
-				time.Now()))
+			pe.Send(response.NewServerMessageResponse(fmt.Sprintf("Invalid Item: %d", command.SpawnItem.ItemID)))
 		}
 
 	case ChatCommandTypeClearTile:
@@ -887,7 +868,7 @@ func (g *Game) handleChatCommand(pe *playerEntity, command *ChatCommand) {
 	case ChatCommandTypePosition:
 		// send a message containing player's server position on the world map
 		msg := fmt.Sprintf("GlobalPos: %d, %d, %d", pe.player.GlobalPos.X, pe.player.GlobalPos.Y, pe.player.GlobalPos.Z)
-		pe.PlanEvent(NewSendResponseEvent(response.NewServerMessageResponse(msg), time.Now()))
+		pe.Send(response.NewServerMessageResponse(msg))
 	}
 }
 
@@ -1029,7 +1010,7 @@ func (g *Game) addPlayerInventoryItem(pe *playerEntity, item *model.Item, amount
 	// FIXME: the interface id should not be hardcoded
 	inventory := response.NewSetInventoryItemResponse(3214)
 	inventory.AddSlot(slotID, item.ID, totalAmount)
-	pe.PlanEvent(NewSendResponseEvent(inventory, time.Now()))
+	pe.Send(inventory)
 }
 
 // dropPlayerInventoryItem removes the first occurrence of an Item from the player's inventory, and adds it to the
@@ -1047,7 +1028,7 @@ func (g *Game) dropPlayerInventoryItem(pe *playerEntity, item *model.Item) *mode
 	// update the player's inventory
 	inventory := response.NewSetInventoryItemResponse(3214)
 	inventory.ClearSlot(slot.ID)
-	pe.PlanEvent(NewSendResponseEvent(inventory, time.Now()))
+	pe.Send(inventory)
 
 	return slot
 }
@@ -1088,12 +1069,12 @@ func (g *Game) equipPlayerInventoryItem(pe *playerEntity, item *model.Item) {
 	pe.player.SetEquippedItem(item, slot.Amount, item.Attributes.EquipSlotType)
 
 	// update the player's inventory
-	pe.PlanEvent(NewSendResponseEvent(inventory, time.Now()))
+	pe.Send(inventory)
 
 	// update the player's equipment status
 	equipment := response.NewSetInventoryItemResponse(1688)
 	equipment.AddSlot(int(item.Attributes.EquipSlotType), slot.Item.ID, slot.Amount)
-	pe.PlanEvent(NewSendResponseEvent(equipment, time.Now()))
+	pe.Send(equipment)
 
 	// mark that we need to update the player's appearance
 	pe.appearanceChanged = true
@@ -1118,7 +1099,7 @@ func (g *Game) unequipPlayerInventoryItem(pe *playerEntity, item *model.Item, sl
 	// update the player's equipment status
 	equipment := response.NewSetInventoryItemResponse(1688)
 	equipment.ClearSlot(int(item.Attributes.EquipSlotType))
-	pe.PlanEvent(NewSendResponseEvent(equipment, time.Now()))
+	pe.Send(equipment)
 
 	// mark that we need to update the player's appearance
 	pe.appearanceChanged = true
@@ -1129,12 +1110,17 @@ func (g *Game) unequipPlayerInventoryItem(pe *playerEntity, item *model.Item, sl
 func (g *Game) handleGameUpdate() error {
 	g.mu.Lock()
 
-	// lock all players
+	// lock all players and check for inactive players that should be disconnected
 	for _, pe := range g.players {
 		pe.mu.Lock()
+
+		// add this player to the removal list if they have idled for too long
+		if time.Now().Sub(pe.lastInteraction) >= playerMaxIdleInterval {
+			g.removePlayers[pe.player.ID] = pe
+		}
 	}
 
-	// remove any disconnected players first
+	// remove and disconnected players first
 	for _, pe := range g.removePlayers {
 		idx := -1
 
@@ -1156,12 +1142,13 @@ func (g *Game) handleGameUpdate() error {
 			g.playersOnline.Delete(pe.player.Username)
 			g.broadcastPlayerStatus(pe)
 
-			// flag the player's event loop to stop
-			pe.doneChan <- true
+			// flag the player's event loop to stop and disconnect them
+			pe.mu.Unlock()
+			pe.Drop()
 		}
 	}
 
-	g.removePlayers = nil
+	g.removePlayers = map[int]*playerEntity{}
 	changedAppearance := map[int]bool{}
 	changedRegions := map[int]bool{}
 
@@ -1182,12 +1169,12 @@ func (g *Game) handleGameUpdate() error {
 				pe.regionOrigin = origin
 
 				region := response.NewLoadRegionResponse(pe.regionOrigin)
-				pe.PlanEvent(NewSendResponseEvent(region, time.Now()))
+				pe.Send(region)
 			}
 
 			relocate := response.NewPlayerUpdateResponse(pe.player.ID)
 			relocate.SetLocalPlayerPosition(relative, true)
-			pe.PlanEvent(NewSendResponseEvent(relocate, time.Now()))
+			pe.Send(relocate)
 
 			changedRegions[pe.player.ID] = true
 			pe.teleportGlobal = nil
@@ -1222,7 +1209,7 @@ func (g *Game) handleGameUpdate() error {
 			origin := g.findEffectiveRegion(pe)
 			if origin != pe.regionOrigin {
 				region := response.NewLoadRegionResponse(origin)
-				pe.PlanEvent(NewSendResponseEvent(region, time.Now()))
+				pe.Send(region)
 
 				// determine in which direction the new region is in relative to the player's current region. use this
 				// to apply a trimming boundary so that we don't send map state for an overlapping part of the two
@@ -1244,7 +1231,7 @@ func (g *Game) handleGameUpdate() error {
 				// send the map state for the new region
 				state := g.mapManager.State(util.RegionOriginToGlobal(origin), boundary)
 				if len(state) > 0 {
-					pe.PlanEvent(NewSendMultipleResponsesEvent(state, time.Now()))
+					pe.Send(state...)
 				}
 
 				// mark this as the current region the player's client has loaded
@@ -1270,7 +1257,7 @@ func (g *Game) handleGameUpdate() error {
 		// is this player in a region that has map updates? only send updates if they have not left this region
 		regionGlobal := util.RegionOriginToGlobal(g.findEffectiveRegion(pe))
 		if updates, ok := mapUpdates[regionGlobal]; ok && !changedRegions[pe.player.ID] {
-			pe.PlanEvent(NewSendMultipleResponsesEvent(updates, time.Now()))
+			pe.Send(updates...)
 		}
 
 		// find players within visual distance of this player
@@ -1335,7 +1322,9 @@ func (g *Game) handleGameUpdate() error {
 	// unlock all players and dispatch their updates
 	for _, pe := range g.players {
 		pe.mu.Unlock()
-		pe.updateChan <- pe.nextUpdate
+		logger.Infof("will write to: %d", pe.player.ID)
+		pe.outChan <- pe.nextUpdate
+		logger.Infof("done write to: %d", pe.player.ID)
 		pe.nextUpdate = nil
 	}
 
@@ -1395,7 +1384,7 @@ func (g *Game) handleDeferredActions(pe *playerEntity) {
 
 			// check if the player has room in their inventory
 			if !pe.player.InventoryCanHoldItem(action.Item) {
-				pe.PlanEvent(NewSendResponseEvent(response.NewServerMessageResponse("You cannot carry any more items"), time.Now()))
+				pe.Send(response.NewServerMessageResponse("You cannot carry any more items"))
 				pe.RemoveDeferredAction(deferred)
 				break
 			}
@@ -1435,7 +1424,7 @@ func (g *Game) handleDeferredActions(pe *playerEntity) {
 
 			// validate that the player has room in their inventory
 			if !pe.player.InventoryCanHoldItem(action.Item) {
-				pe.PlanEvent(NewSendResponseEvent(response.NewServerMessageResponse("You have no room for this Item in your inventory"), time.Now()))
+				pe.Send(response.NewServerMessageResponse("You have no room for this Item in your inventory"))
 				pe.RemoveDeferredAction(deferred)
 				break
 			}
@@ -1457,7 +1446,7 @@ func (g *Game) handleSendPlayerSkills(pe *playerEntity) {
 		responses = append(responses, response.NewSkillDataResponse(skill))
 	}
 
-	pe.PlanEvent(NewSendMultipleResponsesEvent(responses, time.Now()))
+	pe.Send(responses...)
 }
 
 // handleSendPlayerEquipment handles sending a player their current equipped items.
@@ -1473,7 +1462,7 @@ func (g *Game) handleSendPlayerEquipment(pe *playerEntity) {
 		}
 	}
 
-	pe.PlanEvent(NewSendResponseEvent(equipment, time.Now()))
+	pe.Send(equipment)
 }
 
 // handleSendPlayerEquipment handles sending a player their current inventory items.
@@ -1489,7 +1478,7 @@ func (g *Game) handleSendPlayerInventory(pe *playerEntity) {
 		}
 	}
 
-	pe.PlanEvent(NewSendResponseEvent(inventory, time.Now()))
+	pe.Send(inventory)
 }
 
 // handleSendPlayerInterfaces handles sending a player the tab interfaces their client should display.
@@ -1509,14 +1498,14 @@ func (g *Game) handleSendPlayerInterfaces(pe *playerEntity) {
 		responses = append(responses, r)
 	}
 
-	pe.PlanEvent(NewSendMultipleResponsesEvent(responses, time.Now()))
+	pe.Send(responses...)
 }
 
 // handleSendPlayerModes handles sending a player their current chat modes.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) handleSendPlayerModes(pe *playerEntity) {
 	modes := response.NewSetModesResponse(pe.player.Modes.PublicChat, pe.player.Modes.PrivateChat, pe.player.Modes.Interaction)
-	pe.PlanEvent(NewSendResponseEvent(modes, time.Now()))
+	pe.Send(modes)
 }
 
 // handleSendPlayerFriendList handles sending a player their friends list and the status of each friend.
@@ -1524,7 +1513,7 @@ func (g *Game) handleSendPlayerModes(pe *playerEntity) {
 func (g *Game) handleSendPlayerFriendList(pe *playerEntity) {
 	// tell the client the list is loading
 	status := response.NewFriendsListStatusResponse(model.FriendsListStatusLoading)
-	pe.PlanEvent(NewSendResponseEvent(status, time.Now()))
+	pe.Send(status)
 
 	// send the status for each friends list entry
 	var responses []response.Response
@@ -1545,21 +1534,21 @@ func (g *Game) handleSendPlayerFriendList(pe *playerEntity) {
 	// finally, tell the client the list has been sent
 	status = response.NewFriendsListStatusResponse(model.FriendsListStatusLoaded)
 	responses = append(responses, status)
-	pe.PlanEvent(NewSendMultipleResponsesEvent(responses, time.Now()))
+	pe.Send(responses...)
 }
 
 // handleSendPlayerIgnoreList handles sending a player their ignore list.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) handleSendPlayerIgnoreList(pe *playerEntity) {
 	ignored := response.NewIgnoredListResponse(pe.player.Ignored)
-	pe.PlanEvent(NewSendResponseEvent(ignored, time.Now()))
+	pe.Send(ignored)
 }
 
 // handleServerMessage handles sending a player a server message.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) handleServerMessage(pe *playerEntity, message string) {
 	msg := response.NewServerMessageResponse(message)
-	pe.PlanEvent(NewSendResponseEvent(msg, time.Now()))
+	pe.Send(msg)
 }
 
 // handlePlayerSwapInventoryItem handles moving an item from one slot to another in a player's inventory.
@@ -1589,48 +1578,5 @@ func (g *Game) handlePlayerSwapInventoryItem(pe *playerEntity, action *MoveInven
 	pe.player.SetInventoryItem(fromSlot.Item, fromSlot.Amount, action.ToSlot)
 	inventory.AddSlot(action.ToSlot, fromSlot.Item.ID, fromSlot.Amount)
 
-	pe.PlanEvent(NewSendResponseEvent(inventory, time.Now()))
-}
-
-// handlePlayerEvent processes the next scheduled event for a player. These are events that can be done off-tick and do
-// not require synchronization with the overall game state.
-// Concurrency requirements: (a) game state should NOT be locked and (b) this player should NOT be locked.
-func (g *Game) handlePlayerEvent(pe *playerEntity) error {
-	// get the next scheduled event, if any
-	event := pe.scheduler.Next()
-	if event == nil {
-		return nil
-	}
-
-	switch event.Type {
-	case EventCheckIdle, EventCheckIdleImmediate:
-		// determine if the player has been idle for too long, and if so disconnect them
-		if time.Now().Sub(pe.lastInteraction) >= playerMaxIdleInterval {
-			_ = g.disconnect(pe)
-			return nil
-		}
-
-		// schedule the next idle check event if this check was not on-demand
-		if event.Type != EventCheckIdleImmediate {
-			pe.scheduler.Plan(NewEventWithType(EventCheckIdle, time.Now().Add(playerMaxIdleInterval)))
-		}
-
-	case EventSendResponse:
-		// send a generic response to the client
-		err := event.Responses[0].Write(pe.writer)
-		if err != nil {
-			return err
-		}
-
-	case EventSendManyResponses:
-		// send all responses to the client
-		for _, resp := range event.Responses {
-			err := resp.Write(pe.writer)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
+	pe.Send(inventory)
 }

@@ -15,10 +15,9 @@ type playerEntity struct {
 	tracking            map[int]*playerEntity
 	changeChan          chan bool
 	doneChan            chan bool
-	updateChan          chan *response.PlayerUpdateResponse
+	outChan             chan response.Response
 	path                []model.Vector2D
 	nextPathIdx         int
-	scheduler           *Scheduler
 	writer              *network.ProtocolWriter
 	lastChatMessage     *model.ChatMessage
 	lastChatTime        time.Time
@@ -48,8 +47,7 @@ func newPlayerEntity(p *model.Player, w *network.ProtocolWriter) *playerEntity {
 		tracking:         map[int]*playerEntity{},
 		changeChan:       changeChan,
 		doneChan:         make(chan bool, 1),
-		updateChan:       make(chan *response.PlayerUpdateResponse, 1),
-		scheduler:        NewScheduler(changeChan),
+		outChan:          make(chan response.Response, 50),
 		privateMessageID: 1,
 		writer:           w,
 	}
@@ -71,6 +69,43 @@ func (pe *playerEntity) MarkStatusBroadcastTarget(target string) {
 	}
 
 	pe.nextStatusBroadcast.targets = append(pe.nextStatusBroadcast.targets, target)
+}
+
+// MoveDirection returns the direction the player is currently moving in. If the player is not moving, then
+// model.DirectionNone will be returned.
+func (pe *playerEntity) MoveDirection() model.Direction {
+	if !pe.Walking() {
+		return model.DirectionNone
+	}
+
+	return model.DirectionFromDelta(pe.path[pe.nextPathIdx].Sub(pe.player.GlobalPos.To2D()))
+}
+
+// Walking determines if the player is walking to a destination.
+func (pe *playerEntity) Walking() bool {
+	return pe.nextPathIdx < len(pe.path)
+}
+
+// Send adds one or more responses that will be sent to the player.
+func (pe *playerEntity) Send(responses ...response.Response) {
+	for _, resp := range responses {
+		select {
+		case pe.outChan <- resp:
+
+		default:
+			// write to the done chan since this player is too far behind on responses
+			pe.Drop()
+			return
+		}
+	}
+}
+
+// Drop flags that this player should be disconnected and no more responses should be sent to the client.
+func (pe *playerEntity) Drop() {
+	select {
+	case pe.doneChan <- true:
+	default:
+	}
 }
 
 // TickDeferredActions decrements the tick delay on all deferred actions and returns a slice of actions that are ready
@@ -232,24 +267,4 @@ func (pe *playerEntity) DeferUnequipItem(item *model.Item, interfaceID int, slot
 			SlotType:    slotType,
 		},
 	})
-}
-
-// MoveDirection returns the direction the player is currently moving in. If the player is not moving, then
-// model.DirectionNone will be returned.
-func (pe *playerEntity) MoveDirection() model.Direction {
-	if !pe.Walking() {
-		return model.DirectionNone
-	}
-
-	return model.DirectionFromDelta(pe.path[pe.nextPathIdx].Sub(pe.player.GlobalPos.To2D()))
-}
-
-// Walking determines if the player is walking to a destination.
-func (pe *playerEntity) Walking() bool {
-	return pe.nextPathIdx < len(pe.path)
-}
-
-// PlanEvent adds a scheduled event to this player's queue and resets the event timer.
-func (pe *playerEntity) PlanEvent(e *Event) {
-	pe.scheduler.Plan(e)
 }

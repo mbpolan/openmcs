@@ -100,6 +100,7 @@ func NewPlayerUpdateResponse(localPlayerID int) *PlayerUpdateResponse {
 	}
 }
 
+// Tracking returns true if this response already contains an update for a player.
 func (p *PlayerUpdateResponse) Tracking(playerID int) bool {
 	if playerID == p.localPlayerID {
 		return true
@@ -109,6 +110,7 @@ func (p *PlayerUpdateResponse) Tracking(playerID int) bool {
 	return ok
 }
 
+// SyncLocalMovement adds the other player's movement update to this player's update.
 func (p *PlayerUpdateResponse) SyncLocalMovement(playerID int, other *PlayerUpdateResponse) {
 	p.ensurePlayer(playerID).movement = other.local
 }

@@ -17,7 +17,7 @@ type Telemetry interface {
 }
 
 // Setup creates a new metrics provider. If the provider cannot be created, an error is returned. You must call Start()
-// on the returned Telemetry provider to initialize it, and call Stop() to clean up resources.
+// on the returned Telemetry provider to initialize it, and call Drop() to clean up resources.
 func Setup(cfg *config.Config) (Telemetry, error) {
 	return newPrometheusTelemetry(cfg)
 }
