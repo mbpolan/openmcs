@@ -17,7 +17,7 @@ const (
 	ChatCommandTeleportRelative
 )
 
-// ChatCommandSpawnItemParams contains parameters for a chat command that spawns a ground item.
+// ChatCommandSpawnItemParams contains parameters for a chat command that spawns a ground Item.
 type ChatCommandSpawnItemParams struct {
 	ItemID             int
 	Amount             int
@@ -45,12 +45,12 @@ func ParseChatCommand(text string) *ChatCommand {
 
 	switch command {
 	case "i":
-		// spawn a ground item
+		// spawn a ground Item
 		if len(args) < 1 {
 			return nil
 		}
 
-		// first required argument is a numeric item id
+		// first required argument is a numeric Item id
 		itemID, err := strconv.Atoi(args[0])
 		if err != nil {
 			return nil

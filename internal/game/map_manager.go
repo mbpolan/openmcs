@@ -18,7 +18,7 @@ const (
 	changeEventUpdateGroundItem
 )
 
-// changeDeltaItem is an item that was added or removed on a tile.
+// changeDeltaItem is an Item that was added or removed on a tile.
 type changeDeltaItem struct {
 	itemID    int
 	amount    int
@@ -98,8 +98,8 @@ func (m *MapManager) State(origin model.Vector3D, trim model.Boundary) []respons
 	return region.State(trim)
 }
 
-// AddGroundItem adds a ground item to the top of a tile with an optional timeout (in seconds) when that item should
-// automatically be removed. Stackable items will be added to an existing stackable with the same item ID, if one
+// AddGroundItem adds a ground Item to the top of a tile with an optional timeout (in seconds) when that Item should
+// automatically be removed. Stackable items will be added to an existing stackable with the same Item ID, if one
 // exists, or they will be placed as new items on the tile.
 func (m *MapManager) AddGroundItem(itemID, amount int, stackable bool, timeoutSeconds *int, globalPos model.Vector3D) {
 	tile := m.worldMap.Tile(globalPos)
@@ -111,8 +111,8 @@ func (m *MapManager) AddGroundItem(itemID, amount int, stackable bool, timeoutSe
 	newlyAdded := true
 	oldAmount := 0
 
-	// add the item to the tile. if the item is stackable, attempt to find an update an newlyAdded stackable with the
-	// same item id
+	// add the Item to the tile. if the Item is stackable, attempt to find an update an newlyAdded stackable with the
+	// same Item id
 	if stackable {
 		instanceUUID, newlyAdded, oldAmount = tile.AddStackableItem(itemID, amount)
 	} else {
@@ -133,7 +133,7 @@ func (m *MapManager) AddGroundItem(itemID, amount int, stackable bool, timeoutSe
 		m.addPendingRegion(origin)
 	}
 
-	// if this item has an expiration, schedule an event to remove it after the fact
+	// if this Item has an expiration, schedule an event to remove it after the fact
 	if timeoutSeconds != nil {
 		timeout := *timeoutSeconds
 		m.scheduler.Plan(&Event{
@@ -145,7 +145,7 @@ func (m *MapManager) AddGroundItem(itemID, amount int, stackable bool, timeoutSe
 	}
 }
 
-// RemoveGroundItem attempts to remove a ground item with the given ID at a position, in global coordinates. If the item
+// RemoveGroundItem attempts to remove a ground Item with the given ID at a position, in global coordinates. If the Item
 // was found and removed, a pointer to its model.TileGroundItem model will be returned.
 func (m *MapManager) RemoveGroundItem(itemID int, globalPos model.Vector3D) *model.TileGroundItem {
 	tile := m.worldMap.Tile(globalPos)
@@ -153,7 +153,7 @@ func (m *MapManager) RemoveGroundItem(itemID int, globalPos model.Vector3D) *mod
 		return nil
 	}
 
-	// attempt to remove the ground item, if it still exists on this tile
+	// attempt to remove the ground Item, if it still exists on this tile
 	item := tile.RemoveItemByID(itemID)
 	if item == nil {
 		return nil
@@ -302,13 +302,13 @@ func (m *MapManager) handleNextEvent() {
 
 	switch event.Type {
 	case EventRemoveExpiredGroundItem:
-		// a ground item has expired and should be removed, if it's still on a tile
+		// a ground Item has expired and should be removed, if it's still on a tile
 		tile := m.worldMap.Tile(event.GlobalPos)
 		if tile == nil {
 			return
 		}
 
-		// attempt to remove the item if it still exists
+		// attempt to remove the Item if it still exists
 		itemID := tile.RemoveItemByInstanceUUID(event.InstanceUUID)
 		if itemID == nil {
 			return

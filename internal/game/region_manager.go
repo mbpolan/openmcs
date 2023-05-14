@@ -98,7 +98,7 @@ func (r *RegionManager) State(trim model.Boundary) []response.Response {
 	return state
 }
 
-// MarkGroundItemAdded informs the region manager that a ground item with a stack amount was placed on a tile.
+// MarkGroundItemAdded informs the region manager that a ground Item with a stack amount was placed on a tile.
 func (r *RegionManager) MarkGroundItemAdded(itemID, amount int, globalPos model.Vector3D) {
 	// track this change to the region state
 	r.addDelta(&changeDelta{
@@ -113,7 +113,7 @@ func (r *RegionManager) MarkGroundItemAdded(itemID, amount int, globalPos model.
 	})
 }
 
-// MarkGroundItemUpdated informs the region manager that a ground item's stack amount was updated.
+// MarkGroundItemUpdated informs the region manager that a ground Item's stack amount was updated.
 func (r *RegionManager) MarkGroundItemUpdated(itemID, oldAmount, newAmount int, globalPos model.Vector3D) {
 	// track this change to the region state
 	r.addDelta(&changeDelta{
@@ -179,7 +179,7 @@ func (r *RegionManager) Reconcile() []response.Response {
 			}
 
 		case changeEventUpdateGroundItem:
-			// one or more ground item stack amounts has changed
+			// one or more ground Item stack amounts has changed
 			for _, item := range e.items {
 				updates[chunkRelative] = append(updates[chunkRelative], response.NewUpdateGroundItemResponse(item.itemID, item.oldAmount, item.amount, tileRelative))
 			}

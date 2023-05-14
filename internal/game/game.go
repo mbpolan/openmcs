@@ -23,7 +23,7 @@ const playerMaxIdleInterval = 3 * time.Minute
 // tickInterval defines how long a single tick is.
 const tickInterval = 600 * time.Millisecond
 
-// itemDespawnInterval defines how long an item remains on the map before despawning.
+// itemDespawnInterval defines how long an Item remains on the map before despawning.
 const itemDespawnInterval = 3 * time.Minute
 
 // ErrConflict is reported when a player is already connected to the game.
@@ -365,7 +365,7 @@ func (g *Game) ValidatePlayer(p *model.Player) error {
 func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	pe := newPlayerEntity(p, writer)
 
-	// update the player's inventory and equipment to ensure items match their expected models. if an item does not
+	// update the player's inventory and equipment to ensure items match their expected models. if an Item does not
 	// match, remove it from its respective location
 	for _, slot := range pe.player.Inventory {
 		if slot == nil {
@@ -481,9 +481,9 @@ func (g *Game) RemovePlayer(p *model.Player) {
 	g.removePlayers = append(g.removePlayers, pe)
 }
 
-// DoTakeGroundItem handles a player's request to pick up a ground item at a position, in global coordinates.
+// DoTakeGroundItem handles a player's request to pick up a ground Item at a position, in global coordinates.
 func (g *Game) DoTakeGroundItem(p *model.Player, itemID int, globalPos model.Vector2D) {
-	// validate the item is known
+	// validate the Item is known
 	targetItem := g.items[itemID]
 	if targetItem == nil {
 		return
@@ -497,13 +497,13 @@ func (g *Game) DoTakeGroundItem(p *model.Player, itemID int, globalPos model.Vec
 	pe.mu.Lock()
 	defer pe.mu.Unlock()
 
-	// defer this action since the player might need to walk to the position of the item
+	// defer this action since the player might need to walk to the position of the Item
 	pe.DeferTakeGroundItemAction(targetItem, globalPos.To3D(pe.player.GlobalPos.Z))
 }
 
-// DoDropInventoryItem handles a player's request to drop an inventory item.
+// DoDropInventoryItem handles a player's request to drop an inventory Item.
 func (g *Game) DoDropInventoryItem(p *model.Player, itemID, interfaceID, secondaryActionID int) {
-	// validate the item is known
+	// validate the Item is known
 	targetItem := g.items[itemID]
 	if targetItem == nil {
 		return
@@ -521,7 +521,7 @@ func (g *Game) DoDropInventoryItem(p *model.Player, itemID, interfaceID, seconda
 	pe.DeferDropInventoryItem(targetItem, interfaceID, secondaryActionID)
 }
 
-// DoSwapInventoryItem handles a player's request to move an item in their inventory to another slot.
+// DoSwapInventoryItem handles a player's request to move an Item in their inventory to another slot.
 func (g *Game) DoSwapInventoryItem(p *model.Player, fromSlot int, toSlot int, mode int) {
 	pe := g.findPlayer(p)
 	if pe == nil {
@@ -537,9 +537,9 @@ func (g *Game) DoSwapInventoryItem(p *model.Player, fromSlot int, toSlot int, mo
 	})
 }
 
-// DoEquipItem handles a player's request to equip an item.
+// DoEquipItem handles a player's request to equip an Item.
 func (g *Game) DoEquipItem(p *model.Player, itemID, interfaceID, secondaryActionID int) {
-	// validate the item is known
+	// validate the Item is known
 	targetItem := g.items[itemID]
 	if targetItem == nil {
 		return
@@ -557,9 +557,9 @@ func (g *Game) DoEquipItem(p *model.Player, itemID, interfaceID, secondaryAction
 	pe.DeferEquipItem(targetItem, interfaceID)
 }
 
-// DoUnequipItem handles a player's request to unequip an item.
+// DoUnequipItem handles a player's request to unequip an Item.
 func (g *Game) DoUnequipItem(p *model.Player, itemID, interfaceID int, slotType model.EquipmentSlotType) {
-	// validate the item is known
+	// validate the Item is known
 	targetItem := g.items[itemID]
 	if targetItem == nil {
 		return
@@ -577,12 +577,12 @@ func (g *Game) DoUnequipItem(p *model.Player, itemID, interfaceID int, slotType 
 	pe.DeferUnequipItem(targetItem, interfaceID, slotType)
 }
 
-// DoUseItem handles a player's request to use an item.
+// DoUseItem handles a player's request to use an Item.
 func (g *Game) DoUseItem(p *model.Player, itemID, interfaceID, actionID int) {
 	// TODO
 }
 
-// DoUseInventoryItem handles a player's request to use an inventory item on another item.
+// DoUseInventoryItem handles a player's request to use an inventory Item on another Item.
 func (g *Game) DoUseInventoryItem(p *model.Player, sourceItemID, sourceInterfaceID, sourceSlotID,
 	targetItemID, targetInterfaceID, targetSlotID int) {
 	// TODO
@@ -797,16 +797,16 @@ func (g *Game) loadAssets(assetDir string, itemAttributes []*model.ItemAttribute
 		return err
 	}
 
-	// create a map of item ids to their models
+	// create a map of Item ids to their models
 	for _, item := range items {
 		g.items[item.ID] = item
 	}
 
-	// assign item attributes to items
+	// assign Item attributes to items
 	for _, attr := range itemAttributes {
 		item, ok := g.items[attr.ItemID]
 		if !ok {
-			logger.Warnf("item attribute does not match any known item with ID: %d", attr.ItemID)
+			logger.Warnf("Item attribute does not match any known Item with ID: %d", attr.ItemID)
 			continue
 		}
 
@@ -877,7 +877,7 @@ func (g *Game) handleChatCommand(pe *playerEntity, command *ChatCommand) {
 			g.mapManager.AddGroundItem(params.ItemID, params.Amount, params.Amount > 1, params.DespawnTimeSeconds, pe.player.GlobalPos)
 		} else {
 			pe.PlanEvent(NewSendResponseEvent(
-				response.NewServerMessageResponse(fmt.Sprintf("Invalid item: %d", command.SpawnItem.ItemID)),
+				response.NewServerMessageResponse(fmt.Sprintf("Invalid Item: %d", command.SpawnItem.ItemID)),
 				time.Now()))
 		}
 
@@ -999,8 +999,8 @@ func (g *Game) removeFromList(p *model.Player, username string, friend bool) {
 	}
 }
 
-// addPlayerInventoryItem adds an item to the player's inventory, if there is room, and plans an update to the player's
-// client. The item may or may not be stackable.
+// addPlayerInventoryItem adds an Item to the player's inventory, if there is room, and plans an update to the player's
+// client. The Item may or may not be stackable.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) addPlayerInventoryItem(pe *playerEntity, item *model.Item, amount int) {
 	slotID := -1
@@ -1008,11 +1008,11 @@ func (g *Game) addPlayerInventoryItem(pe *playerEntity, item *model.Item, amount
 
 	// stackable items occupy the same slot, so we need to handle them separately
 	if item.Stackable {
-		// find an existing slot that has this item, if one exists. if there isn't one, fall through and treat this
-		// stackable as a new item
+		// find an existing slot that has this Item, if one exists. if there isn't one, fall through and treat this
+		// stackable as a new Item
 		slot := pe.player.InventorySlotWithItem(item.ID)
 		if slot != nil {
-			// can this slot accommodate the additional stack amount? if not, the player cannot hold this item
+			// can this slot accommodate the additional stack amount? if not, the player cannot hold this Item
 			if int64(slot.Amount+amount) > model.MaxStackableSize {
 				return
 			}
@@ -1027,12 +1027,12 @@ func (g *Game) addPlayerInventoryItem(pe *playerEntity, item *model.Item, amount
 		slotID = pe.player.NextFreeInventorySlot()
 	}
 
-	// if there is no available slot, the player cannot hold this item
+	// if there is no available slot, the player cannot hold this Item
 	if slotID == -1 {
 		return
 	}
 
-	// set the item on the slot
+	// set the Item on the slot
 	pe.player.SetInventoryItem(item, totalAmount, slotID)
 
 	// update the player's inventory
@@ -1042,7 +1042,7 @@ func (g *Game) addPlayerInventoryItem(pe *playerEntity, item *model.Item, amount
 	pe.PlanEvent(NewSendResponseEvent(inventory, time.Now()))
 }
 
-// dropPlayerInventoryItem removes the first occurrence of an item from the player's inventory, and adds it to the
+// dropPlayerInventoryItem removes the first occurrence of an Item from the player's inventory, and adds it to the
 // world map.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) dropPlayerInventoryItem(pe *playerEntity, item *model.Item) *model.InventorySlot {
@@ -1051,7 +1051,7 @@ func (g *Game) dropPlayerInventoryItem(pe *playerEntity, item *model.Item) *mode
 		return nil
 	}
 
-	// remove the item from the player's inventory
+	// remove the Item from the player's inventory
 	pe.player.ClearInventoryItem(slot.ID)
 
 	// update the player's inventory
@@ -1062,15 +1062,15 @@ func (g *Game) dropPlayerInventoryItem(pe *playerEntity, item *model.Item) *mode
 	return slot
 }
 
-// equipPlayerInventoryItem removes the first occurrence of an item in the player's inventory and adds it to their
-// currently equipped item set. If an item of the same slot type is already equipped, the two will be swapped.
+// equipPlayerInventoryItem removes the first occurrence of an Item in the player's inventory and adds it to their
+// currently equipped Item set. If an Item of the same slot type is already equipped, the two will be swapped.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) equipPlayerInventoryItem(pe *playerEntity, item *model.Item) {
 	if !item.CanEquip() {
 		return
 	}
 
-	// find the first instance of the item in the player's inventory
+	// find the first instance of the Item in the player's inventory
 	slot := pe.player.InventorySlotWithItem(item.ID)
 	if slot == nil {
 		return
@@ -1081,20 +1081,20 @@ func (g *Game) equipPlayerInventoryItem(pe *playerEntity, item *model.Item) {
 	// prepare an update for the player's inventory
 	inventory := response.NewSetInventoryItemResponse(3214)
 
-	// find the target equipment slot. if there is already an item equipped, we need to swap it with the one in
+	// find the target equipment slot. if there is already an Item equipped, we need to swap it with the one in
 	// the player's inventory
 	equipSlot := pe.player.EquipmentSlot(item.Attributes.EquipSlotType)
 	if equipSlot != nil {
-		// put the equipped item into the same inventory slot as the incoming item
+		// put the equipped Item into the same inventory slot as the incoming Item
 		pe.player.SetInventoryItem(equipSlot.Item, equipSlot.Amount, slot.ID)
 		inventory.AddSlot(slot.ID, equipSlot.Item.ID, equipSlot.Amount)
 	} else {
-		// remove the item from its inventory slot
+		// remove the Item from its inventory slot
 		pe.player.ClearInventoryItem(slot.ID)
 		inventory.ClearSlot(slot.ID)
 	}
 
-	// equip the item into the slot
+	// equip the Item into the slot
 	pe.player.SetEquippedItem(item, slot.Amount, item.Attributes.EquipSlotType)
 
 	// update the player's inventory
@@ -1109,17 +1109,17 @@ func (g *Game) equipPlayerInventoryItem(pe *playerEntity, item *model.Item) {
 	pe.appearanceChanged = true
 }
 
-// unequipPlayerInventoryItem removes an equipped item and places it in the player's inventory. The player should have
+// unequipPlayerInventoryItem removes an equipped Item and places it in the player's inventory. The player should have
 // room in their inventory prior to calling this method.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) unequipPlayerInventoryItem(pe *playerEntity, item *model.Item, slotType model.EquipmentSlotType) {
-	// validate the player still has this item equipped
+	// validate the player still has this Item equipped
 	slot := pe.player.EquipmentSlot(slotType)
 	if slot == nil {
 		return
 	}
 
-	// remove the item from the player's equipment
+	// remove the Item from the player's equipment
 	pe.player.ClearEquippedItem(slotType)
 
 	// add it to their inventory
@@ -1204,65 +1204,66 @@ func (g *Game) handleGameUpdate() error {
 		}
 
 		// handle a deferred action for the player
-		if deferred := pe.PollDeferredAction(); deferred != nil {
-			switch deferred.actionType {
+		deferredActions := pe.TickDeferredActions()
+		for _, deferred := range deferredActions {
+			switch deferred.ActionType {
 			case pendingActionTakeGroundItem:
-				action := deferred.takeGroundItem
+				action := deferred.TakeGroundItem
 
-				// pick up a ground item only if the player has reached the position of that item
-				if pe.player.GlobalPos != action.globalPos {
+				// pick up a ground Item only if the player has reached the position of that Item
+				if pe.player.GlobalPos != action.GlobalPos {
 					break
 				}
 
 				// check if the player has room in their inventory
-				if !pe.player.InventoryCanHoldItem(action.item) {
+				if !pe.player.InventoryCanHoldItem(action.Item) {
 					pe.PlanEvent(NewSendResponseEvent(response.NewServerMessageResponse("You cannot carry any more items"), time.Now()))
-					pe.deferredAction = nil
+					pe.RemoveDeferredAction(deferred)
 					break
 				}
 
-				// remove the ground item if it still exists, and allow the next reconciliation to take care of
+				// remove the ground Item if it still exists, and allow the next reconciliation to take care of
 				// updating the state of the map
-				item := g.mapManager.RemoveGroundItem(action.item.ID, action.globalPos)
+				item := g.mapManager.RemoveGroundItem(action.Item.ID, action.GlobalPos)
 				if item != nil {
-					// add the item to the player's inventory
-					g.addPlayerInventoryItem(pe, action.item, item.Amount)
+					// add the Item to the player's inventory
+					g.addPlayerInventoryItem(pe, action.Item, item.Amount)
 				}
 
-				pe.deferredAction = nil
+				pe.RemoveDeferredAction(deferred)
 
 			case pendingActionDropInventoryItem:
-				action := deferred.dropInventoryItemAction
+				action := deferred.DropInventoryItemAction
 
-				// remove the item from the player's inventory
-				slot := g.dropPlayerInventoryItem(pe, action.item)
+				// remove the Item from the player's inventory
+				slot := g.dropPlayerInventoryItem(pe, action.Item)
 				if slot != nil {
-					// put the item on the tile the player's standing on, and let the next reconciliation take care of
+					// put the Item on the tile the player's standing on, and let the next reconciliation take care of
 					// updating the state of the map
 					timeout := int(itemDespawnInterval.Seconds())
-					g.mapManager.AddGroundItem(slot.Item.ID, slot.Amount, action.item.Stackable, &timeout, pe.player.GlobalPos)
+					g.mapManager.AddGroundItem(slot.Item.ID, slot.Amount, action.Item.Stackable, &timeout, pe.player.GlobalPos)
 				}
 
-				pe.deferredAction = nil
+				pe.RemoveDeferredAction(deferred)
 
 			case pendingActionEquipItem:
-				action := deferred.equipItemAction
+				action := deferred.EquipItemAction
 
-				g.equipPlayerInventoryItem(pe, action.item)
-				pe.deferredAction = nil
+				g.equipPlayerInventoryItem(pe, action.Item)
+				pe.RemoveDeferredAction(deferred)
 
 			case pendingActionUnequipItem:
-				action := deferred.unequipItemAction
+				action := deferred.UnequipItemAction
 
 				// validate that the player has room in their inventory
-				if !pe.player.InventoryCanHoldItem(action.item) {
-					pe.PlanEvent(NewSendResponseEvent(response.NewServerMessageResponse("You have no room for this item in your inventory"), time.Now()))
-					pe.deferredAction = nil
+				if !pe.player.InventoryCanHoldItem(action.Item) {
+					pe.PlanEvent(NewSendResponseEvent(response.NewServerMessageResponse("You have no room for this Item in your inventory"), time.Now()))
+					pe.RemoveDeferredAction(deferred)
 					break
 				}
 
-				g.unequipPlayerInventoryItem(pe, action.item, action.slotType)
-				pe.deferredAction = nil
+				g.unequipPlayerInventoryItem(pe, action.Item, action.SlotType)
+				pe.RemoveDeferredAction(deferred)
 
 			default:
 			}
@@ -1485,13 +1486,13 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 		// TODO: the interface id should not be hardcoded
 		inventory := response.NewSetInventoryItemResponse(3214)
 
-		// make sure there is still an item at the starting slot
+		// make sure there is still an Item at the starting slot
 		fromSlot := pe.player.Inventory[event.FromSlot]
 		if fromSlot == nil {
 			break
 		}
 
-		// if there is already an item at the target slot, move it to the starting slot. otherwise clear the item at
+		// if there is already an Item at the target slot, move it to the starting slot. otherwise clear the Item at
 		// the starting slot
 		toSlot := pe.player.Inventory[event.ToSlot]
 		if toSlot != nil {
@@ -1502,7 +1503,7 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 			inventory.ClearSlot(event.FromSlot)
 		}
 
-		// move the item from the starting slot to the target slot
+		// move the Item from the starting slot to the target slot
 		pe.player.SetInventoryItem(fromSlot.Item, fromSlot.Amount, event.ToSlot)
 		inventory.AddSlot(event.ToSlot, fromSlot.Item.ID, fromSlot.Amount)
 
