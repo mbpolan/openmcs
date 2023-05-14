@@ -322,7 +322,6 @@ func (s *SQLite3Driver) loadPlayerEquipment(id int, p *model.Player) error {
 			ID: itemID,
 		}
 
-		// FIXME: need to store amount
 		p.SetEquippedItem(item, amount, slot)
 	}
 
