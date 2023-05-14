@@ -289,7 +289,8 @@ func (s *SQLite3Driver) loadPlayerEquipment(id int, p *model.Player) error {
 	stmt, err := s.db.Prepare(`
 		SELECT
 		    SLOT_ID,
-		    ITEM_ID
+		    ITEM_ID,
+		    AMOUNT
 		FROM
 		    PLAYER_EQUIPMENT
 		WHERE
@@ -306,8 +307,8 @@ func (s *SQLite3Driver) loadPlayerEquipment(id int, p *model.Player) error {
 
 	defer rows.Close()
 	for rows.Next() {
-		var slotID, itemID int
-		err := rows.Scan(&slotID, &itemID)
+		var slotID, itemID, amount int
+		err := rows.Scan(&slotID, &itemID, &amount)
 		if err != nil {
 			return err
 		}
@@ -322,7 +323,7 @@ func (s *SQLite3Driver) loadPlayerEquipment(id int, p *model.Player) error {
 		}
 
 		// FIXME: need to store amount
-		p.SetEquippedItem(item, 1, slot)
+		p.SetEquippedItem(item, amount, slot)
 	}
 
 	err = rows.Err()

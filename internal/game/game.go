@@ -1042,8 +1042,8 @@ func (g *Game) equipPlayerInventoryItem(pe *playerEntity, item *model.Item) {
 	}
 
 	// find the first instance of the Item in the player's inventory
-	slot := pe.player.InventorySlotWithItem(item.ID)
-	if slot == nil {
+	invSlot := pe.player.InventorySlotWithItem(item.ID)
+	if invSlot == nil {
 		return
 	}
 
@@ -1052,28 +1052,48 @@ func (g *Game) equipPlayerInventoryItem(pe *playerEntity, item *model.Item) {
 	// prepare an update for the player's inventory
 	inventory := response.NewSetInventoryItemResponse(3214)
 
-	// find the target equipment slot. if there is already an Item equipped, we need to swap it with the one in
-	// the player's inventory
+	// find the target equipment slot. if there is already an item equipped, we need to either swap the two or add to
+	// the equipped item's stack if the item is stackable
+	amount := int64(invSlot.Amount)
 	equipSlot := pe.player.EquipmentSlot(item.Attributes.EquipSlotType)
 	if equipSlot != nil {
-		// put the equipped Item into the same inventory slot as the incoming Item
-		pe.player.SetInventoryItem(equipSlot.Item, equipSlot.Amount, slot.ID)
-		inventory.AddSlot(slot.ID, equipSlot.Item.ID, equipSlot.Amount)
+		if item.Stackable {
+			// add as much to the equipped item's stack as possible. if the amount in the inventory exceeds the total
+			// stack size, take only as much as can be stacked
+			amount = int64(equipSlot.Amount) + int64(amount)
+			if amount > model.MaxStackableSize {
+				amount = model.MaxStackableSize
+				remaining := int(amount - model.MaxStackableSize)
+
+				// leave the remaining amount in the inventory
+				pe.player.SetInventoryItem(invSlot.Item, remaining, invSlot.ID)
+				inventory.AddSlot(invSlot.ID, invSlot.Item.ID, remaining)
+			} else {
+				// since there is capacity to add the entire inventory stack into the equipped item's stack, we can
+				// clear the inventory slot
+				pe.player.ClearInventoryItem(invSlot.ID)
+				inventory.ClearSlot(invSlot.ID)
+			}
+		} else {
+			// put the equipped item into the same inventory slot as the incoming item
+			pe.player.SetInventoryItem(equipSlot.Item, equipSlot.Amount, invSlot.ID)
+			inventory.AddSlot(invSlot.ID, equipSlot.Item.ID, equipSlot.Amount)
+		}
 	} else {
-		// remove the Item from its inventory slot
-		pe.player.ClearInventoryItem(slot.ID)
-		inventory.ClearSlot(slot.ID)
+		// remove the item from its inventory slot
+		pe.player.ClearInventoryItem(invSlot.ID)
+		inventory.ClearSlot(invSlot.ID)
 	}
 
 	// equip the Item into the slot
-	pe.player.SetEquippedItem(item, slot.Amount, item.Attributes.EquipSlotType)
+	pe.player.SetEquippedItem(item, int(amount), item.Attributes.EquipSlotType)
 
 	// update the player's inventory
 	pe.Send(inventory)
 
 	// update the player's equipment status
 	equipment := response.NewSetInventoryItemResponse(1688)
-	equipment.AddSlot(int(item.Attributes.EquipSlotType), slot.Item.ID, slot.Amount)
+	equipment.AddSlot(int(item.Attributes.EquipSlotType), invSlot.Item.ID, invSlot.Amount)
 	pe.Send(equipment)
 
 	// mark that we need to update the player's appearance
@@ -1322,9 +1342,7 @@ func (g *Game) handleGameUpdate() error {
 	// unlock all players and dispatch their updates
 	for _, pe := range g.players {
 		pe.mu.Unlock()
-		logger.Infof("will write to: %d", pe.player.ID)
 		pe.outChan <- pe.nextUpdate
-		logger.Infof("done write to: %d", pe.player.ID)
 		pe.nextUpdate = nil
 	}
 
