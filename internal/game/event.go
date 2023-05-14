@@ -24,8 +24,6 @@ const (
 	EventSendEquipment
 	// EventSendInventory sends a complete player inventory update.
 	EventSendInventory
-	// EventSwapInventoryItem rearranges an Item in a player's inventory.
-	EventSwapInventoryItem
 	// EventFriendList sends a player's entire friends list.
 	EventFriendList
 	// EventSkills sends data about all the player's skills.

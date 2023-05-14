@@ -6,10 +6,17 @@ import "github.com/mbpolan/openmcs/internal/model"
 type Action struct {
 	ActionType              pendingActionType
 	TickDelay               uint
+	MoveInventoryItemAction *MoveInventoryItemAction
 	TakeGroundItem          *TakeGroundItemAction
 	DropInventoryItemAction *DropInventoryItemAction
 	EquipItemAction         *EquipItemAction
 	UnequipItemAction       *UnequipItemAction
+}
+
+// MoveInventoryItemAction is an action to move or swap the position of an inventory item.
+type MoveInventoryItemAction struct {
+	FromSlot int
+	ToSlot   int
 }
 
 // TakeGroundItemAction is an action to pick up a ground Item that should occur at a position.

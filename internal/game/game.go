@@ -529,12 +529,7 @@ func (g *Game) DoSwapInventoryItem(p *model.Player, fromSlot int, toSlot int, mo
 	}
 
 	// plan an update to the player's inventory slots
-	pe.PlanEvent(&Event{
-		Type:     EventSwapInventoryItem,
-		Schedule: time.Now(),
-		FromSlot: fromSlot,
-		ToSlot:   toSlot,
-	})
+	pe.DeferMoveInventoryItem(fromSlot, toSlot)
 }
 
 // DoEquipItem handles a player's request to equip an Item.
@@ -1207,6 +1202,10 @@ func (g *Game) handleGameUpdate() error {
 		deferredActions := pe.TickDeferredActions()
 		for _, deferred := range deferredActions {
 			switch deferred.ActionType {
+			case pendingActionMoveInventoryItem:
+				g.handlePlayerSwapInventoryItem(pe, deferred.MoveInventoryItemAction)
+				pe.RemoveDeferredAction(deferred)
+
 			case pendingActionTakeGroundItem:
 				action := deferred.TakeGroundItem
 
@@ -1416,6 +1415,36 @@ func (g *Game) handleGameUpdate() error {
 	return nil
 }
 
+// handlePlayerSwapInventoryItem handles moving an item from one slot to another in a player's inventory.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handlePlayerSwapInventoryItem(pe *playerEntity, action *MoveInventoryItemAction) {
+	// TODO: the interface id should not be hardcoded
+	inventory := response.NewSetInventoryItemResponse(3214)
+
+	// make sure there is still an Item at the starting slot
+	fromSlot := pe.player.Inventory[action.FromSlot]
+	if fromSlot == nil {
+		return
+	}
+
+	// if there is already an Item at the target slot, move it to the starting slot. otherwise clear the Item at
+	// the starting slot
+	toSlot := pe.player.Inventory[action.ToSlot]
+	if toSlot != nil {
+		pe.player.SetInventoryItem(toSlot.Item, toSlot.Amount, fromSlot.ID)
+		inventory.AddSlot(fromSlot.ID, toSlot.Item.ID, toSlot.Amount)
+	} else {
+		pe.player.ClearInventoryItem(action.FromSlot)
+		inventory.ClearSlot(action.FromSlot)
+	}
+
+	// move the Item from the starting slot to the target slot
+	pe.player.SetInventoryItem(fromSlot.Item, fromSlot.Amount, action.ToSlot)
+	inventory.AddSlot(action.ToSlot, fromSlot.Item.ID, fromSlot.Amount)
+
+	pe.PlanEvent(NewSendResponseEvent(inventory, time.Now()))
+}
+
 // handlePlayerEvent processes the next scheduled event for a player. These are events that can be done off-tick and do
 // not require synchronization with the overall game state.
 // Concurrency requirements: (a) game state should NOT be locked and (b) this player should NOT be locked.
@@ -1473,39 +1502,6 @@ func (g *Game) handlePlayerEvent(pe *playerEntity) error {
 				inventory.AddSlot(slot.ID, slot.Item.ID, slot.Amount)
 			}
 		}
-
-		err := inventory.Write(pe.writer)
-		if err != nil {
-			return err
-		}
-
-	case EventSwapInventoryItem:
-		pe.mu.Lock()
-		defer pe.mu.Unlock()
-
-		// TODO: the interface id should not be hardcoded
-		inventory := response.NewSetInventoryItemResponse(3214)
-
-		// make sure there is still an Item at the starting slot
-		fromSlot := pe.player.Inventory[event.FromSlot]
-		if fromSlot == nil {
-			break
-		}
-
-		// if there is already an Item at the target slot, move it to the starting slot. otherwise clear the Item at
-		// the starting slot
-		toSlot := pe.player.Inventory[event.ToSlot]
-		if toSlot != nil {
-			pe.player.SetInventoryItem(toSlot.Item, toSlot.Amount, fromSlot.ID)
-			inventory.AddSlot(fromSlot.ID, toSlot.Item.ID, toSlot.Amount)
-		} else {
-			pe.player.ClearInventoryItem(event.FromSlot)
-			inventory.ClearSlot(event.FromSlot)
-		}
-
-		// move the Item from the starting slot to the target slot
-		pe.player.SetInventoryItem(fromSlot.Item, fromSlot.Amount, event.ToSlot)
-		inventory.AddSlot(event.ToSlot, fromSlot.Item.ID, fromSlot.Amount)
 
 		err := inventory.Write(pe.writer)
 		if err != nil {

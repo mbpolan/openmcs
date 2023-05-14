@@ -12,7 +12,8 @@ import (
 type pendingActionType int
 
 const (
-	pendingActionTakeGroundItem pendingActionType = iota
+	pendingActionMoveInventoryItem pendingActionType = iota
+	pendingActionTakeGroundItem
 	pendingActionDropInventoryItem
 	pendingActionEquipItem
 	pendingActionUnequipItem
@@ -107,6 +108,18 @@ func (pe *playerEntity) RemoveDeferredAction(action *Action) {
 			return
 		}
 	}
+}
+
+// DeferMoveInventoryItem plans an action to move an item in the player's inventory from one slot to another.
+func (pe *playerEntity) DeferMoveInventoryItem(fromSlot, toSlot int) {
+	pe.deferredActions = append(pe.deferredActions, &Action{
+		ActionType: pendingActionMoveInventoryItem,
+		TickDelay:  1,
+		MoveInventoryItemAction: &MoveInventoryItemAction{
+			FromSlot: fromSlot,
+			ToSlot:   toSlot,
+		},
+	})
 }
 
 // DeferTakeGroundItemAction sets the player's pending action to pick up a specific ground Item at a position, in
