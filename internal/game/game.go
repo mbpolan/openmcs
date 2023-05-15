@@ -51,6 +51,7 @@ type Game struct {
 	removePlayers    map[int]*playerEntity
 	regions          map[model.Vector2D]*RegionManager
 	worldID          int
+	scripts          *ScriptManager
 	mapManager       *MapManager
 	telemetry        telemetry.Telemetry
 	tick             uint64
@@ -70,8 +71,17 @@ func NewGame(opts Options) (*Game, error) {
 
 	start := time.Now()
 
+	// load scripts
+	g.scripts = NewScriptManager("scripts")
+	numScripts, err := g.scripts.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Infof("loaded %d scripts", numScripts)
+
 	// load game assets
-	err := g.loadAssets(opts.Config.Server.AssetDir, opts.ItemAttributes)
+	err = g.loadAssets(opts.Config.Server.AssetDir, opts.ItemAttributes)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load game asset")
 	}
