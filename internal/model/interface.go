@@ -18,7 +18,7 @@ const (
 	InteractionModeOff
 )
 
-// ClientTab enumerates the possible client sidebar tabs available for displaying interfaces.
+// ClientTab enumerates the possible client sidebar tabs available for displaying interface.
 type ClientTab int
 
 const (
@@ -37,7 +37,7 @@ const (
 	ClientTabMusic
 )
 
-// ClientTabs is a slice of all client tab interfaces.
+// ClientTabs is a slice of all client tab interface.
 var ClientTabs = []ClientTab{
 	ClientTabEquippedItem,
 	ClientTabSkills,

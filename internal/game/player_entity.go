@@ -8,11 +8,11 @@ import (
 	"time"
 )
 
-// playerEntity represents a player and their state while they are logged into the game world.
-type playerEntity struct {
+// PlayerEntity represents a player and their state while they are logged into the game world.
+type PlayerEntity struct {
 	lastInteraction     time.Time
 	player              *model.Player
-	tracking            map[int]*playerEntity
+	tracking            map[int]*PlayerEntity
 	changeChan          chan bool
 	doneChan            chan bool
 	outChan             chan response.Response
@@ -38,13 +38,13 @@ type playerStatusBroadcast struct {
 }
 
 // newPlayerEntity creates a new player entity.
-func newPlayerEntity(p *model.Player, w *network.ProtocolWriter) *playerEntity {
+func newPlayerEntity(p *model.Player, w *network.ProtocolWriter) *PlayerEntity {
 	changeChan := make(chan bool)
 
-	return &playerEntity{
+	return &PlayerEntity{
 		lastInteraction:  time.Now(),
 		player:           p,
-		tracking:         map[int]*playerEntity{},
+		tracking:         map[int]*PlayerEntity{},
 		changeChan:       changeChan,
 		doneChan:         make(chan bool, 1),
 		outChan:          make(chan response.Response, 50),
@@ -54,7 +54,7 @@ func newPlayerEntity(p *model.Player, w *network.ProtocolWriter) *playerEntity {
 }
 
 // MarkStatusBroadcast marks that this player's online/offline status should be broadcast to everyone.
-func (pe *playerEntity) MarkStatusBroadcast() {
+func (pe *PlayerEntity) MarkStatusBroadcast() {
 	if pe.nextStatusBroadcast == nil {
 		pe.nextStatusBroadcast = &playerStatusBroadcast{}
 	}
@@ -63,7 +63,7 @@ func (pe *playerEntity) MarkStatusBroadcast() {
 }
 
 // MarkStatusBroadcastTarget adds a target to receive this player's online/offline status.
-func (pe *playerEntity) MarkStatusBroadcastTarget(target string) {
+func (pe *PlayerEntity) MarkStatusBroadcastTarget(target string) {
 	if pe.nextStatusBroadcast == nil {
 		pe.nextStatusBroadcast = &playerStatusBroadcast{}
 	}
@@ -73,7 +73,7 @@ func (pe *playerEntity) MarkStatusBroadcastTarget(target string) {
 
 // MoveDirection returns the direction the player is currently moving in. If the player is not moving, then
 // model.DirectionNone will be returned.
-func (pe *playerEntity) MoveDirection() model.Direction {
+func (pe *PlayerEntity) MoveDirection() model.Direction {
 	if !pe.Walking() {
 		return model.DirectionNone
 	}
@@ -82,12 +82,12 @@ func (pe *playerEntity) MoveDirection() model.Direction {
 }
 
 // Walking determines if the player is walking to a destination.
-func (pe *playerEntity) Walking() bool {
+func (pe *PlayerEntity) Walking() bool {
 	return pe.nextPathIdx < len(pe.path)
 }
 
 // Send adds one or more responses that will be sent to the player.
-func (pe *playerEntity) Send(responses ...response.Response) {
+func (pe *PlayerEntity) Send(responses ...response.Response) {
 	for _, resp := range responses {
 		select {
 		case pe.outChan <- resp:
@@ -101,7 +101,7 @@ func (pe *playerEntity) Send(responses ...response.Response) {
 }
 
 // Drop flags that this player should be disconnected and no more responses should be sent to the client.
-func (pe *playerEntity) Drop() {
+func (pe *PlayerEntity) Drop() {
 	select {
 	case pe.doneChan <- true:
 	default:
@@ -110,7 +110,7 @@ func (pe *playerEntity) Drop() {
 
 // TickDeferredActions decrements the tick delay on all deferred actions and returns a slice of actions that are ready
 // for processing.
-func (pe *playerEntity) TickDeferredActions() []*Action {
+func (pe *PlayerEntity) TickDeferredActions() []*Action {
 	var expired []*Action
 
 	for _, deferred := range pe.deferredActions {
@@ -127,7 +127,7 @@ func (pe *playerEntity) TickDeferredActions() []*Action {
 }
 
 // RemoveDeferredAction removes a deferred action.
-func (pe *playerEntity) RemoveDeferredAction(action *Action) {
+func (pe *PlayerEntity) RemoveDeferredAction(action *Action) {
 	for i, deferred := range pe.deferredActions {
 		if deferred == action {
 			pe.deferredActions = append(pe.deferredActions[:i], pe.deferredActions[i+1:]...)
@@ -137,7 +137,7 @@ func (pe *playerEntity) RemoveDeferredAction(action *Action) {
 }
 
 // DeferMoveInventoryItem plans an action to move an item in the player's inventory from one slot to another.
-func (pe *playerEntity) DeferMoveInventoryItem(fromSlot, toSlot int) {
+func (pe *PlayerEntity) DeferMoveInventoryItem(fromSlot, toSlot int) {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionMoveInventoryItem,
 		TickDelay:  1,
@@ -149,7 +149,7 @@ func (pe *playerEntity) DeferMoveInventoryItem(fromSlot, toSlot int) {
 }
 
 // DeferSendServerMessage plans an action to send a player a server message.
-func (pe *playerEntity) DeferSendServerMessage(message string) {
+func (pe *PlayerEntity) DeferSendServerMessage(message string) {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionSendServerMessage,
 		TickDelay:  0,
@@ -160,15 +160,15 @@ func (pe *playerEntity) DeferSendServerMessage(message string) {
 }
 
 // DeferSendSkills plans an action to send a player their current skill stats.
-func (pe *playerEntity) DeferSendSkills() {
+func (pe *PlayerEntity) DeferSendSkills() {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionSendSkills,
 		TickDelay:  1,
 	})
 }
 
-// DeferSendInterfaces plans an action to send a player the client tab interfaces to display.
-func (pe *playerEntity) DeferSendInterfaces() {
+// DeferSendInterfaces plans an action to send a player the client tab interface to display.
+func (pe *PlayerEntity) DeferSendInterfaces() {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionSendInterfaces,
 		TickDelay:  1,
@@ -176,7 +176,7 @@ func (pe *playerEntity) DeferSendInterfaces() {
 }
 
 // DeferSendModes plans an action to send a player their current chat modes.
-func (pe *playerEntity) DeferSendModes() {
+func (pe *PlayerEntity) DeferSendModes() {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionSendModes,
 		TickDelay:  1,
@@ -184,7 +184,7 @@ func (pe *playerEntity) DeferSendModes() {
 }
 
 // DeferSendEquipment plans an action to send a player their current equipped items.
-func (pe *playerEntity) DeferSendEquipment() {
+func (pe *PlayerEntity) DeferSendEquipment() {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionSendEquipment,
 		TickDelay:  1,
@@ -192,7 +192,7 @@ func (pe *playerEntity) DeferSendEquipment() {
 }
 
 // DeferSendInventory plans an action to send a player their current inventory items.
-func (pe *playerEntity) DeferSendInventory() {
+func (pe *PlayerEntity) DeferSendInventory() {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionSendInventory,
 		TickDelay:  1,
@@ -200,7 +200,7 @@ func (pe *playerEntity) DeferSendInventory() {
 }
 
 // DeferSendFriendList plans an action to send a player their friend list and each friend's status.
-func (pe *playerEntity) DeferSendFriendList() {
+func (pe *PlayerEntity) DeferSendFriendList() {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionSendFriendList,
 		TickDelay:  1,
@@ -208,7 +208,7 @@ func (pe *playerEntity) DeferSendFriendList() {
 }
 
 // DeferSendIgnoreList plans an action to send a player their ignore list.
-func (pe *playerEntity) DeferSendIgnoreList() {
+func (pe *PlayerEntity) DeferSendIgnoreList() {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionSendIgnoreList,
 		TickDelay:  1,
@@ -217,7 +217,7 @@ func (pe *playerEntity) DeferSendIgnoreList() {
 
 // DeferTakeGroundItemAction sets the player's pending action to pick up a specific ground Item at a position, in
 // global coordinates. This will overwrite any previously deferred action.
-func (pe *playerEntity) DeferTakeGroundItemAction(item *model.Item, globalPos model.Vector3D) {
+func (pe *PlayerEntity) DeferTakeGroundItemAction(item *model.Item, globalPos model.Vector3D) {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionTakeGroundItem,
 		TickDelay:  1,
@@ -230,7 +230,7 @@ func (pe *playerEntity) DeferTakeGroundItemAction(item *model.Item, globalPos mo
 
 // DeferDropInventoryItem sets the player's pending action to drop an inventory Item. This will overwrite any previously
 // deferred action.
-func (pe *playerEntity) DeferDropInventoryItem(item *model.Item, interfaceID, secondaryActionID int) {
+func (pe *PlayerEntity) DeferDropInventoryItem(item *model.Item, interfaceID, secondaryActionID int) {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionDropInventoryItem,
 		TickDelay:  1,
@@ -244,7 +244,7 @@ func (pe *playerEntity) DeferDropInventoryItem(item *model.Item, interfaceID, se
 
 // DeferEquipItem sets the player's pending action to equip an inventory Item. This will overwrite any previously
 // deferred action.
-func (pe *playerEntity) DeferEquipItem(item *model.Item, interfaceID int) {
+func (pe *PlayerEntity) DeferEquipItem(item *model.Item, interfaceID int) {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionEquipItem,
 		TickDelay:  1,
@@ -257,7 +257,7 @@ func (pe *playerEntity) DeferEquipItem(item *model.Item, interfaceID int) {
 
 // DeferUnequipItem sets the player's pending action to equip an inventory Item. This will overwrite any previously
 // deferred action.
-func (pe *playerEntity) DeferUnequipItem(item *model.Item, interfaceID int, slotType model.EquipmentSlotType) {
+func (pe *PlayerEntity) DeferUnequipItem(item *model.Item, interfaceID int, slotType model.EquipmentSlotType) {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionUnequipItem,
 		TickDelay:  1,
