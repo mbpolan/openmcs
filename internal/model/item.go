@@ -15,6 +15,15 @@ type ItemStackable struct {
 	Amount int
 }
 
+// ItemCombatAttributes are the attack and defense bonuses granted by an item.
+type ItemCombatAttributes struct {
+	Stab  int
+	Slash int
+	Crush int
+	Magic int
+	Range int
+}
+
 // ItemAttributes are additional properties for an item.
 type ItemAttributes struct {
 	// ItemID is the ID of the item.
@@ -27,6 +36,14 @@ type ItemAttributes struct {
 	Speed int
 	// Weight is the weight of the item.
 	Weight float64
+	// AttackBonuses are the offensive combat attributes.
+	Attack ItemCombatAttributes
+	// DefenseBonuses are the defensive combat attributes.
+	Defense ItemCombatAttributes
+	// StrengthBonus is the bonus granted to an entity's strength level.
+	StrengthBonus int
+	// PrayerBonus is the bonus granted to an entity's prayer level.
+	PrayerBonus int
 }
 
 // Item represents a player-usable object.

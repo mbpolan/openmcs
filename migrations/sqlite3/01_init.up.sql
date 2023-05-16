@@ -402,6 +402,30 @@ CREATE TABLE ITEM_ATTRIBUTES (
     TWO_HANDED INT NULL,
     -- the weight of the item
     WEIGHT REAL NOT NULL,
+    -- the offensive stab bonus
+    ATTACK_STAB INT NULL,
+    -- the offensive slash bonus
+    ATTACK_SLASH INT NULL,
+    -- the offensive crush bonus
+    ATTACK_CRUSH INT NULL,
+    -- the offensive magic bonus
+    ATTACK_MAGIC INT NULL,
+    -- the offensive range bonus
+    ATTACK_RANGE INT NULL,
+    -- the defensive stab bonus
+    DEFENSE_STAB INT NULL,
+    -- the defensive slash bonus
+    DEFENSE_SLASH INT NULL,
+    -- the defensive crush bonus
+    DEFENSE_CRUSH INT NULL,
+    -- the defensive magic bonus
+    DEFENSE_MAGIC INT NULL,
+    -- the defensive range bonus
+    DEFENSE_RANGE INT NULL,
+    -- the strength bonus
+    STRENGTH_BONUS INT NULL,
+    -- the prayer bonus
+    PRAYER_BONUS INT NULL,
     -- date time when the row was inserted
     CREATED_DTTM TEXT NOT NULL DEFAULT CURRENT_DATE,
     -- date time when the row was updated
