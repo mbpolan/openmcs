@@ -217,6 +217,7 @@ func (g *Game) DoSetPlayerDesign(p *model.Player, gender model.EntityGender, bas
 	pe.player.Appearance.Base = base
 	pe.player.Appearance.BodyColors = bodyColors
 	pe.appearanceChanged = true
+	pe.DeferHideInterfaces()
 }
 
 // DoPlayerChatCommand handles a chat command sent by a player.
@@ -451,7 +452,7 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	// plan an initial character design if flagged
 	if pe.player.UpdateDesign {
 		pe.DeferShowInterface(g.interaction.CharacterDesigner.ID)
-		//pe.player.UpdateDesign = false
+		pe.player.UpdateDesign = false
 	}
 
 	// plan an update to the client sidebar interface
@@ -1484,7 +1485,9 @@ func (g *Game) handleDeferredActions(pe *playerEntity) {
 			pe.RemoveDeferredAction(deferred)
 
 		case ActionHideInterfaces:
-			
+			pe.Send(&response.ClearScreenResponse{})
+			pe.RemoveDeferredAction(deferred)
+
 		default:
 		}
 	}

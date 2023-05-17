@@ -48,21 +48,23 @@ func (p *CharacterDesignRequest) Read(r *network.ProtocolReader) error {
 			return err
 		}
 
+		id := int(b) + 0x100
+
 		switch i {
 		case 0:
-			p.Base.Head = int(b)
+			p.Base.Head = id
 		case 1:
-			p.Base.Face = int(b)
+			p.Base.Face = id
 		case 2:
-			p.Base.Body = int(b)
+			p.Base.Body = id
 		case 3:
-			p.Base.Arms = int(b)
+			p.Base.Arms = id
 		case 4:
-			p.Base.Hands = int(b)
+			p.Base.Hands = id
 		case 5:
-			p.Base.Legs = int(b)
+			p.Base.Legs = id
 		case 6:
-			p.Base.Feet = int(b)
+			p.Base.Feet = id
 		}
 	}
 
