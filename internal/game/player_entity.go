@@ -281,3 +281,11 @@ func (pe *playerEntity) DeferShowInterface(interfaceID int) {
 		},
 	})
 }
+
+// DeferHideInterfaces sets the player's pending action to hide all interfaces.
+func (pe *playerEntity) DeferHideInterfaces() {
+	pe.deferredActions = append(pe.deferredActions, &Action{
+		ActionType: ActionHideInterfaces,
+		TickDelay:  1,
+	})
+}

@@ -203,6 +203,22 @@ func (g *Game) DoInteractWithObject(p *model.Player, action int, globalPos model
 	// TODO
 }
 
+// DoSetPlayerDesign handles updating a player's character design.
+func (g *Game) DoSetPlayerDesign(p *model.Player, gender model.EntityGender, base model.EntityBase, bodyColors []int) {
+	pe := g.findPlayer(p)
+	if pe == nil {
+		return
+	}
+
+	pe.mu.Lock()
+	defer pe.mu.Unlock()
+
+	pe.player.Appearance.Gender = gender
+	pe.player.Appearance.Base = base
+	pe.player.Appearance.BodyColors = bodyColors
+	pe.appearanceChanged = true
+}
+
 // DoPlayerChatCommand handles a chat command sent by a player.
 func (g *Game) DoPlayerChatCommand(p *model.Player, text string) {
 	pe, unlockFunc := g.findPlayerAndLockAll(p)
@@ -430,6 +446,12 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	mapUpdates := g.mapManager.State(rg, model.BoundaryNone)
 	if len(mapUpdates) > 0 {
 		pe.Send(mapUpdates...)
+	}
+
+	// plan an initial character design if flagged
+	if pe.player.UpdateDesign {
+		pe.DeferShowInterface(g.interaction.CharacterDesigner.ID)
+		//pe.player.UpdateDesign = false
 	}
 
 	// plan an update to the client sidebar interface
@@ -1461,6 +1483,8 @@ func (g *Game) handleDeferredActions(pe *playerEntity) {
 			pe.Send(response.NewShowInterfaceResponse(action.InterfaceID))
 			pe.RemoveDeferredAction(deferred)
 
+		case ActionHideInterfaces:
+			
 		default:
 		}
 	}

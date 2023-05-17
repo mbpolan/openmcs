@@ -20,6 +20,7 @@ const (
 	ActionEquipItem
 	ActionUnequipItem
 	ActionShowInterface
+	ActionHideInterfaces
 )
 
 // Action is an action that will be performed after a number of game ticks have elapsed.

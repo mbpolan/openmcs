@@ -23,6 +23,8 @@ CREATE TABLE PLAYER (
     GLOBAL_Z INTEGER NOT NULL,
     -- character gender
     GENDER INTEGER NOT NULL,
+    -- flag if the player should be shown the character designer interface
+    UPDATE_DESIGN INTEGER NOT NULL,
     -- flag if the player's client should send anti-cheating metadata
     FLAGGED INTEGER NOT NULL,
     -- flag if the player is muted

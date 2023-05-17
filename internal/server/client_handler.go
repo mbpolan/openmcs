@@ -506,6 +506,16 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 
 		c.game.DoInteractWithObject(c.player, req.Action, req.GlobalPos)
 
+	case request.CharacterDesignRequestHeader:
+		// the player submitted a new character design
+		var req request.CharacterDesignRequest
+		err = req.Read(c.reader)
+		if err != nil {
+			break
+		}
+
+		c.game.DoSetPlayerDesign(c.player, req.Gender, req.Base, req.BodyColors)
+
 	default:
 		// unknown packet
 		err = fmt.Errorf("unexpected packet header: %2x", header)

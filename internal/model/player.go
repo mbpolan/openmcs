@@ -46,6 +46,7 @@ type Player struct {
 	Skills       SkillMap
 	Inventory    [MaxInventorySlots]*InventorySlot
 	CombatStats  EntityCombatStats
+	UpdateDesign bool
 }
 
 // PlayerModes indicates what types of chat and interactions a player wishes to receive.
