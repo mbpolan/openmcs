@@ -7,6 +7,8 @@ import (
 
 // Manager provides access to various client-side interfaces and other interaction mechanisms.
 type Manager struct {
+	// CharacterDesigner is the interface for editing a player's appearance.
+	CharacterDesigner *SimpleInterface
 	// EquipmentTab is the interface for a player's equipment.
 	EquipmentTab *EquipmentTabInterface
 	// FriendListTab is the interface for a player's friend list.
@@ -19,19 +21,21 @@ type Manager struct {
 	InventoryTab *InventoryTabInterface
 	// SkillsTab is the interface for a player's skills.
 	SkillsTab *SimpleInterface
-	config    config.InterfacesConfig
+
+	config config.InterfacesConfig
 }
 
 // New creates a new manager for interfaces and interactions.
 func New(cfg config.InterfacesConfig) *Manager {
 	return &Manager{
-		config:        cfg,
-		EquipmentTab:  newEquipmentTabInterface(cfg.Equipment),
-		FriendListTab: newSimpleInterface(cfg.FriendList.ID),
-		IgnoreListTab: newSimpleInterface(cfg.IgnoreList.ID),
-		LogoutTab:     newSimpleInterface(cfg.Logout.ID),
-		InventoryTab:  newInventoryTabInterface(cfg.Inventory),
-		SkillsTab:     newSimpleInterface(cfg.Skills.ID),
+		config:            cfg,
+		CharacterDesigner: newSimpleInterface(cfg.CharacterDesigner.ID),
+		EquipmentTab:      newEquipmentTabInterface(cfg.Equipment),
+		FriendListTab:     newSimpleInterface(cfg.FriendList.ID),
+		IgnoreListTab:     newSimpleInterface(cfg.IgnoreList.ID),
+		LogoutTab:         newSimpleInterface(cfg.Logout.ID),
+		InventoryTab:      newInventoryTabInterface(cfg.Inventory),
+		SkillsTab:         newSimpleInterface(cfg.Skills.ID),
 	}
 }
 

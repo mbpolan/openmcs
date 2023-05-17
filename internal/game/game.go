@@ -864,6 +864,10 @@ func (g *Game) handleChatCommand(pe *playerEntity, command *ChatCommand) {
 		// send a message containing player's server position on the world map
 		msg := fmt.Sprintf("GlobalPos: %d, %d, %d", pe.player.GlobalPos.X, pe.player.GlobalPos.Y, pe.player.GlobalPos.Z)
 		pe.Send(response.NewServerMessageResponse(msg))
+
+	case ChatCommandCharacterDesigner:
+		// open the character designer interface
+		pe.DeferShowInterface(g.interaction.CharacterDesigner.ID)
 	}
 }
 
@@ -1449,6 +1453,12 @@ func (g *Game) handleDeferredActions(pe *playerEntity) {
 			}
 
 			g.unequipPlayerInventoryItem(pe, action.Item, action.SlotType)
+			pe.RemoveDeferredAction(deferred)
+
+		case ActionShowInterface:
+			action := deferred.ShowInterfaceAction
+
+			pe.Send(response.NewShowInterfaceResponse(action.InterfaceID))
 			pe.RemoveDeferredAction(deferred)
 
 		default:

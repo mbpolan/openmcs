@@ -33,6 +33,9 @@ store:
 
 # configuration for game interface
 interfaces:
+  # character designer interface
+  characterDesigner:
+    id: 3559
   # primary inventory tab interface
   inventory:
     id: 3213

@@ -15,6 +15,7 @@ const (
 	ChatCommandTypePosition
 	ChatCommandTeleport
 	ChatCommandTeleportRelative
+	ChatCommandCharacterDesigner
 )
 
 // ChatCommandSpawnItemParams contains parameters for a chat command that spawns a ground Item.
@@ -166,6 +167,11 @@ func ParseChatCommand(text string) *ChatCommand {
 	case "pos":
 		return &ChatCommand{
 			Type: ChatCommandTypePosition,
+		}
+
+	case "design":
+		return &ChatCommand{
+			Type: ChatCommandCharacterDesigner,
 		}
 
 	default:
