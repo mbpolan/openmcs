@@ -37,6 +37,15 @@ interfaces:
   inventory:
     id: 3213
     slots: 3214
+  # friend list tab interface
+  friendList:
+    id: 5065
+  # ignore list tab interface
+  ignoreList:
+    id: 5715
+  # logout tab interface
+  logout:
+    id: 2449
   # equipment tab interface and child interface for bonuses
   equipment:
     id: 1644

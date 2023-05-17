@@ -9,6 +9,12 @@ import (
 type Manager struct {
 	// EquipmentTab is the interface for a player's equipment.
 	EquipmentTab *EquipmentTabInterface
+	// FriendListTab is the interface for a player's friend list.
+	FriendListTab *SimpleInterface
+	// IgnoreListTab is the interface for a player's ignore list.
+	IgnoreListTab *SimpleInterface
+	// LogoutTab is the interface for a player's logout tab.
+	LogoutTab *SimpleInterface
 	// InventoryTab is the interface for a player's inventory.
 	InventoryTab *InventoryTabInterface
 	// SkillsTab is the interface for a player's skills.
@@ -19,10 +25,13 @@ type Manager struct {
 // New creates a new manager for interfaces and interactions.
 func New(cfg config.InterfacesConfig) *Manager {
 	return &Manager{
-		config:       cfg,
-		EquipmentTab: newEquipmentTabInterface(cfg.Equipment),
-		InventoryTab: newInventoryTabInterface(cfg.Inventory),
-		SkillsTab:    newSimpleInterface(cfg.Skills.ID),
+		config:        cfg,
+		EquipmentTab:  newEquipmentTabInterface(cfg.Equipment),
+		FriendListTab: newSimpleInterface(cfg.FriendList.ID),
+		IgnoreListTab: newSimpleInterface(cfg.IgnoreList.ID),
+		LogoutTab:     newSimpleInterface(cfg.Logout.ID),
+		InventoryTab:  newInventoryTabInterface(cfg.Inventory),
+		SkillsTab:     newSimpleInterface(cfg.Skills.ID),
 	}
 }
 
@@ -32,8 +41,8 @@ func (m *Manager) ClientTabInterfaces() map[model.ClientTab]int {
 		model.ClientTabSkills:      m.SkillsTab.ID,
 		model.ClientTabInventory:   m.InventoryTab.ID,
 		model.ClientTabEquipment:   m.EquipmentTab.ID,
-		model.ClientTabFriendsList: 5065,
-		model.ClientTabIgnoreList:  5715,
-		model.ClientTabLogout:      2449,
+		model.ClientTabFriendsList: m.FriendListTab.ID,
+		model.ClientTabIgnoreList:  m.IgnoreListTab.ID,
+		model.ClientTabLogout:      m.LogoutTab.ID,
 	}
 }

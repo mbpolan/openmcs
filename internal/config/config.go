@@ -40,9 +40,12 @@ type MetricsConfig struct {
 
 // InterfacesConfig contains data for client-side interface.
 type InterfacesConfig struct {
-	Equipment EquipmentTabInterfaceConfig `mapstructure:"equipment"`
-	Inventory InventoryTabInterfaceConfig `mapstructure:"inventory"`
-	Skills    SimpleInterfaceConfig       `mapstructure:"skills"`
+	Equipment  EquipmentTabInterfaceConfig `mapstructure:"equipment"`
+	FriendList SimpleInterfaceConfig       `mapstructure:"friendList"`
+	IgnoreList SimpleInterfaceConfig       `mapstructure:"ignoreList"`
+	Logout     SimpleInterfaceConfig       `mapstructure:"logout"`
+	Inventory  InventoryTabInterfaceConfig `mapstructure:"inventory"`
+	Skills     SimpleInterfaceConfig       `mapstructure:"skills"`
 }
 
 // SimpleInterfaceConfig contains data for a simple tab interface.
