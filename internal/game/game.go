@@ -46,10 +46,10 @@ type Game struct {
 	ticker           *time.Ticker
 	mapManager       *MapManager
 	mu               sync.RWMutex
-	players          []*PlayerEntity
+	players          []*playerEntity
 	objects          []*model.WorldObject
 	playersOnline    sync.Map
-	removePlayers    map[int]*PlayerEntity
+	removePlayers    map[int]*playerEntity
 	regions          map[model.Vector2D]*RegionManager
 	telemetry        telemetry.Telemetry
 	tick             uint64
@@ -64,7 +64,7 @@ func NewGame(opts Options) (*Game, error) {
 		doneChan:       make(chan bool, 1),
 		interaction:    interaction.New(opts.Config.Interfaces),
 		items:          map[int]*model.Item{},
-		removePlayers:  map[int]*PlayerEntity{},
+		removePlayers:  map[int]*playerEntity{},
 		telemetry:      opts.Telemetry,
 		tick:           0,
 		welcomeMessage: opts.Config.Server.WelcomeMessage,
@@ -247,7 +247,7 @@ func (g *Game) DoPlayerPrivateChat(p *model.Player, recipient string, text strin
 
 	// find the target player
 	recipient = strings.ToLower(recipient)
-	var target *PlayerEntity
+	var target *playerEntity
 	for _, other := range g.players {
 		if strings.ToLower(other.player.Username) == recipient {
 			target = other
@@ -575,7 +575,7 @@ func (g *Game) DoUseInventoryItem(p *model.Player, sourceItemID, sourceInterface
 // broadcastPlayerStatus sends updates to other players that have them on their friends lists. An optional list of
 // target player usernames can be passed to limit who receives the update.
 // Concurrency requirements: (a) game state should be locked and (b) all players should be locked.
-func (g *Game) broadcastPlayerStatus(pe *PlayerEntity, targets ...string) {
+func (g *Game) broadcastPlayerStatus(pe *playerEntity, targets ...string) {
 	_, online := g.playersOnline.Load(pe.player.Username)
 
 	// if this player has their private chat turned off, show them as offline to everyone
@@ -619,8 +619,8 @@ func (g *Game) broadcastPlayerStatus(pe *PlayerEntity, targets ...string) {
 
 // findSpectators returns a slice of players that are within visual distance of a given player.
 // Concurrency requirements: (a) game state should be locked and (b) all players should be locked.
-func (g *Game) findSpectators(pe *PlayerEntity) []*PlayerEntity {
-	var others []*PlayerEntity
+func (g *Game) findSpectators(pe *playerEntity) []*playerEntity {
+	var others []*playerEntity
 	for _, tpe := range g.players {
 		// ignore our own player and others players on different z coordinates
 		if tpe.player.ID == pe.player.ID || tpe.player.GlobalPos.Z != pe.player.GlobalPos.Z {
@@ -639,10 +639,10 @@ func (g *Game) findSpectators(pe *PlayerEntity) []*PlayerEntity {
 	return others
 }
 
-// findPlayerAndLockGame returns the PlayerEntity for the corresponding player, locking only the game mutex. You must
+// findPlayerAndLockGame returns the playerEntity for the corresponding player, locking only the game mutex. You must
 // call the returned function to properly unlock the mutex.
 // Concurrency requirements: (a) game state should NOT be locked and (b) all players should NOT be locked.
-func (g *Game) findPlayerAndLockGame(p *model.Player) (*PlayerEntity, func()) {
+func (g *Game) findPlayerAndLockGame(p *model.Player) (*playerEntity, func()) {
 	g.mu.RLock()
 
 	pe := g.findPlayer(p)
@@ -657,10 +657,10 @@ func (g *Game) findPlayerAndLockGame(p *model.Player) (*PlayerEntity, func()) {
 	}
 }
 
-// findPlayerAndLockAll returns the PlayerEntity for the corresponding player, locking the game and PlayerEntity mutexes
+// findPlayerAndLockAll returns the playerEntity for the corresponding player, locking the game and playerEntity mutexes
 // along the way. You must call the returned function to properly unlock all mutexes.
 // Concurrency requirements: (a) game state should NOT be locked and (b) all players should NOT be locked.
-func (g *Game) findPlayerAndLockAll(p *model.Player) (*PlayerEntity, func()) {
+func (g *Game) findPlayerAndLockAll(p *model.Player) (*playerEntity, func()) {
 	g.mu.RLock()
 
 	pe := g.findPlayer(p)
@@ -678,11 +678,11 @@ func (g *Game) findPlayerAndLockAll(p *model.Player) (*PlayerEntity, func()) {
 	}
 }
 
-// findPlayer returns the PlayerEntity for the corresponding player. This method does not lock; if you need thread
+// findPlayer returns the playerEntity for the corresponding player. This method does not lock; if you need thread
 // safety, use the findPlayerAndLockAll method instead.
 // Concurrency requirements: (a) game state should be locked and (b) all players should not be locked.
-func (g *Game) findPlayer(p *model.Player) *PlayerEntity {
-	var tpe *PlayerEntity
+func (g *Game) findPlayer(p *model.Player) *playerEntity {
+	var tpe *playerEntity
 	for _, pe := range g.players {
 		if pe.player.ID == p.ID {
 			tpe = pe
@@ -718,7 +718,7 @@ func (g *Game) loop() {
 
 // playerLoop continuously monitors for player-bound events.
 // Concurrency requirements: (a) game state should NOT be locked and (b) this player should NOT be locked.
-func (g *Game) playerLoop(pe *PlayerEntity) {
+func (g *Game) playerLoop(pe *playerEntity) {
 	for {
 		select {
 		case <-pe.doneChan:
@@ -785,7 +785,7 @@ func (g *Game) loadAssets(assetDir string, itemAttributes []*model.ItemAttribute
 }
 
 // findEffectiveRegion computes the region origin, in region coordinates, that the player's client should render.
-func (g *Game) findEffectiveRegion(pe *PlayerEntity) model.Vector2D {
+func (g *Game) findEffectiveRegion(pe *playerEntity) model.Vector2D {
 	regionGlobal := util.GlobalToRegionGlobal(pe.player.GlobalPos)
 	base := util.RegionGlobalToClientBase(regionGlobal)
 
@@ -814,7 +814,7 @@ func (g *Game) findEffectiveRegion(pe *PlayerEntity) model.Vector2D {
 
 // playerRegionPosition returns the region origin and player position relative to that origin.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) playerRegionPosition(pe *PlayerEntity) (model.Vector2D, model.Vector3D) {
+func (g *Game) playerRegionPosition(pe *playerEntity) (model.Vector2D, model.Vector3D) {
 	// find the region where the player's client is rendered
 	regionOrigin := g.findEffectiveRegion(pe)
 
@@ -835,7 +835,7 @@ func (g *Game) playerRegionPosition(pe *PlayerEntity) (model.Vector2D, model.Vec
 
 // handleChatCommand processes a chat command sent by a player.
 // Concurrency requirements: (a) game state should NOT be locked and (b) this player should NOT be locked.
-func (g *Game) handleChatCommand(pe *PlayerEntity, command *ChatCommand) {
+func (g *Game) handleChatCommand(pe *playerEntity, command *ChatCommand) {
 	switch command.Type {
 	case ChatCommandTypeSpawnItem:
 		params := command.SpawnItem
@@ -906,7 +906,7 @@ func (g *Game) addToList(p *model.Player, username string, friend bool) {
 	}
 
 	// find the target player, if they are online
-	var targetPlayer *PlayerEntity
+	var targetPlayer *playerEntity
 	for _, tpe := range g.players {
 		if strings.ToLower(tpe.player.Username) == target {
 			targetPlayer = tpe
@@ -968,7 +968,7 @@ func (g *Game) removeFromList(p *model.Player, username string, friend bool) {
 // addPlayerInventoryItem adds an item to the player's inventory, if there is room, and plans an update to the player's
 // client. The item may or may not be stackable.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) addPlayerInventoryItem(pe *PlayerEntity, item *model.Item, amount int) {
+func (g *Game) addPlayerInventoryItem(pe *playerEntity, item *model.Item, amount int) {
 	slotID := -1
 	totalAmount := amount
 
@@ -1010,7 +1010,7 @@ func (g *Game) addPlayerInventoryItem(pe *PlayerEntity, item *model.Item, amount
 // dropPlayerInventoryItem removes the first occurrence of an item from the player's inventory, and adds it to the
 // world map.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) dropPlayerInventoryItem(pe *PlayerEntity, item *model.Item) *model.InventorySlot {
+func (g *Game) dropPlayerInventoryItem(pe *playerEntity, item *model.Item) *model.InventorySlot {
 	slot := pe.player.InventorySlotWithItem(item.ID)
 	if slot == nil {
 		return nil
@@ -1030,7 +1030,7 @@ func (g *Game) dropPlayerInventoryItem(pe *PlayerEntity, item *model.Item) *mode
 // equipPlayerInventoryItem removes the first occurrence of an item in the player's inventory and adds it to their
 // currently equipped item set. If an item of the same slot type is already equipped, the two will be swapped.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) equipPlayerInventoryItem(pe *PlayerEntity, item *model.Item) {
+func (g *Game) equipPlayerInventoryItem(pe *playerEntity, item *model.Item) {
 	if !item.CanEquip() {
 		return
 	}
@@ -1088,6 +1088,8 @@ func (g *Game) equipPlayerInventoryItem(pe *PlayerEntity, item *model.Item) {
 	equipment.AddSlot(int(item.Attributes.EquipSlotType), invSlot.Item.ID, invSlot.Amount)
 	pe.Send(equipment)
 
+	pe.Send(g.interaction.EquipmentTab.Update(pe.player)...)
+
 	// mark that we need to update the player's appearance if necessary
 	if item.Attributes.EquipSlotType.Visible() {
 		pe.appearanceChanged = true
@@ -1097,7 +1099,7 @@ func (g *Game) equipPlayerInventoryItem(pe *PlayerEntity, item *model.Item) {
 // unequipPlayerInventoryItem removes an equipped item and places it in the player's inventory. The player should have
 // room in their inventory prior to calling this method.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) unequipPlayerInventoryItem(pe *PlayerEntity, item *model.Item, slotType model.EquipmentSlotType) {
+func (g *Game) unequipPlayerInventoryItem(pe *playerEntity, item *model.Item, slotType model.EquipmentSlotType) {
 	// validate the player still has this item equipped
 	slot := pe.player.EquipmentSlot(slotType)
 	if slot == nil {
@@ -1114,6 +1116,8 @@ func (g *Game) unequipPlayerInventoryItem(pe *PlayerEntity, item *model.Item, sl
 	equipment := response.NewSetInventoryItemResponse(g.interaction.EquipmentTab.SlotsID)
 	equipment.ClearSlot(int(item.Attributes.EquipSlotType))
 	pe.Send(equipment)
+
+	pe.Send(g.interaction.EquipmentTab.Update(pe.player)...)
 
 	// mark that we need to update the player's appearance if necessary
 	if slotType.Visible() {
@@ -1164,7 +1168,7 @@ func (g *Game) handleGameUpdate() error {
 		}
 	}
 
-	g.removePlayers = map[int]*PlayerEntity{}
+	g.removePlayers = map[int]*playerEntity{}
 	changedAppearance := map[int]bool{}
 	changedRegions := map[int]bool{}
 
@@ -1348,7 +1352,7 @@ func (g *Game) handleGameUpdate() error {
 
 // handleDeferredActions processes scheduled actions for a player.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) handleDeferredActions(pe *PlayerEntity) {
+func (g *Game) handleDeferredActions(pe *playerEntity) {
 	deferredActions := pe.TickDeferredActions()
 	for _, deferred := range deferredActions {
 		switch deferred.ActionType {
@@ -1382,6 +1386,7 @@ func (g *Game) handleDeferredActions(pe *PlayerEntity) {
 
 		case ActionSendEquipment:
 			g.handleSendPlayerEquipment(pe)
+			pe.Send(g.interaction.EquipmentTab.Update(pe.player)...)
 			pe.RemoveDeferredAction(deferred)
 
 		case ActionSendInventory:
@@ -1453,7 +1458,7 @@ func (g *Game) handleDeferredActions(pe *PlayerEntity) {
 
 // handleSendPlayerSkills handles sending a player their current skill levels and experience.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) handleSendPlayerSkills(pe *PlayerEntity) {
+func (g *Game) handleSendPlayerSkills(pe *playerEntity) {
 	var responses []response.Response
 
 	for _, skill := range pe.player.Skills {
@@ -1465,7 +1470,7 @@ func (g *Game) handleSendPlayerSkills(pe *PlayerEntity) {
 
 // handleSendPlayerEquipment handles sending a player their current equipped items.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) handleSendPlayerEquipment(pe *PlayerEntity) {
+func (g *Game) handleSendPlayerEquipment(pe *playerEntity) {
 	equipment := response.NewSetInventoryItemResponse(g.interaction.EquipmentTab.SlotsID)
 	for _, slotType := range model.EquipmentSlotTypes {
 		slot := pe.player.EquipmentSlot(slotType)
@@ -1481,7 +1486,7 @@ func (g *Game) handleSendPlayerEquipment(pe *PlayerEntity) {
 
 // handleSendPlayerEquipment handles sending a player their current inventory items.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) handleSendPlayerInventory(pe *PlayerEntity) {
+func (g *Game) handleSendPlayerInventory(pe *playerEntity) {
 	inventory := response.NewSetInventoryItemResponse(g.interaction.InventoryTab.SlotsID)
 	for id, slot := range pe.player.Inventory {
 		if slot == nil {
@@ -1496,7 +1501,7 @@ func (g *Game) handleSendPlayerInventory(pe *PlayerEntity) {
 
 // handleSendPlayerInterfaces handles sending a player the tab interface their client should display.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) handleSendPlayerInterfaces(pe *PlayerEntity) {
+func (g *Game) handleSendPlayerInterfaces(pe *playerEntity) {
 	var responses []response.Response
 
 	for _, tab := range model.ClientTabs {
@@ -1516,14 +1521,14 @@ func (g *Game) handleSendPlayerInterfaces(pe *PlayerEntity) {
 
 // handleSendPlayerModes handles sending a player their current chat modes.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) handleSendPlayerModes(pe *PlayerEntity) {
+func (g *Game) handleSendPlayerModes(pe *playerEntity) {
 	modes := response.NewSetModesResponse(pe.player.Modes.PublicChat, pe.player.Modes.PrivateChat, pe.player.Modes.Interaction)
 	pe.Send(modes)
 }
 
 // handleSendPlayerFriendList handles sending a player their friends list and the status of each friend.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) handleSendPlayerFriendList(pe *PlayerEntity) {
+func (g *Game) handleSendPlayerFriendList(pe *playerEntity) {
 	// tell the client the list is loading
 	status := response.NewFriendsListStatusResponse(model.FriendsListStatusLoading)
 	pe.Send(status)
@@ -1552,21 +1557,21 @@ func (g *Game) handleSendPlayerFriendList(pe *PlayerEntity) {
 
 // handleSendPlayerIgnoreList handles sending a player their ignore list.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) handleSendPlayerIgnoreList(pe *PlayerEntity) {
+func (g *Game) handleSendPlayerIgnoreList(pe *playerEntity) {
 	ignored := response.NewIgnoredListResponse(pe.player.Ignored)
 	pe.Send(ignored)
 }
 
 // handleServerMessage handles sending a player a server message.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) handleServerMessage(pe *PlayerEntity, message string) {
+func (g *Game) handleServerMessage(pe *playerEntity, message string) {
 	msg := response.NewServerMessageResponse(message)
 	pe.Send(msg)
 }
 
 // handlePlayerSwapInventoryItem handles moving an item from one slot to another in a player's inventory.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) handlePlayerSwapInventoryItem(pe *PlayerEntity, action *MoveInventoryItemAction) {
+func (g *Game) handlePlayerSwapInventoryItem(pe *playerEntity, action *MoveInventoryItemAction) {
 	inventory := response.NewSetInventoryItemResponse(g.interaction.InventoryTab.SlotsID)
 
 	// make sure there is still an item at the starting slot

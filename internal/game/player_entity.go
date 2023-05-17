@@ -1,6 +1,7 @@
 package game
 
 import (
+	"github.com/mbpolan/openmcs/internal/logger"
 	"github.com/mbpolan/openmcs/internal/model"
 	"github.com/mbpolan/openmcs/internal/network"
 	"github.com/mbpolan/openmcs/internal/network/response"
@@ -8,11 +9,14 @@ import (
 	"time"
 )
 
-// PlayerEntity represents a player and their state while they are logged into the game world.
-type PlayerEntity struct {
+// maxQueueSize is the maximum amount of responses queued for a player to receive.
+const maxQueueSize = 100
+
+// playerEntity represents a player and their state while they are logged into the game world.
+type playerEntity struct {
 	lastInteraction     time.Time
 	player              *model.Player
-	tracking            map[int]*PlayerEntity
+	tracking            map[int]*playerEntity
 	changeChan          chan bool
 	doneChan            chan bool
 	outChan             chan response.Response
@@ -38,23 +42,23 @@ type playerStatusBroadcast struct {
 }
 
 // newPlayerEntity creates a new player entity.
-func newPlayerEntity(p *model.Player, w *network.ProtocolWriter) *PlayerEntity {
+func newPlayerEntity(p *model.Player, w *network.ProtocolWriter) *playerEntity {
 	changeChan := make(chan bool)
 
-	return &PlayerEntity{
+	return &playerEntity{
 		lastInteraction:  time.Now(),
 		player:           p,
-		tracking:         map[int]*PlayerEntity{},
+		tracking:         map[int]*playerEntity{},
 		changeChan:       changeChan,
 		doneChan:         make(chan bool, 1),
-		outChan:          make(chan response.Response, 50),
+		outChan:          make(chan response.Response, maxQueueSize),
 		privateMessageID: 1,
 		writer:           w,
 	}
 }
 
 // MarkStatusBroadcast marks that this player's online/offline status should be broadcast to everyone.
-func (pe *PlayerEntity) MarkStatusBroadcast() {
+func (pe *playerEntity) MarkStatusBroadcast() {
 	if pe.nextStatusBroadcast == nil {
 		pe.nextStatusBroadcast = &playerStatusBroadcast{}
 	}
@@ -63,7 +67,7 @@ func (pe *PlayerEntity) MarkStatusBroadcast() {
 }
 
 // MarkStatusBroadcastTarget adds a target to receive this player's online/offline status.
-func (pe *PlayerEntity) MarkStatusBroadcastTarget(target string) {
+func (pe *playerEntity) MarkStatusBroadcastTarget(target string) {
 	if pe.nextStatusBroadcast == nil {
 		pe.nextStatusBroadcast = &playerStatusBroadcast{}
 	}
@@ -73,7 +77,7 @@ func (pe *PlayerEntity) MarkStatusBroadcastTarget(target string) {
 
 // MoveDirection returns the direction the player is currently moving in. If the player is not moving, then
 // model.DirectionNone will be returned.
-func (pe *PlayerEntity) MoveDirection() model.Direction {
+func (pe *playerEntity) MoveDirection() model.Direction {
 	if !pe.Walking() {
 		return model.DirectionNone
 	}
@@ -82,18 +86,19 @@ func (pe *PlayerEntity) MoveDirection() model.Direction {
 }
 
 // Walking determines if the player is walking to a destination.
-func (pe *PlayerEntity) Walking() bool {
+func (pe *playerEntity) Walking() bool {
 	return pe.nextPathIdx < len(pe.path)
 }
 
 // Send adds one or more responses that will be sent to the player.
-func (pe *PlayerEntity) Send(responses ...response.Response) {
+func (pe *playerEntity) Send(responses ...response.Response) {
 	for _, resp := range responses {
 		select {
 		case pe.outChan <- resp:
 
 		default:
 			// write to the done chan since this player is too far behind on responses
+			logger.Warnf("overflow in player %d response queue", pe.player.ID)
 			pe.Drop()
 			return
 		}
@@ -101,7 +106,7 @@ func (pe *PlayerEntity) Send(responses ...response.Response) {
 }
 
 // Drop flags that this player should be disconnected and no more responses should be sent to the client.
-func (pe *PlayerEntity) Drop() {
+func (pe *playerEntity) Drop() {
 	select {
 	case pe.doneChan <- true:
 	default:
@@ -110,7 +115,7 @@ func (pe *PlayerEntity) Drop() {
 
 // TickDeferredActions decrements the tick delay on all deferred actions and returns a slice of actions that are ready
 // for processing.
-func (pe *PlayerEntity) TickDeferredActions() []*Action {
+func (pe *playerEntity) TickDeferredActions() []*Action {
 	var expired []*Action
 
 	for _, deferred := range pe.deferredActions {
@@ -127,7 +132,7 @@ func (pe *PlayerEntity) TickDeferredActions() []*Action {
 }
 
 // RemoveDeferredAction removes a deferred action.
-func (pe *PlayerEntity) RemoveDeferredAction(action *Action) {
+func (pe *playerEntity) RemoveDeferredAction(action *Action) {
 	for i, deferred := range pe.deferredActions {
 		if deferred == action {
 			pe.deferredActions = append(pe.deferredActions[:i], pe.deferredActions[i+1:]...)
@@ -137,7 +142,7 @@ func (pe *PlayerEntity) RemoveDeferredAction(action *Action) {
 }
 
 // DeferMoveInventoryItem plans an action to move an item in the player's inventory from one slot to another.
-func (pe *PlayerEntity) DeferMoveInventoryItem(fromSlot, toSlot int) {
+func (pe *playerEntity) DeferMoveInventoryItem(fromSlot, toSlot int) {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionMoveInventoryItem,
 		TickDelay:  1,
@@ -149,7 +154,7 @@ func (pe *PlayerEntity) DeferMoveInventoryItem(fromSlot, toSlot int) {
 }
 
 // DeferSendServerMessage plans an action to send a player a server message.
-func (pe *PlayerEntity) DeferSendServerMessage(message string) {
+func (pe *playerEntity) DeferSendServerMessage(message string) {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionSendServerMessage,
 		TickDelay:  0,
@@ -160,7 +165,7 @@ func (pe *PlayerEntity) DeferSendServerMessage(message string) {
 }
 
 // DeferSendSkills plans an action to send a player their current skill stats.
-func (pe *PlayerEntity) DeferSendSkills() {
+func (pe *playerEntity) DeferSendSkills() {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionSendSkills,
 		TickDelay:  1,
@@ -168,7 +173,7 @@ func (pe *PlayerEntity) DeferSendSkills() {
 }
 
 // DeferSendInterfaces plans an action to send a player the client tab interface to display.
-func (pe *PlayerEntity) DeferSendInterfaces() {
+func (pe *playerEntity) DeferSendInterfaces() {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionSendInterfaces,
 		TickDelay:  1,
@@ -176,7 +181,7 @@ func (pe *PlayerEntity) DeferSendInterfaces() {
 }
 
 // DeferSendModes plans an action to send a player their current chat modes.
-func (pe *PlayerEntity) DeferSendModes() {
+func (pe *playerEntity) DeferSendModes() {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionSendModes,
 		TickDelay:  1,
@@ -184,7 +189,7 @@ func (pe *PlayerEntity) DeferSendModes() {
 }
 
 // DeferSendEquipment plans an action to send a player their current equipped items.
-func (pe *PlayerEntity) DeferSendEquipment() {
+func (pe *playerEntity) DeferSendEquipment() {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionSendEquipment,
 		TickDelay:  1,
@@ -192,7 +197,7 @@ func (pe *PlayerEntity) DeferSendEquipment() {
 }
 
 // DeferSendInventory plans an action to send a player their current inventory items.
-func (pe *PlayerEntity) DeferSendInventory() {
+func (pe *playerEntity) DeferSendInventory() {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionSendInventory,
 		TickDelay:  1,
@@ -200,7 +205,7 @@ func (pe *PlayerEntity) DeferSendInventory() {
 }
 
 // DeferSendFriendList plans an action to send a player their friend list and each friend's status.
-func (pe *PlayerEntity) DeferSendFriendList() {
+func (pe *playerEntity) DeferSendFriendList() {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionSendFriendList,
 		TickDelay:  1,
@@ -208,7 +213,7 @@ func (pe *PlayerEntity) DeferSendFriendList() {
 }
 
 // DeferSendIgnoreList plans an action to send a player their ignore list.
-func (pe *PlayerEntity) DeferSendIgnoreList() {
+func (pe *playerEntity) DeferSendIgnoreList() {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionSendIgnoreList,
 		TickDelay:  1,
@@ -217,7 +222,7 @@ func (pe *PlayerEntity) DeferSendIgnoreList() {
 
 // DeferTakeGroundItemAction sets the player's pending action to pick up a specific ground Item at a position, in
 // global coordinates. This will overwrite any previously deferred action.
-func (pe *PlayerEntity) DeferTakeGroundItemAction(item *model.Item, globalPos model.Vector3D) {
+func (pe *playerEntity) DeferTakeGroundItemAction(item *model.Item, globalPos model.Vector3D) {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionTakeGroundItem,
 		TickDelay:  1,
@@ -230,7 +235,7 @@ func (pe *PlayerEntity) DeferTakeGroundItemAction(item *model.Item, globalPos mo
 
 // DeferDropInventoryItem sets the player's pending action to drop an inventory Item. This will overwrite any previously
 // deferred action.
-func (pe *PlayerEntity) DeferDropInventoryItem(item *model.Item, interfaceID, secondaryActionID int) {
+func (pe *playerEntity) DeferDropInventoryItem(item *model.Item, interfaceID, secondaryActionID int) {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionDropInventoryItem,
 		TickDelay:  1,
@@ -244,7 +249,7 @@ func (pe *PlayerEntity) DeferDropInventoryItem(item *model.Item, interfaceID, se
 
 // DeferEquipItem sets the player's pending action to equip an inventory Item. This will overwrite any previously
 // deferred action.
-func (pe *PlayerEntity) DeferEquipItem(item *model.Item, interfaceID int) {
+func (pe *playerEntity) DeferEquipItem(item *model.Item, interfaceID int) {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionEquipItem,
 		TickDelay:  1,
@@ -257,7 +262,7 @@ func (pe *PlayerEntity) DeferEquipItem(item *model.Item, interfaceID int) {
 
 // DeferUnequipItem sets the player's pending action to equip an inventory Item. This will overwrite any previously
 // deferred action.
-func (pe *PlayerEntity) DeferUnequipItem(item *model.Item, interfaceID int, slotType model.EquipmentSlotType) {
+func (pe *playerEntity) DeferUnequipItem(item *model.Item, interfaceID int, slotType model.EquipmentSlotType) {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionUnequipItem,
 		TickDelay:  1,
