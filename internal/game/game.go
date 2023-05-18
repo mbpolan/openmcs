@@ -891,6 +891,14 @@ func (g *Game) handleChatCommand(pe *playerEntity, command *ChatCommand) {
 	case ChatCommandCharacterDesigner:
 		// open the character designer interface
 		pe.DeferShowInterface(g.interaction.CharacterDesigner.ID)
+
+	case ChatCommandShowInterface:
+		// show an interface
+		pe.DeferShowInterface(command.ShowInterface.InterfaceID)
+
+	case ChatCommandHideInterfaces:
+		// clear all interfaces
+		pe.DeferHideInterfaces()
 	}
 }
 

@@ -15,6 +15,8 @@ const (
 	ChatCommandTypePosition
 	ChatCommandTeleport
 	ChatCommandTeleportRelative
+	ChatCommandShowInterface
+	ChatCommandHideInterfaces
 	ChatCommandCharacterDesigner
 )
 
@@ -25,11 +27,17 @@ type ChatCommandSpawnItemParams struct {
 	DespawnTimeSeconds *int
 }
 
+// ChatCommandShowInterfaceParams contains parameters for showing an interface.
+type ChatCommandShowInterfaceParams struct {
+	InterfaceID int
+}
+
 // ChatCommand is a game command embedded in a player chat message.
 type ChatCommand struct {
-	Type      ChatCommandType
-	Pos       model.Vector3D
-	SpawnItem *ChatCommandSpawnItemParams
+	Type          ChatCommandType
+	Pos           model.Vector3D
+	SpawnItem     *ChatCommandSpawnItemParams
+	ShowInterface *ChatCommandShowInterfaceParams
 }
 
 // ParseChatCommand attempts to parse a chat command from a string of text. If no recognized command is found, then
@@ -172,6 +180,30 @@ func ParseChatCommand(text string) *ChatCommand {
 	case "design":
 		return &ChatCommand{
 			Type: ChatCommandCharacterDesigner,
+		}
+
+	case "inf":
+		// show an interface
+		if len(args) < 1 {
+			return nil
+		}
+
+		// first required argument is a numeric interface id
+		interfaceID, err := strconv.Atoi(args[0])
+		if err != nil {
+			return nil
+		}
+
+		return &ChatCommand{
+			Type: ChatCommandShowInterface,
+			ShowInterface: &ChatCommandShowInterfaceParams{
+				InterfaceID: interfaceID,
+			},
+		}
+
+	case "clear":
+		return &ChatCommand{
+			Type: ChatCommandHideInterfaces,
 		}
 
 	default:
