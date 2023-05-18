@@ -630,9 +630,9 @@ func (p *PlayerUpdateResponse) appearanceIDForSlot(ea *entityAppearance, slot in
 
 	switch slot {
 	case 0:
-		return a.Base.Head
+		return p.appearanceID(a.Base.Head)
 	case 1:
-		return a.Base.Face
+		return p.appearanceID(a.Base.Face)
 	case 2:
 		return p.equippedItemIDOrDefault(ea, model.EquipmentSlotTypeNecklace, 0)
 	case 3:
@@ -646,7 +646,7 @@ func (p *PlayerUpdateResponse) appearanceIDForSlot(ea *entityAppearance, slot in
 	case 7:
 		return p.equippedItemIDOrDefault(ea, model.EquipmentSlotTypeLegs, a.Base.Legs)
 	case 8:
-		return a.Base.Arms
+		return p.appearanceID(a.Base.Arms)
 	case 9:
 		return p.equippedItemIDOrDefault(ea, model.EquipmentSlotTypeHands, a.Base.Hands)
 	case 10:
@@ -660,13 +660,26 @@ func (p *PlayerUpdateResponse) appearanceIDForSlot(ea *entityAppearance, slot in
 	return 0
 }
 
+// appearanceID returns an ID for a non-item appearance slot.
+func (p *PlayerUpdateResponse) appearanceID(id int) int {
+	// if this appearance slot is disabled (ie: female characters don't have facial hair appearance slots), use 0x00
+	// otherwise, if the id is less than 0x100, offset it by that amount to match up with client expectations
+	if id == -1 {
+		return 0x00
+	} else if id < 0x100 {
+		return id + 0x100
+	}
+
+	return id
+}
+
 // equippedItemIDOrDefault returns the item ID of an entity's equipment, or a default ID if nothing is equipped there.
-func (p *PlayerUpdateResponse) equippedItemIDOrDefault(ea *entityAppearance, slotType model.EquipmentSlotType, i int) int {
+func (p *PlayerUpdateResponse) equippedItemIDOrDefault(ea *entityAppearance, slotType model.EquipmentSlotType, id int) int {
 	slot, ok := ea.appearance.Equipment[slotType]
 	if ok {
 		// offset the appearance id to differentiate it from the non-item ids
 		return slot.Item.ID + 0x200
 	}
 
-	return i
+	return p.appearanceID(id)
 }

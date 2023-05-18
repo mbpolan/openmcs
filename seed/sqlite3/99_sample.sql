@@ -14,9 +14,9 @@ INSERT INTO PLAYER_APPEARANCE (
     PLAYER_ID, HEAD_ID, FACE_ID, BODY_ID, ARMS_ID, HANDS_ID, LEGS_ID, FEET_ID
 ) VALUES
     -- mike
-    (1, 256, 266, 274, 282, 289, 292, 298),
+    (1, 0, 10, 18, 26, 33, 36, 42),
     -- hurz
-    (2, 256, 266, 274, 282, 289, 292, 298)
+    (2, 0, 10, 18, 26, 33, 36, 42),
 ;
 
 -- initialize skills for players

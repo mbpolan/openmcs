@@ -48,7 +48,11 @@ func (p *CharacterDesignRequest) Read(r *network.ProtocolReader) error {
 			return err
 		}
 
-		id := int(b) + 0x100
+		// if a slot is unused, 0xFF will be sent instead of the appearance id
+		id := int(b)
+		if id == 0xFF {
+			id = -1
+		}
 
 		switch i {
 		case 0:
