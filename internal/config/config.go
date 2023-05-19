@@ -47,6 +47,7 @@ type InterfacesConfig struct {
 	Logout            SimpleInterfaceConfig       `mapstructure:"logout"`
 	Inventory         InventoryTabInterfaceConfig `mapstructure:"inventory"`
 	Skills            SimpleInterfaceConfig       `mapstructure:"skills"`
+	Weapon            WeaponTabInterfaceConfig    `mapstructure:"weapon"`
 }
 
 // SimpleInterfaceConfig contains data for a simple tab interface.
@@ -81,6 +82,29 @@ type EquipmentTabBonusInterfaceConfig struct {
 	Crush int `mapstructure:"crush"`
 	Magic int `mapstructure:"magic"`
 	Range int `mapstructure:"range"`
+}
+
+// WeaponTabInterfaceConfig contains interface data for equipped weapon interfaces.
+type WeaponTabInterfaceConfig struct {
+	TwoHandedSword int `mapstructure:"2hSword"`
+	Axe            int `mapstructure:"axe"`
+	Bow            int `mapstructure:"bow"`
+	Blunt          int `mapstructure:"blunt"`
+	Claws          int `mapstructure:"claws"`
+	Crossbow       int `mapstructure:"crossbow"`
+	Gun            int `mapstructure:"gun"`
+	Pickaxe        int `mapstructure:"pickaxe"`
+	PoleArm        int `mapstructure:"polearm"`
+	PoleStaff      int `mapstructure:"polestaff"`
+	Scythe         int `mapstructure:"scythe"`
+	SlashSword     int `mapstructure:"slashSword"`
+	Spear          int `mapstructure:"spear"`
+	Spiked         int `mapstructure:"spiked"`
+	StabSword      int `mapstructure:"stabSword"`
+	Staff          int `mapstructure:"staff"`
+	Thrown         int `mapstructure:"thrown"`
+	Whip           int `mapstructure:"whip"`
+	Unarmed        int `mapstructure:"unarmed"`
 }
 
 // Load reads the game server configuration file from the given path.

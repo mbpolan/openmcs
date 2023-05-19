@@ -21,6 +21,8 @@ type Manager struct {
 	InventoryTab *InventoryTabInterface
 	// SkillsTab is the interface for a player's skills.
 	SkillsTab *SimpleInterface
+	// WeaponTab is the set of interfaces for a player's equipped weapon.
+	WeaponTab *WeaponTabInterface
 
 	config config.InterfacesConfig
 }
@@ -36,6 +38,7 @@ func New(cfg config.InterfacesConfig) *Manager {
 		LogoutTab:         newSimpleInterface(cfg.Logout.ID),
 		InventoryTab:      newInventoryTabInterface(cfg.Inventory),
 		SkillsTab:         newSimpleInterface(cfg.Skills.ID),
+		WeaponTab:         newWeaponTabInterface(cfg.Weapon),
 	}
 }
 
