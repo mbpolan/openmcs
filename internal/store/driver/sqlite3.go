@@ -29,6 +29,28 @@ var slotIDsToEquipmentSlots = map[int]model.EquipmentSlotType{
 	13: model.EquipmentSlotTypeAmmo,
 }
 
+// weaponStyleValues maps database values for a weapon style to a model.WeaponStyle enum.
+var weaponStyleValues = map[string]model.WeaponStyle{
+	"2H_SWORD":    model.WeaponStyle2HSword,
+	"AXE":         model.WeaponStyleAxe,
+	"BOW":         model.WeaponStyleBow,
+	"BLUNT":       model.WeaponStyleBlunt,
+	"CLAW":        model.WeaponStyleClaw,
+	"CROSSBOW":    model.WeaponStyleCrossbow,
+	"GUN":         model.WeaponStyleGun,
+	"PICKAXE":     model.WeaponStylePickaxe,
+	"POLEARM":     model.WeaponStylePoleArm,
+	"POLESTAFF":   model.WeaponStylePoleStaff,
+	"SCYTHE":      model.WeaponStyleScythe,
+	"SLASH_SWORD": model.WeaponStyleSlashSword,
+	"SPEAR":       model.WeaponStyleSpear,
+	"SPIKED":      model.WeaponStyleSpiked,
+	"STAB_SWORD":  model.WeaponStyleStabSword,
+	"STAFF":       model.WeaponStyleStaff,
+	"THROWN":      model.WeaponStyleThrown,
+	"WHIP":        model.WeaponStyleWhip,
+}
+
 // SQLite3Driver is a driver that interfaces with a SQLite3 database.
 type SQLite3Driver struct {
 	db *sql.DB
@@ -63,7 +85,7 @@ func (s *SQLite3Driver) LoadItemAttributes() ([]*model.ItemAttributes, error) {
 		    EQUIP_SLOT_ID,
 		    SPEED,
 		    WEIGHT,
-		    TWO_HANDED,
+		    WEAPON_STYLE,
 		    ATTACK_STAB,
 			ATTACK_SLASH,
 			ATTACK_CRUSH,
@@ -94,12 +116,13 @@ func (s *SQLite3Driver) LoadItemAttributes() ([]*model.ItemAttributes, error) {
 	for rows.Next() {
 		var itemID int
 		var weight float64
-		var slotID, speed, twoHanded sql.NullInt32
+		var weaponStyleStr sql.NullString
+		var slotID, speed sql.NullInt32
 		var atkStab, atkSlash, atkCrush, atkMagic, atkRange sql.NullInt32
 		var defStab, defSlash, defCrush, defMagic, defRange sql.NullInt32
 		var strength, prayer sql.NullInt32
 
-		err := rows.Scan(&itemID, &slotID, &speed, &weight, &twoHanded,
+		err := rows.Scan(&itemID, &slotID, &speed, &weight, &weaponStyleStr,
 			&atkStab, &atkSlash, &atkCrush, &atkMagic, &atkRange,
 			&defStab, &defSlash, &defCrush, &defMagic, &defRange,
 			&strength, &prayer)
@@ -109,11 +132,12 @@ func (s *SQLite3Driver) LoadItemAttributes() ([]*model.ItemAttributes, error) {
 
 		nature := model.ItemNatureNotUsable
 		if slotID.Valid {
-			if twoHanded.Valid && twoHanded.Int32 == 1 {
-				nature |= model.ItemNatureEquipmentTwoHanded
-			} else {
-				nature |= model.ItemNatureEquipmentOneHanded
-			}
+			nature = model.ItemNatureEquippable
+		}
+
+		weaponStyle := model.WeaponStyleNone
+		if weaponStyleStr.Valid {
+			weaponStyle = weaponStyleValues[weaponStyleStr.String]
 		}
 
 		equipSlotID := model.EquipmentSlotTypeHead
@@ -130,6 +154,7 @@ func (s *SQLite3Driver) LoadItemAttributes() ([]*model.ItemAttributes, error) {
 			ItemID:        itemID,
 			Nature:        nature,
 			EquipSlotType: equipSlotID,
+			WeaponStyle:   weaponStyle,
 			Speed:         itemSpeed,
 			Weight:        weight,
 			Attack: model.ItemCombatAttributes{

@@ -400,8 +400,13 @@ CREATE TABLE ITEM_ATTRIBUTES (
     EQUIP_SLOT_ID INTEGER NULL,
     -- the speed at which this item deals damage
     SPEED INTEGER NULL,
-    -- flag if the item requires two hand slots to wield
-    TWO_HANDED INT NULL,
+    -- weapon attack style
+    WEAPON_STYLE TEXT NULL CHECK (
+        WEAPON_STYLE IN (
+            '2H_SWORD', 'AXE', 'BOW', 'BLUNT', 'CLAW', 'CROSSBOW', 'GUN', 'PICKAXE', 'POLEARM', 'POLESTAFF',
+            'SCYTHE', 'SLASH_SWORD', 'SPEAR', 'SPIKED', 'STAB_SWORD', 'STAFF', 'THROWN', 'WHIP'
+        )
+    ),
     -- the weight of the item
     WEIGHT REAL NOT NULL,
     -- the offensive stab bonus

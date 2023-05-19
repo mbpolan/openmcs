@@ -16,7 +16,7 @@ INSERT INTO PLAYER_APPEARANCE (
     -- mike
     (1, 0, 10, 18, 26, 33, 36, 42),
     -- hurz
-    (2, 0, 10, 18, 26, 33, 36, 42),
+    (2, 0, 10, 18, 26, 33, 36, 42)
 ;
 
 -- initialize skills for players

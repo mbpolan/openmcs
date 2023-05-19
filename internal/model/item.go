@@ -4,9 +4,33 @@ package model
 type ItemNature int
 
 const (
-	ItemNatureNotUsable          ItemNature = 0
-	ItemNatureEquipmentOneHanded ItemNature = 1 << iota
-	ItemNatureEquipmentTwoHanded
+	ItemNatureNotUsable ItemNature = iota
+	ItemNatureEquippable
+)
+
+// WeaponStyle enumerates the possible attack styles of a weapon.
+type WeaponStyle int
+
+const (
+	WeaponStyleNone WeaponStyle = iota
+	WeaponStyle2HSword
+	WeaponStyleAxe
+	WeaponStyleBow
+	WeaponStyleBlunt
+	WeaponStyleClaw
+	WeaponStyleCrossbow
+	WeaponStyleGun
+	WeaponStylePickaxe
+	WeaponStylePoleArm
+	WeaponStylePoleStaff
+	WeaponStyleScythe
+	WeaponStyleSlashSword
+	WeaponStyleSpear
+	WeaponStyleSpiked
+	WeaponStyleStabSword
+	WeaponStyleStaff
+	WeaponStyleThrown
+	WeaponStyleWhip
 )
 
 // ItemStackable is a descriptor of sprites to use for certain item stackable thresholds.
@@ -32,6 +56,8 @@ type ItemAttributes struct {
 	Nature ItemNature
 	// EquipSlotType is the equipment slot where the item is equipped to.
 	EquipSlotType EquipmentSlotType
+	// WeaponStyle is the set of attack options for a weapon item.
+	WeaponStyle WeaponStyle
 	// Speed is the amount of milliseconds between item actions.
 	Speed int
 	// Weight is the weight of the item.
@@ -70,5 +96,5 @@ func (i *Item) CanEquip() bool {
 		return false
 	}
 
-	return i.Attributes.Nature&ItemNatureEquipmentOneHanded != 0 || i.Attributes.Nature&ItemNatureEquipmentTwoHanded != 0
+	return i.Attributes.Nature&ItemNatureEquippable != 0
 }
