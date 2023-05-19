@@ -42,14 +42,16 @@ func New(cfg config.InterfacesConfig) *Manager {
 	}
 }
 
-// ClientTabInterfaces returns a map of client tab interfaces to the IDs of interfaces to render on the client.
-func (m *Manager) ClientTabInterfaces() map[model.ClientTab]int {
+// ClientTabInterfaces returns a map of client tab interfaces to the IDs of interfaces to render on the client. The
+// weaponStyle is the attack style of the equipped weapon, if any.
+func (m *Manager) ClientTabInterfaces(weaponStyle model.WeaponStyle) map[model.ClientTab]int {
 	return map[model.ClientTab]int{
-		model.ClientTabSkills:      m.SkillsTab.ID,
-		model.ClientTabInventory:   m.InventoryTab.ID,
-		model.ClientTabEquipment:   m.EquipmentTab.ID,
-		model.ClientTabFriendsList: m.FriendListTab.ID,
-		model.ClientTabIgnoreList:  m.IgnoreListTab.ID,
-		model.ClientTabLogout:      m.LogoutTab.ID,
+		model.ClientTabEquippedItem: m.WeaponTab.IDForWeaponStyle(weaponStyle),
+		model.ClientTabSkills:       m.SkillsTab.ID,
+		model.ClientTabInventory:    m.InventoryTab.ID,
+		model.ClientTabEquipment:    m.EquipmentTab.ID,
+		model.ClientTabFriendsList:  m.FriendListTab.ID,
+		model.ClientTabIgnoreList:   m.IgnoreListTab.ID,
+		model.ClientTabLogout:       m.LogoutTab.ID,
 	}
 }

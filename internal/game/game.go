@@ -412,7 +412,7 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	}
 
 	// set initial client tab interface
-	pe.tabInterfaces = g.interaction.ClientTabInterfaces()
+	pe.tabInterfaces = g.interaction.ClientTabInterfaces(pe.player.EquippedWeaponStyle())
 
 	// add the player to the player list
 	g.mu.Lock()
@@ -1123,7 +1123,10 @@ func (g *Game) equipPlayerInventoryItem(pe *playerEntity, item *model.Item) {
 	equipment.AddSlot(int(item.Attributes.EquipSlotType), invSlot.Item.ID, invSlot.Amount)
 	pe.Send(equipment)
 
+	// update the player's equipment interface and their equipped weapon interface tabs
 	pe.Send(g.interaction.EquipmentTab.Update(pe.player)...)
+	pe.Send(response.NewSidebarInterfaceResponse(model.ClientTabEquippedItem,
+		g.interaction.WeaponTab.IDForWeaponStyle(pe.player.EquippedWeaponStyle())))
 
 	// mark that we need to update the player's appearance if necessary
 	if item.Attributes.EquipSlotType.Visible() {
@@ -1152,7 +1155,10 @@ func (g *Game) unequipPlayerInventoryItem(pe *playerEntity, item *model.Item, sl
 	equipment.ClearSlot(int(item.Attributes.EquipSlotType))
 	pe.Send(equipment)
 
+	// update the player's equipment interface and their equipped weapon interface tabs
 	pe.Send(g.interaction.EquipmentTab.Update(pe.player)...)
+	pe.Send(response.NewSidebarInterfaceResponse(model.ClientTabEquippedItem,
+		g.interaction.WeaponTab.IDForWeaponStyle(pe.player.EquippedWeaponStyle())))
 
 	// mark that we need to update the player's appearance if necessary
 	if slotType.Visible() {

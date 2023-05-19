@@ -89,7 +89,7 @@ interfaces:
     staff: 328
     thrown: 4446
     whip: 12290
-    unarmed: 4705
+    unarmed: 5855
   # skills tab interface
   skills:
     id: 3917

@@ -87,6 +87,16 @@ func (p *Player) SetSkill(skill *Skill) {
 	p.recomputeSkills()
 }
 
+// EquippedWeaponStyle returns the attack style of the player's equipped weapon, if any.
+func (p *Player) EquippedWeaponStyle() WeaponStyle {
+	slot, ok := p.Appearance.Equipment[EquipmentSlotTypeWeapon]
+	if !ok || slot.Item.Attributes == nil {
+		return WeaponStyleNone
+	}
+
+	return slot.Item.Attributes.WeaponStyle
+}
+
 // SetEquippedItem sets an item to be equipped at a slot.
 func (p *Player) SetEquippedItem(item *Item, amount int, slot EquipmentSlotType) {
 	p.Appearance.Equipment[slot] = &EquipmentSlot{

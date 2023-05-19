@@ -21,7 +21,7 @@ func newWeaponTabInterface(cfg config.WeaponTabInterfaceConfig) *WeaponTabInterf
 func (t *WeaponTabInterface) IDForWeaponStyle(style model.WeaponStyle) int {
 	switch style {
 	case model.WeaponStyleNone:
-		return 0
+		return t.config.Unarmed
 	case model.WeaponStyle2HSword:
 		return t.config.TwoHandedSword
 	case model.WeaponStyleAxe:
