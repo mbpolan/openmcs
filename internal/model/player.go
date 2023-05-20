@@ -45,6 +45,8 @@ type Player struct {
 	Ignored      []string
 	Skills       SkillMap
 	Inventory    [MaxInventorySlots]*InventorySlot
+	CombatStats  EntityCombatStats
+	UpdateDesign bool
 }
 
 // PlayerModes indicates what types of chat and interactions a player wishes to receive.
@@ -85,6 +87,16 @@ func (p *Player) SetSkill(skill *Skill) {
 	p.recomputeSkills()
 }
 
+// EquippedWeaponStyle returns the attack style of the player's equipped weapon, if any.
+func (p *Player) EquippedWeaponStyle() WeaponStyle {
+	slot, ok := p.Appearance.Equipment[EquipmentSlotTypeWeapon]
+	if !ok || slot.Item.Attributes == nil {
+		return WeaponStyleNone
+	}
+
+	return slot.Item.Attributes.WeaponStyle
+}
+
 // SetEquippedItem sets an item to be equipped at a slot.
 func (p *Player) SetEquippedItem(item *Item, amount int, slot EquipmentSlotType) {
 	p.Appearance.Equipment[slot] = &EquipmentSlot{
@@ -92,11 +104,13 @@ func (p *Player) SetEquippedItem(item *Item, amount int, slot EquipmentSlotType)
 		Item:     item,
 		Amount:   amount,
 	}
+	p.recomputeCombatStats()
 }
 
 // ClearEquippedItem removes any equipped item at a slot.
 func (p *Player) ClearEquippedItem(slot EquipmentSlotType) {
 	delete(p.Appearance.Equipment, slot)
+	p.recomputeCombatStats()
 }
 
 // EquipmentSlot returns an EquipmentSlot for a slot. If no item is equipped, nil will be returned instead.
@@ -207,4 +221,32 @@ func (p *Player) recomputeSkills() {
 
 	// compute the final combat level
 	p.Appearance.CombatLevel = int(math.Floor(base + math.Max(math.Max(melee, ranged), magic)))
+}
+
+// recomputeCombatStats updates the player's combat statistics based on their equipment.
+func (p *Player) recomputeCombatStats() {
+	stats := EntityCombatStats{}
+
+	for _, slot := range p.Appearance.Equipment {
+		if slot.Item.Attributes == nil {
+			continue
+		}
+
+		stats.Attack.Stab += slot.Item.Attributes.Attack.Stab
+		stats.Attack.Slash += slot.Item.Attributes.Attack.Slash
+		stats.Attack.Crush += slot.Item.Attributes.Attack.Crush
+		stats.Attack.Magic += slot.Item.Attributes.Attack.Magic
+		stats.Attack.Range += slot.Item.Attributes.Attack.Range
+
+		stats.Defense.Stab += slot.Item.Attributes.Defense.Stab
+		stats.Defense.Slash += slot.Item.Attributes.Defense.Slash
+		stats.Defense.Crush += slot.Item.Attributes.Defense.Crush
+		stats.Defense.Magic += slot.Item.Attributes.Defense.Magic
+		stats.Defense.Range += slot.Item.Attributes.Defense.Range
+
+		stats.Strength += slot.Item.Attributes.StrengthBonus
+		stats.Prayer += slot.Item.Attributes.PrayerBonus
+	}
+
+	p.CombatStats = stats
 }

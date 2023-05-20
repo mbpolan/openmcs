@@ -23,6 +23,8 @@ CREATE TABLE PLAYER (
     GLOBAL_Z INTEGER NOT NULL,
     -- character gender
     GENDER INTEGER NOT NULL,
+    -- flag if the player should be shown the character designer interface
+    UPDATE_DESIGN INTEGER NOT NULL,
     -- flag if the player's client should send anti-cheating metadata
     FLAGGED INTEGER NOT NULL,
     -- flag if the player is muted
@@ -398,10 +400,39 @@ CREATE TABLE ITEM_ATTRIBUTES (
     EQUIP_SLOT_ID INTEGER NULL,
     -- the speed at which this item deals damage
     SPEED INTEGER NULL,
-    -- flag if the item requires two hand slots to wield
-    TWO_HANDED INT NULL,
+    -- weapon attack style
+    WEAPON_STYLE TEXT NULL CHECK (
+        WEAPON_STYLE IN (
+            '2H_SWORD', 'AXE', 'BOW', 'BLUNT', 'CLAW', 'CROSSBOW', 'GUN', 'PICKAXE', 'POLEARM', 'POLESTAFF',
+            'SCYTHE', 'SLASH_SWORD', 'SPEAR', 'SPIKED', 'STAB_SWORD', 'STAFF', 'THROWN', 'WHIP'
+        )
+    ),
     -- the weight of the item
     WEIGHT REAL NOT NULL,
+    -- the offensive stab bonus
+    ATTACK_STAB INT NULL,
+    -- the offensive slash bonus
+    ATTACK_SLASH INT NULL,
+    -- the offensive crush bonus
+    ATTACK_CRUSH INT NULL,
+    -- the offensive magic bonus
+    ATTACK_MAGIC INT NULL,
+    -- the offensive range bonus
+    ATTACK_RANGE INT NULL,
+    -- the defensive stab bonus
+    DEFENSE_STAB INT NULL,
+    -- the defensive slash bonus
+    DEFENSE_SLASH INT NULL,
+    -- the defensive crush bonus
+    DEFENSE_CRUSH INT NULL,
+    -- the defensive magic bonus
+    DEFENSE_MAGIC INT NULL,
+    -- the defensive range bonus
+    DEFENSE_RANGE INT NULL,
+    -- the strength bonus
+    STRENGTH_BONUS INT NULL,
+    -- the prayer bonus
+    PRAYER_BONUS INT NULL,
     -- date time when the row was inserted
     CREATED_DTTM TEXT NOT NULL DEFAULT CURRENT_DATE,
     -- date time when the row was updated

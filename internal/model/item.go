@@ -4,15 +4,48 @@ package model
 type ItemNature int
 
 const (
-	ItemNatureNotUsable          ItemNature = 0
-	ItemNatureEquipmentOneHanded ItemNature = 1 << iota
-	ItemNatureEquipmentTwoHanded
+	ItemNatureNotUsable ItemNature = iota
+	ItemNatureEquippable
+)
+
+// WeaponStyle enumerates the possible attack styles of a weapon.
+type WeaponStyle int
+
+const (
+	WeaponStyleNone WeaponStyle = iota
+	WeaponStyle2HSword
+	WeaponStyleAxe
+	WeaponStyleBow
+	WeaponStyleBlunt
+	WeaponStyleClaw
+	WeaponStyleCrossbow
+	WeaponStyleGun
+	WeaponStylePickaxe
+	WeaponStylePoleArm
+	WeaponStylePoleStaff
+	WeaponStyleScythe
+	WeaponStyleSlashSword
+	WeaponStyleSpear
+	WeaponStyleSpiked
+	WeaponStyleStabSword
+	WeaponStyleStaff
+	WeaponStyleThrown
+	WeaponStyleWhip
 )
 
 // ItemStackable is a descriptor of sprites to use for certain item stackable thresholds.
 type ItemStackable struct {
 	ID     int
 	Amount int
+}
+
+// ItemCombatAttributes are the attack and defense bonuses granted by an item.
+type ItemCombatAttributes struct {
+	Stab  int
+	Slash int
+	Crush int
+	Magic int
+	Range int
 }
 
 // ItemAttributes are additional properties for an item.
@@ -23,10 +56,20 @@ type ItemAttributes struct {
 	Nature ItemNature
 	// EquipSlotType is the equipment slot where the item is equipped to.
 	EquipSlotType EquipmentSlotType
+	// WeaponStyle is the set of attack options for a weapon item.
+	WeaponStyle WeaponStyle
 	// Speed is the amount of milliseconds between item actions.
 	Speed int
 	// Weight is the weight of the item.
 	Weight float64
+	// AttackBonuses are the offensive combat attributes.
+	Attack ItemCombatAttributes
+	// DefenseBonuses are the defensive combat attributes.
+	Defense ItemCombatAttributes
+	// StrengthBonus is the bonus granted to an entity's strength level.
+	StrengthBonus int
+	// PrayerBonus is the bonus granted to an entity's prayer level.
+	PrayerBonus int
 }
 
 // Item represents a player-usable object.
@@ -53,5 +96,5 @@ func (i *Item) CanEquip() bool {
 		return false
 	}
 
-	return i.Attributes.Nature&ItemNatureEquipmentOneHanded != 0 || i.Attributes.Nature&ItemNatureEquipmentTwoHanded != 0
+	return i.Attributes.Nature&ItemNatureEquippable != 0
 }

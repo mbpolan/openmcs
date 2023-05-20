@@ -79,6 +79,23 @@ type EntityBase struct {
 	Feet  int
 }
 
+// EntityCombatAttributes are the combat modifiers for an entity based on their equipment.
+type EntityCombatAttributes struct {
+	Stab  int
+	Slash int
+	Crush int
+	Magic int
+	Range int
+}
+
+// EntityCombatStats are the effective combat stats for an entity.
+type EntityCombatStats struct {
+	Attack   EntityCombatAttributes
+	Defense  EntityCombatAttributes
+	Strength int
+	Prayer   int
+}
+
 // EntityAppearance describes the properties of an entity such as a player or NPC.
 type EntityAppearance struct {
 	Base           EntityBase

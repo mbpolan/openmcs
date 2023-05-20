@@ -30,3 +30,66 @@ store:
   sqlite3:
     # the URI for the database connection
     uri: data/game.db
+
+# configuration for game interface
+interfaces:
+  # character designer interface
+  characterDesigner:
+    id: 3559
+  # primary inventory tab interface
+  inventory:
+    id: 3213
+    slots: 3214
+  # friend list tab interface
+  friendList:
+    id: 5065
+  # ignore list tab interface
+  ignoreList:
+    id: 5715
+  # logout tab interface
+  logout:
+    id: 2449
+  # equipment tab interface and child interface for bonuses
+  equipment:
+    id: 1644
+    slots: 1688
+    bonuses:
+      attack:
+        stab: 1675
+        slash: 1676
+        crush: 1677
+        magic: 1678
+        range: 1679
+      defense:
+        stab: 1680
+        slash: 1681
+        crush: 1682
+        magic: 1683
+        range: 1684
+    other:
+      strength: 1686
+      prayer: 1687
+  # equipped weapon tab interface
+  weapon:
+    2hSword: 4705
+    axe: 1698
+    bow: 1764
+    blunt: 425
+    claws: 7762
+    crossbow: 1749
+    gun: 13975
+    pickaxe: 5570
+    polearm: 8460
+    polestaff: 6103
+    scythe: 776
+    slashSword: 2423
+    spear: 4679
+    spiked: 3796
+    stabSword: 2276
+    staff: 328
+    thrown: 4446
+    whip: 12290
+    unarmed: 5855
+  # skills tab interface
+  skills:
+    id: 3917
