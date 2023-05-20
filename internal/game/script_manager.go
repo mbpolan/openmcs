@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"github.com/mbpolan/openmcs/internal/model"
 	"github.com/pkg/errors"
 	"github.com/yuin/gopher-lua"
 	"os"
@@ -17,10 +18,13 @@ type ScriptManager struct {
 
 // NewScriptManager creates a new script manager that manages scripts in a baseDir directory.
 func NewScriptManager(baseDir string) *ScriptManager {
-	return &ScriptManager{
+	sm := &ScriptManager{
 		baseDir: baseDir,
 		state:   lua.NewState(),
 	}
+
+	sm.registerItemModel()
+	return sm
 }
 
 // Load parses and loads all script files located in the base directory, returning the number of scripts on success. If
@@ -49,43 +53,32 @@ func (s *ScriptManager) Load() (int, error) {
 	return count, nil
 }
 
-func (s *ScriptManager) DoItemEquipped(pe *playerEntity) error {
+func (s *ScriptManager) registerItemModel() {
+	mt := s.state.NewTypeMetatable("item")
+	s.state.SetGlobal("item", mt)
+	s.state.SetField(mt, "__index", s.state.SetFuncs(s.state.NewTable(), map[string]lua.LGFunction{
+		"id": func(state *lua.LState) int {
+			item := state.CheckUserData(1).Value.(*model.Item)
+			state.Push(lua.LNumber(item.ID))
+			return 1
+		},
+	}))
+}
+
+func (s *ScriptManager) DoItemEquipped(pe *playerEntity, item *model.Item) error {
+	ud := s.state.NewUserData()
+	ud.Value = item
+	ud.Metatable = s.state.GetTypeMetatable("item")
+
 	err := s.state.CallByParam(lua.P{
 		Fn:      s.state.GetGlobal("on_equip"),
 		NRet:    0,
 		Protect: true,
-	})
+	}, ud)
 
 	if err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func (s *ScriptManager) registerPlayerEntityType() {
-	mt := s.state.NewTypeMetatable("playerEntity")
-	s.state.SetGlobal("playerEntity", mt)
-	s.state.SetField(mt, "__index", s.state.SetFuncs(s.state.NewTable(), map[string]lua.LGFunction{
-		"username": s.playerEntityGetUsername,
-	}))
-}
-
-func (s *ScriptManager) playerEntityFromState(l *lua.LState) (*playerEntity, error) {
-	ud := l.CheckUserData(1)
-	if pe, ok := ud.Value.(*playerEntity); ok {
-		return pe, nil
-	}
-
-	return nil, fmt.Errorf("expected *playerEntity as first arg")
-}
-
-func (s *ScriptManager) playerEntityGetUsername(l *lua.LState) int {
-	pe, err := s.playerEntityFromState(l)
-	if err != nil {
-		return 0
-	}
-
-	l.Push(lua.LString(pe.player.Username))
-	return 1
 }

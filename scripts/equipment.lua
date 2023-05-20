@@ -1,3 +1,3 @@
-function on_equip(pe)
-    print(pe:username())
+function on_equip(item)
+    print("ID: ", item:id())
 end
