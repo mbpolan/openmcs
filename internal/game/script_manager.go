@@ -11,6 +11,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // scriptType enumerates the known types of scripts.
@@ -25,6 +26,7 @@ type ScriptManager struct {
 	baseDir    string
 	interfaces map[int]*lua.FunctionProto
 	state      *lua.LState
+	mu         sync.Mutex
 }
 
 // NewScriptManager creates a new script manager that manages scripts in a baseDir directory.
@@ -32,10 +34,8 @@ func NewScriptManager(baseDir string) *ScriptManager {
 	sm := &ScriptManager{
 		baseDir:    baseDir,
 		interfaces: map[int]*lua.FunctionProto{},
-		state:      lua.NewState(),
 	}
 
-	sm.registerItemModel()
 	return sm
 }
 
@@ -100,13 +100,22 @@ func (s *ScriptManager) Load() (int, error) {
 		count++
 	}
 
+	// create an initial state
+	s.state, err = s.createState()
+	if err != nil {
+		return 0, err
+	}
+
 	return count, nil
 }
 
 // DoInterface executes an interface script for an action performed by the player.
 func (s *ScriptManager) DoInterface(interfaceID, opCode int) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	err := s.state.CallByParam(lua.P{
-		Fn:      s.state.GetGlobal(fmt.Sprintf("on_action_%d", interfaceID)),
+		Fn:      s.state.GetGlobal(fmt.Sprintf("interface_on_action_%d", interfaceID)),
 		NRet:    0,
 		Protect: true,
 	}, lua.LNumber(opCode))
@@ -119,6 +128,9 @@ func (s *ScriptManager) DoInterface(interfaceID, opCode int) error {
 }
 
 func (s *ScriptManager) DoItemEquipped(pe *playerEntity, item *model.Item) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	
 	ud := s.state.NewUserData()
 	ud.Value = item
 	ud.Metatable = s.state.GetTypeMetatable("item")
@@ -136,15 +148,43 @@ func (s *ScriptManager) DoItemEquipped(pe *playerEntity, item *model.Item) error
 	return nil
 }
 
-func (s *ScriptManager) registerItemModel() {
-	mt := s.state.NewTypeMetatable("item")
-	s.state.SetGlobal("item", mt)
+// createState creates a new Lua state initialized with user-defined types and compiled functions.
+func (s *ScriptManager) createState() (*lua.LState, error) {
+	l := lua.NewState()
+	s.registerItemModel(l)
 
-	s.state.SetField(mt, "__index", s.state.SetFuncs(s.state.NewTable(), map[string]lua.LGFunction{
+	err := s.registerFunctionProtos(l)
+	if err != nil {
+		return nil, err
+	}
+
+	return l, nil
+}
+
+// registerItemModel registers metadata for a model.Item type.
+func (s *ScriptManager) registerItemModel(l *lua.LState) {
+	mt := l.NewTypeMetatable("item")
+	l.SetGlobal("item", mt)
+
+	l.SetField(mt, "__index", l.SetFuncs(l.NewTable(), map[string]lua.LGFunction{
 		"id": func(state *lua.LState) int {
 			item := state.CheckUserData(1).Value.(*model.Item)
 			state.Push(lua.LNumber(item.ID))
 			return 1
 		},
 	}))
+}
+
+// registerFunctionProtos executes compiled functions into a Lua state.
+func (s *ScriptManager) registerFunctionProtos(l *lua.LState) error {
+	for id, proto := range s.interfaces {
+		l.Push(l.NewFunctionFromProto(proto))
+
+		err := l.PCall(0, lua.MultRet, nil)
+		if err != nil {
+			return errors.Wrapf(err, "failed to execute function proto for interface %d", id)
+		}
+	}
+
+	return nil
 }
