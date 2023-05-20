@@ -1521,6 +1521,8 @@ func (g *Game) handleDeferredActions(pe *playerEntity) {
 				logger.Warnf("failed to execute interface %d script: %s", action.InterfaceID, err)
 			}
 
+			pe.RemoveDeferredAction(deferred)
+
 		default:
 		}
 	}

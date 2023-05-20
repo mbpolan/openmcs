@@ -3,6 +3,7 @@ package game
 import (
 	"bytes"
 	"fmt"
+	"github.com/mbpolan/openmcs/internal/logger"
 	"github.com/mbpolan/openmcs/internal/model"
 	"github.com/pkg/errors"
 	"github.com/yuin/gopher-lua"
@@ -92,13 +93,18 @@ func (s *ScriptManager) DoInterface(pe *playerEntity, interfaceID, opCode int) e
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	// attempt to call a function for this interface's handler
+	function := fmt.Sprintf("interface_%d_on_action", interfaceID)
 	err := s.state.CallByParam(lua.P{
-		Fn:      s.state.GetGlobal(fmt.Sprintf("interface_%d_on_action", interfaceID)),
+		Fn:      s.state.GetGlobal(function),
 		NRet:    0,
 		Protect: true,
 	}, s.playerEntity(pe, s.state), lua.LNumber(opCode))
 
 	if err != nil {
+		if le, ok := err.(*lua.ApiError); ok {
+			logger.Errorf("lua script error on calling function %s\nerror: %s\nstack:\n%s", function, le.Object, le.StackTrace)
+		}
 		return err
 	}
 
