@@ -9,10 +9,12 @@ import (
 	"github.com/yuin/gopher-lua/parse"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 	"sync"
 )
+
+const luaTypePlayerEntity = "playerEntity"
+const luaTypeItem = "item"
 
 // scriptType enumerates the known types of scripts.
 type scriptType int
@@ -23,17 +25,18 @@ const (
 
 // ScriptManager manages game server scripts.
 type ScriptManager struct {
-	baseDir    string
-	interfaces map[int]*lua.FunctionProto
-	state      *lua.LState
-	mu         sync.Mutex
+	baseDir string
+	handler ScriptHandler
+	protos  []*lua.FunctionProto
+	state   *lua.LState
+	mu      sync.Mutex
 }
 
 // NewScriptManager creates a new script manager that manages scripts in a baseDir directory.
-func NewScriptManager(baseDir string) *ScriptManager {
+func NewScriptManager(baseDir string, handler ScriptHandler) *ScriptManager {
 	sm := &ScriptManager{
-		baseDir:    baseDir,
-		interfaces: map[int]*lua.FunctionProto{},
+		baseDir: baseDir,
+		handler: handler,
 	}
 
 	return sm
@@ -47,32 +50,12 @@ func (s *ScriptManager) Load() (int, error) {
 		return 0, err
 	}
 
-	count := 0
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".lua") {
 			continue
 		}
 
 		scriptFile := path.Join(s.baseDir, entry.Name())
-
-		// determine the type of script based on its filename
-		components := strings.Split(entry.Name(), "_")
-		if len(components) < 2 {
-			return 0, fmt.Errorf("invalid script file name: %s", scriptFile)
-		}
-
-		var sType scriptType
-		var interfaceID int
-		switch strings.ToLower(components[0]) {
-		case "inf":
-			sType = scriptTypeInterface
-			interfaceID, err = strconv.Atoi(components[1])
-			if err != nil {
-				return 0, fmt.Errorf("invalid file name for interface script: %s", scriptFile)
-			}
-		default:
-			return 0, fmt.Errorf("unknown script type: %s", scriptFile)
-		}
 
 		// read the contents of the script
 		data, err := os.ReadFile(scriptFile)
@@ -92,12 +75,7 @@ func (s *ScriptManager) Load() (int, error) {
 			return 0, errors.Wrap(err, fmt.Sprintf("unable to load script file: %s", scriptFile))
 		}
 
-		switch sType {
-		case scriptTypeInterface:
-			s.interfaces[interfaceID] = compiled
-		}
-
-		count++
+		s.protos = append(s.protos, compiled)
 	}
 
 	// create an initial state
@@ -106,19 +84,19 @@ func (s *ScriptManager) Load() (int, error) {
 		return 0, err
 	}
 
-	return count, nil
+	return len(s.protos), nil
 }
 
 // DoInterface executes an interface script for an action performed by the player.
-func (s *ScriptManager) DoInterface(interfaceID, opCode int) error {
+func (s *ScriptManager) DoInterface(pe *playerEntity, interfaceID, opCode int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	err := s.state.CallByParam(lua.P{
-		Fn:      s.state.GetGlobal(fmt.Sprintf("interface_on_action_%d", interfaceID)),
+		Fn:      s.state.GetGlobal(fmt.Sprintf("interface_%d_on_action", interfaceID)),
 		NRet:    0,
 		Protect: true,
-	}, lua.LNumber(opCode))
+	}, s.playerEntity(pe, s.state), lua.LNumber(opCode))
 
 	if err != nil {
 		return err
@@ -127,31 +105,19 @@ func (s *ScriptManager) DoInterface(interfaceID, opCode int) error {
 	return nil
 }
 
-func (s *ScriptManager) DoItemEquipped(pe *playerEntity, item *model.Item) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	
-	ud := s.state.NewUserData()
-	ud.Value = item
-	ud.Metatable = s.state.GetTypeMetatable("item")
-
-	err := s.state.CallByParam(lua.P{
-		Fn:      s.state.GetGlobal("on_equip"),
-		NRet:    0,
-		Protect: true,
-	}, ud)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+// playerEntity creates a Lua user-defined data type for a playerEntity.
+func (s *ScriptManager) playerEntity(pe *playerEntity, l *lua.LState) *lua.LUserData {
+	ud := l.NewUserData()
+	ud.Value = pe
+	ud.Metatable = l.GetTypeMetatable(luaTypePlayerEntity)
+	return ud
 }
 
 // createState creates a new Lua state initialized with user-defined types and compiled functions.
 func (s *ScriptManager) createState() (*lua.LState, error) {
 	l := lua.NewState()
 	s.registerItemModel(l)
+	s.registerPlayerModel(l)
 
 	err := s.registerFunctionProtos(l)
 	if err != nil {
@@ -163,8 +129,8 @@ func (s *ScriptManager) createState() (*lua.LState, error) {
 
 // registerItemModel registers metadata for a model.Item type.
 func (s *ScriptManager) registerItemModel(l *lua.LState) {
-	mt := l.NewTypeMetatable("item")
-	l.SetGlobal("item", mt)
+	mt := l.NewTypeMetatable(luaTypeItem)
+	l.SetGlobal(luaTypeItem, mt)
 
 	l.SetField(mt, "__index", l.SetFuncs(l.NewTable(), map[string]lua.LGFunction{
 		"id": func(state *lua.LState) int {
@@ -175,14 +141,28 @@ func (s *ScriptManager) registerItemModel(l *lua.LState) {
 	}))
 }
 
+// registerItemModel registers metadata for a playerEntity type.
+func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
+	mt := l.NewTypeMetatable(luaTypePlayerEntity)
+	l.SetGlobal(luaTypePlayerEntity, mt)
+
+	l.SetField(mt, "__index", l.SetFuncs(l.NewTable(), map[string]lua.LGFunction{
+		"disconnect": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			s.handler.handleRemovePlayer(pe)
+			return 0
+		},
+	}))
+}
+
 // registerFunctionProtos executes compiled functions into a Lua state.
 func (s *ScriptManager) registerFunctionProtos(l *lua.LState) error {
-	for id, proto := range s.interfaces {
+	for _, proto := range s.protos {
 		l.Push(l.NewFunctionFromProto(proto))
 
 		err := l.PCall(0, lua.MultRet, nil)
 		if err != nil {
-			return errors.Wrapf(err, "failed to execute function proto for interface %d", id)
+			return errors.Wrapf(err, "failed to execute function proto")
 		}
 	}
 

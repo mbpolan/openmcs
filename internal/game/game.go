@@ -75,7 +75,7 @@ func NewGame(opts Options) (*Game, error) {
 	start := time.Now()
 
 	// load scripts
-	g.scripts = NewScriptManager("scripts")
+	g.scripts = NewScriptManager("scripts", g)
 	numScripts, err := g.scripts.Load()
 	if err != nil {
 		return nil, err
@@ -193,18 +193,16 @@ func (g *Game) MarkPlayerInactive(p *model.Player) {
 }
 
 // DoInterfaceAction processes an action that a player performed on an interface.
-func (g *Game) DoInterfaceAction(p *model.Player, action int) {
+func (g *Game) DoInterfaceAction(p *model.Player, interfaceID int) {
 	pe, unlockFunc := g.findPlayerAndLockAll(p)
 	unlockFunc()
 	if pe == nil {
 		return
 	}
 
-	// TODO: these should be scriptable
-	// action on client logout button
-	if action == 2458 {
-		// TODO: check if player can be logged out (ie: are they in combat, etc.)
-		pe.Drop()
+	err := g.scripts.DoInterface(pe, interfaceID, 0)
+	if err != nil {
+		logger.Warnf("failed to execute interface %d script: %s", interfaceID, err)
 	}
 }
 
@@ -499,8 +497,7 @@ func (g *Game) RemovePlayer(p *model.Player) {
 		return
 	}
 
-	// add this player to the removal list, and let the next state update actually remove them
-	g.removePlayers[pe.player.ID] = pe
+	g.handleRemovePlayer(pe)
 }
 
 // DoTakeGroundItem handles a player's request to pick up a ground item at a position, in global coordinates.
@@ -864,6 +861,13 @@ func (g *Game) playerRegionPosition(pe *playerEntity) (model.Vector2D, model.Vec
 	}
 
 	return util.GlobalToRegionOrigin(regionGlobal).To2D(), regionRelative
+}
+
+// handleRemovePlayer adds a player to the list of players that will be removed from the game.
+// Concurrency requirements: (a) game state should be locked and (b) this player may be locked.
+func (g *Game) handleRemovePlayer(pe *playerEntity) {
+	// add this player to the removal list, and let the next state update actually remove them
+	g.removePlayers[pe.player.ID] = pe
 }
 
 // handleChatCommand processes a chat command sent by a player.
