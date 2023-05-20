@@ -220,8 +220,7 @@ func (pe *playerEntity) DeferSendIgnoreList() {
 	})
 }
 
-// DeferTakeGroundItemAction sets the player's pending action to pick up a specific ground item at a position, in
-// global coordinates.
+// DeferTakeGroundItemAction plans an action to pick up a specific ground item at a position, in global coordinates.
 func (pe *playerEntity) DeferTakeGroundItemAction(item *model.Item, globalPos model.Vector3D) {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionTakeGroundItem,
@@ -233,7 +232,7 @@ func (pe *playerEntity) DeferTakeGroundItemAction(item *model.Item, globalPos mo
 	})
 }
 
-// DeferDropInventoryItem sets the player's pending action to drop an inventory item.
+// DeferDropInventoryItem plans an action to drop an inventory item.
 func (pe *playerEntity) DeferDropInventoryItem(item *model.Item, interfaceID, secondaryActionID int) {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionDropInventoryItem,
@@ -246,7 +245,7 @@ func (pe *playerEntity) DeferDropInventoryItem(item *model.Item, interfaceID, se
 	})
 }
 
-// DeferEquipItem sets the player's pending action to equip an inventory item.
+// DeferEquipItem plans an action to equip an inventory item.
 func (pe *playerEntity) DeferEquipItem(item *model.Item, interfaceID int) {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionEquipItem,
@@ -258,7 +257,7 @@ func (pe *playerEntity) DeferEquipItem(item *model.Item, interfaceID int) {
 	})
 }
 
-// DeferUnequipItem sets the player's pending action to equip an inventory item.
+// DeferUnequipItem plans an action to equip an inventory item.
 func (pe *playerEntity) DeferUnequipItem(item *model.Item, interfaceID int, slotType model.EquipmentSlotType) {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionUnequipItem,
@@ -271,7 +270,7 @@ func (pe *playerEntity) DeferUnequipItem(item *model.Item, interfaceID int, slot
 	})
 }
 
-// DeferShowInterface sets the player's pending action to show an interface.
+// DeferShowInterface plans an action to show an interface.
 func (pe *playerEntity) DeferShowInterface(interfaceID int) {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionShowInterface,
@@ -282,10 +281,20 @@ func (pe *playerEntity) DeferShowInterface(interfaceID int) {
 	})
 }
 
-// DeferHideInterfaces sets the player's pending action to hide all interfaces.
+// DeferHideInterfaces plans an action to hide all interfaces.
 func (pe *playerEntity) DeferHideInterfaces() {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionHideInterfaces,
 		TickDelay:  1,
+	})
+}
+
+// DeferDoInterfaceAction plans an action to handle an interaction with an interface.
+func (pe *playerEntity) DeferDoInterfaceAction(interfaceID int) {
+	pe.deferredActions = append(pe.deferredActions, &Action{
+		ActionType: ActionDoInterfaceAction,
+		DoInterfaceAction: &DoInterfaceAction{
+			InterfaceID: interfaceID,
+		},
 	})
 }

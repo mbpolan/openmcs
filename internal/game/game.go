@@ -200,10 +200,7 @@ func (g *Game) DoInterfaceAction(p *model.Player, interfaceID int) {
 		return
 	}
 
-	err := g.scripts.DoInterface(pe, interfaceID, 0)
-	if err != nil {
-		logger.Warnf("failed to execute interface %d script: %s", interfaceID, err)
-	}
+	pe.DeferDoInterfaceAction(interfaceID)
 }
 
 // DoInteractWithObject handles a player interaction with an object on the map.
@@ -1515,6 +1512,14 @@ func (g *Game) handleDeferredActions(pe *playerEntity) {
 		case ActionHideInterfaces:
 			pe.Send(&response.ClearScreenResponse{})
 			pe.RemoveDeferredAction(deferred)
+
+		case ActionDoInterfaceAction:
+			action := deferred.DoInterfaceAction
+
+			err := g.scripts.DoInterface(pe, action.InterfaceID, 0)
+			if err != nil {
+				logger.Warnf("failed to execute interface %d script: %s", action.InterfaceID, err)
+			}
 
 		default:
 		}

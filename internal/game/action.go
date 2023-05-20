@@ -21,6 +21,7 @@ const (
 	ActionUnequipItem
 	ActionShowInterface
 	ActionHideInterfaces
+	ActionDoInterfaceAction
 )
 
 // Action is an action that will be performed after a number of game ticks have elapsed.
@@ -34,6 +35,7 @@ type Action struct {
 	EquipItemAction         *EquipItemAction
 	UnequipItemAction       *UnequipItemAction
 	ShowInterfaceAction     *ShowInterfaceAction
+	DoInterfaceAction       *DoInterfaceAction
 }
 
 // ServerMessageAction is an action to send the player a server message.
@@ -75,5 +77,10 @@ type UnequipItemAction struct {
 
 // ShowInterfaceAction is an action to show an interface.
 type ShowInterfaceAction struct {
+	InterfaceID int
+}
+
+// DoInterfaceAction is an action taken on an interface.
+type DoInterfaceAction struct {
 	InterfaceID int
 }
