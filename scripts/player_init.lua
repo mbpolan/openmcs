@@ -10,8 +10,15 @@ function init_player_tabs(player)
     player:sidebar_interface(CLIENT_TAB_FRIENDS_LIST, 5065)
     player:sidebar_interface(CLIENT_TAB_IGNORE_LIST, 5715)
 
+    -- set the equipped item interface based on the currently equipped weapon
+    item = player:equipped_item(EQUIP_SLOT_WEAPON)
+    if item == nil then
+        on_unequip_item(player)
+    else
+        on_equip_item(player, item)
+    end
+
     -- TODO: not yet supported by game engine
-    player:sidebar_clear(CLIENT_TAB_EQUIPPED_ITEM)
     player:sidebar_clear(CLIENT_TAB_QUESTS)
     player:sidebar_clear(CLIENT_TAB_PRAYERS)
     player:sidebar_clear(CLIENT_TAB_SPELLS)

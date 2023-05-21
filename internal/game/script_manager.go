@@ -217,10 +217,10 @@ func (s *ScriptManager) registerItemModel(l *lua.LState) {
 		},
 		"weapon_style": func(state *lua.LState) int {
 			item := state.CheckUserData(1).Value.(*model.Item)
-			if item.Attributes != nil {
-				state.Push(lua.LNumber(item.Attributes.WeaponStyle))
-			} else {
+			if item.Attributes == nil {
 				state.Push(lua.LNumber(-1))
+			} else {
+				state.Push(lua.LNumber(item.Attributes.WeaponStyle))
 			}
 
 			return 1
@@ -256,6 +256,19 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 
 			s.handler.handleSetInterfaceText(pe, interfaceID, text)
 			return 0
+		},
+		"equipped_item": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			slotType := state.CheckInt(2)
+
+			slot := pe.player.EquipmentSlot(model.EquipmentSlotType(slotType))
+			if slot == nil {
+				state.Push(lua.LNil)
+			} else {
+				state.Push(s.itemType(slot.Item, state))
+			}
+
+			return 1
 		},
 		"disconnect": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
