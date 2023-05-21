@@ -2,6 +2,11 @@
 -- Handles a player equipping items
 -------------------------------------
 function on_equip_item(player, item)
+    -- nothing to do for non-weapon items
+    if item:equipment_slot() ~= EQUIP_SLOT_WEAPON then
+        return
+    end
+
     -- choose the appropriate interface based on the item's weapon attack style
     inf_id = 0
     style = item:weapon_style()
@@ -51,6 +56,11 @@ end
 -------------------------------------
 -- Handles a player unequipping items
 -------------------------------------
-function on_unequip_item(player)
+function on_unequip_item(player, item)
+    -- nothing to do for non-weapon items
+    if item:equipment_slot() ~= EQUIP_SLOT_WEAPON then
+        return
+    end
+
     player:sidebar_interface(CLIENT_TAB_EQUIPPED_ITEM, 5855)
 end

@@ -84,35 +84,14 @@ func (s *ScriptManager) Load() (int, error) {
 
 // DoPlayerInit executes a script to initialize a player when they join the game.
 func (s *ScriptManager) DoPlayerInit(pe *playerEntity) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	// attempt to call a function for this interface's handler
-	function := "init_player_tabs"
-	err := s.state.CallByParam(lua.P{
-		Fn:      s.state.GetGlobal(function),
-		NRet:    0,
-		Protect: true,
-	}, s.playerEntityType(pe, s.state))
-
-	return s.checkResult(function, err)
+	return s.doFunction("init_player_tabs", s.playerEntityType(pe, s.state))
 
 }
 
 // DoInterface executes an interface script for an action performed by the player.
 func (s *ScriptManager) DoInterface(pe *playerEntity, parent, actor *model.Interface, opCode int) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	// attempt to call a function for this interface's handler
 	function := fmt.Sprintf("interface_%d_on_action", parent.ID)
-	err := s.state.CallByParam(lua.P{
-		Fn:      s.state.GetGlobal(function),
-		NRet:    0,
-		Protect: true,
-	}, s.playerEntityType(pe, s.state), s.interfaceType(actor, s.state), lua.LNumber(opCode))
-
-	return s.checkResult(function, err)
+	return s.doFunction(function, s.playerEntityType(pe, s.state), s.interfaceType(actor, s.state), lua.LNumber(opCode))
 }
 
 // DoOnEquipItem executes a script to handle a player (un)equipping an item.
@@ -122,7 +101,7 @@ func (s *ScriptManager) DoOnEquipItem(pe *playerEntity, item *model.Item) error 
 
 // DoOnUnequipItem executes a script to handle a player unequipping an item.
 func (s *ScriptManager) DoOnUnequipItem(pe *playerEntity, item *model.Item) error {
-	return s.doFunction("on_unequip_item", s.playerEntityType(pe, s.state))
+	return s.doFunction("on_unequip_item", s.playerEntityType(pe, s.state), s.itemType(item, s.state))
 }
 
 // playerEntity creates a Lua user-defined data type for a playerEntity.
@@ -213,6 +192,16 @@ func (s *ScriptManager) registerItemModel(l *lua.LState) {
 		"id": func(state *lua.LState) int {
 			item := state.CheckUserData(1).Value.(*model.Item)
 			state.Push(lua.LNumber(item.ID))
+			return 1
+		},
+		"equipment_slot": func(state *lua.LState) int {
+			item := state.CheckUserData(1).Value.(*model.Item)
+			if item.Attributes == nil {
+				state.Push(lua.LNumber(-1))
+			} else {
+				state.Push(lua.LNumber(item.Attributes.EquipSlotType))
+			}
+
 			return 1
 		},
 		"weapon_style": func(state *lua.LState) int {
