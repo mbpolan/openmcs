@@ -887,6 +887,24 @@ func (g *Game) playerRegionPosition(pe *playerEntity) (model.Vector2D, model.Vec
 	return util.GlobalToRegionOrigin(regionGlobal).To2D(), regionRelative
 }
 
+// handleSetSidebarInterface sends a player's client an interface to show on a sidebar tab.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleSetSidebarInterface(pe *playerEntity, interfaceID, sidebarID int) {
+	pe.Send(response.NewSidebarInterfaceResponse(model.ClientTab(sidebarID), interfaceID))
+}
+
+// handleClearSidebarInterface sends a player's client a command to remove an interface on a sidebar tab.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleClearSidebarInterface(pe *playerEntity, sidebarID int) {
+	pe.Send(response.NewRemoveSidebarInterfaceResponse(model.ClientTab(sidebarID)))
+}
+
+// handleSetInterfaceText sends a player's client the text to show on an interface.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleSetInterfaceText(pe *playerEntity, interfaceID int, text string) {
+
+}
+
 // handleRemovePlayer adds a player to the list of players that will be removed from the game.
 // Concurrency requirements: (a) game state should be locked and (b) this player may be locked.
 func (g *Game) handleRemovePlayer(pe *playerEntity) {

@@ -82,6 +82,23 @@ func (s *ScriptManager) Load() (int, error) {
 	return len(s.protos), nil
 }
 
+// DoPlayerInit executes a script to initialize a player when they join the game.
+func (s *ScriptManager) DoPlayerInit(pe *playerEntity) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// attempt to call a function for this interface's handler
+	function := "init_player_tabs"
+	err := s.state.CallByParam(lua.P{
+		Fn:      s.state.GetGlobal(function),
+		NRet:    0,
+		Protect: true,
+	}, s.playerEntityType(pe, s.state))
+
+	return s.checkResult(function, err)
+
+}
+
 // DoInterface executes an interface script for an action performed by the player.
 func (s *ScriptManager) DoInterface(pe *playerEntity, parent, actor *model.Interface, opCode int) error {
 	s.mu.Lock()
@@ -95,14 +112,7 @@ func (s *ScriptManager) DoInterface(pe *playerEntity, parent, actor *model.Inter
 		Protect: true,
 	}, s.playerEntityType(pe, s.state), s.interfaceType(actor, s.state), lua.LNumber(opCode))
 
-	if err != nil {
-		if le, ok := err.(*lua.ApiError); ok {
-			logger.Errorf("lua script error on calling function %s\nerror: %s\nstack:\n%s", function, le.Object, le.StackTrace)
-		}
-		return err
-	}
-
-	return nil
+	return s.checkResult(function, err)
 }
 
 // playerEntity creates a Lua user-defined data type for a playerEntity.
@@ -134,6 +144,18 @@ func (s *ScriptManager) createState() (*lua.LState, error) {
 	}
 
 	return l, nil
+}
+
+// checkResult inspects an error returned by the Lua VM and includes additional logging.
+func (s *ScriptManager) checkResult(function string, err error) error {
+	if err != nil {
+		if le, ok := err.(*lua.ApiError); ok {
+			logger.Errorf("lua script error on calling function %s\nerror: %s\nstack:\n%s", function, le.Object, le.StackTrace)
+		}
+		return err
+	}
+
+	return nil
 }
 
 // registerItemModel registers metadata for a model.Interface type.
@@ -170,6 +192,29 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 	l.SetGlobal(luaTypePlayerEntity, mt)
 
 	l.SetField(mt, "__index", l.SetFuncs(l.NewTable(), map[string]lua.LGFunction{
+		"sidebar_clear": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			sidebarID := state.CheckInt(2)
+
+			s.handler.handleClearSidebarInterface(pe, sidebarID)
+			return 0
+		},
+		"sidebar_interface": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			interfaceID := state.CheckInt(2)
+			sidebarID := state.CheckInt(3)
+
+			s.handler.handleSetSidebarInterface(pe, interfaceID, sidebarID)
+			return 0
+		},
+		"interface_text": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			interfaceID := state.CheckInt(2)
+			text := state.CheckString(3)
+
+			s.handler.handleSetInterfaceText(pe, interfaceID, text)
+			return 0
+		},
 		"disconnect": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 			s.handler.handleRemovePlayer(pe)

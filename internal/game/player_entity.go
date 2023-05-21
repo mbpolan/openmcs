@@ -257,7 +257,7 @@ func (pe *playerEntity) DeferEquipItem(item *model.Item, interfaceID int) {
 	})
 }
 
-// DeferUnequipItem plans an action to equip an inventory item.
+// DeferUnequipItem plans an action to unequip an inventory item.
 func (pe *playerEntity) DeferUnequipItem(item *model.Item, interfaceID int, slotType model.EquipmentSlotType) {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionUnequipItem,
