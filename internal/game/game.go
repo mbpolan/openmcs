@@ -432,9 +432,6 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 		}
 	}
 
-	// set initial client tab interface
-	pe.tabInterfaces = g.interaction.ClientTabInterfaces(pe.player.EquippedWeaponStyle())
-
 	// add the player to the player list
 	g.mu.Lock()
 	g.players = append(g.players, pe)
@@ -477,7 +474,7 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	}
 
 	// plan an update to the client sidebar interface
-	_ = g.scripts.DoPlayerInit(pe)
+	g.checkScript(g.scripts.DoPlayerInit(pe))
 
 	// plan an event to clear the player's equipment
 	pe.DeferSendEquipment()
@@ -613,6 +610,11 @@ func (g *Game) DoUseItem(p *model.Player, itemID, interfaceID, actionID int) {
 func (g *Game) DoUseInventoryItem(p *model.Player, sourceItemID, sourceInterfaceID, sourceSlotID,
 	targetItemID, targetInterfaceID, targetSlotID int) {
 	// TODO
+}
+
+// checkScript validates and logs the result of a script execution.
+func (g *Game) checkScript(err error) {
+	// TODO: find a way to track this?
 }
 
 // broadcastPlayerStatus sends updates to other players that have them on their friends lists. An optional list of
@@ -1180,9 +1182,8 @@ func (g *Game) equipPlayerInventoryItem(pe *playerEntity, item *model.Item) {
 	pe.Send(equipment)
 
 	// update the player's equipment interface and their equipped weapon interface tabs
+	g.checkScript(g.scripts.DoOnEquipItem(pe, item))
 	pe.Send(g.interaction.EquipmentTab.Update(pe.player)...)
-	pe.Send(response.NewSidebarInterfaceResponse(model.ClientTabEquippedItem,
-		g.interaction.WeaponTab.IDForWeaponStyle(pe.player.EquippedWeaponStyle())))
 
 	// mark that we need to update the player's appearance if necessary
 	if item.Attributes.EquipSlotType.Visible() {
@@ -1213,8 +1214,7 @@ func (g *Game) unequipPlayerInventoryItem(pe *playerEntity, item *model.Item, sl
 
 	// update the player's equipment interface and their equipped weapon interface tabs
 	pe.Send(g.interaction.EquipmentTab.Update(pe.player)...)
-	pe.Send(response.NewSidebarInterfaceResponse(model.ClientTabEquippedItem,
-		g.interaction.WeaponTab.IDForWeaponStyle(pe.player.EquippedWeaponStyle())))
+	g.checkScript(g.scripts.DoOnUnequipItem(pe, item))
 
 	// mark that we need to update the player's appearance if necessary
 	if slotType.Visible() {

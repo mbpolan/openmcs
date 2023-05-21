@@ -115,6 +115,16 @@ func (s *ScriptManager) DoInterface(pe *playerEntity, parent, actor *model.Inter
 	return s.checkResult(function, err)
 }
 
+// DoOnEquipItem executes a script to handle a player (un)equipping an item.
+func (s *ScriptManager) DoOnEquipItem(pe *playerEntity, item *model.Item) error {
+	return s.doFunction("on_equip_item", s.playerEntityType(pe, s.state), s.itemType(item, s.state))
+}
+
+// DoOnUnequipItem executes a script to handle a player unequipping an item.
+func (s *ScriptManager) DoOnUnequipItem(pe *playerEntity, item *model.Item) error {
+	return s.doFunction("on_unequip_item", s.playerEntityType(pe, s.state))
+}
+
 // playerEntity creates a Lua user-defined data type for a playerEntity.
 func (s *ScriptManager) playerEntityType(pe *playerEntity, l *lua.LState) *lua.LUserData {
 	ud := l.NewUserData()
@@ -123,7 +133,15 @@ func (s *ScriptManager) playerEntityType(pe *playerEntity, l *lua.LState) *lua.L
 	return ud
 }
 
-// playerEntity creates a Lua user-defined data type for a model.Interface.
+// itemType creates a Lua user-defined data type for a model.Item.
+func (s *ScriptManager) itemType(item *model.Item, l *lua.LState) *lua.LUserData {
+	ud := l.NewUserData()
+	ud.Value = item
+	ud.Metatable = l.GetTypeMetatable(luaTypeItem)
+	return ud
+}
+
+// interfaceType creates a Lua user-defined data type for a model.Interface.
 func (s *ScriptManager) interfaceType(inf *model.Interface, l *lua.LState) *lua.LUserData {
 	ud := l.NewUserData()
 	ud.Value = inf
@@ -144,6 +162,20 @@ func (s *ScriptManager) createState() (*lua.LState, error) {
 	}
 
 	return l, nil
+}
+
+// doFunction executes a function in the Lua state.
+func (s *ScriptManager) doFunction(function string, params ...lua.LValue) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	err := s.state.CallByParam(lua.P{
+		Fn:      s.state.GetGlobal(function),
+		NRet:    0,
+		Protect: true,
+	}, params...)
+
+	return s.checkResult(function, err)
 }
 
 // checkResult inspects an error returned by the Lua VM and includes additional logging.
@@ -181,6 +213,16 @@ func (s *ScriptManager) registerItemModel(l *lua.LState) {
 		"id": func(state *lua.LState) int {
 			item := state.CheckUserData(1).Value.(*model.Item)
 			state.Push(lua.LNumber(item.ID))
+			return 1
+		},
+		"weapon_style": func(state *lua.LState) int {
+			item := state.CheckUserData(1).Value.(*model.Item)
+			if item.Attributes != nil {
+				state.Push(lua.LNumber(item.Attributes.WeaponStyle))
+			} else {
+				state.Push(lua.LNumber(-1))
+			}
+
 			return 1
 		},
 	}))
