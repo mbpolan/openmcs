@@ -238,6 +238,15 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			s.handler.handleSetSidebarInterface(pe, interfaceID, sidebarID)
 			return 0
 		},
+		"interface_model": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			interfaceID := state.CheckInt(2)
+			itemID := state.CheckInt(3)
+			zoom := state.CheckInt(4)
+
+			s.handler.handleSetInterfaceModel(pe, interfaceID, itemID, zoom)
+			return 0
+		},
 		"interface_text": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 			interfaceID := state.CheckInt(2)

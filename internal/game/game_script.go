@@ -6,7 +6,9 @@ type ScriptHandler interface {
 	handleSetSidebarInterface(pe *playerEntity, interfaceID, sidebarID int)
 	// handleClearSidebarInterface sends a player's client a command to remove an interface on a sidebar tab.
 	handleClearSidebarInterface(pe *playerEntity, sidebarID int)
-	// handleSetInterfaceText sends a player's client text to show on an interface
+	// handleSetInterfaceModel sends a player's client an item model to show on an interface.
+	handleSetInterfaceModel(pe *playerEntity, interfaceID, itemID, zoom int)
+	// handleSetInterfaceText sends a player's client text to show on an interface.
 	handleSetInterfaceText(pe *playerEntity, interfaceID int, text string)
 	// handleRemovePlayer schedules a player to be removed from the game.
 	handleRemovePlayer(pe *playerEntity)

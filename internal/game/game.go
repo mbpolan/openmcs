@@ -901,6 +901,18 @@ func (g *Game) handleClearSidebarInterface(pe *playerEntity, sidebarID int) {
 	pe.Send(response.NewRemoveSidebarInterfaceResponse(model.ClientTab(sidebarID)))
 }
 
+// handleSetInterfaceModel sends a player's client an item model to show on an interface.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleSetInterfaceModel(pe *playerEntity, interfaceID, itemID, zoom int) {
+	r := &response.SetInterfaceModelResponse{
+		InterfaceID: interfaceID,
+		ItemID:      itemID,
+		Zoom:        zoom,
+	}
+
+	pe.Send(r)
+}
+
 // handleSetInterfaceText sends a player's client the text to show on an interface.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) handleSetInterfaceText(pe *playerEntity, interfaceID int, text string) {

@@ -13,7 +13,7 @@ function init_player_tabs(player)
     -- set the equipped item interface based on the currently equipped weapon
     item = player:equipped_item(EQUIP_SLOT_WEAPON)
     if item == nil then
-        on_unequip_item(player)
+        on_unequip_item(player, nil)
     else
         on_equip_item(player, item)
     end
