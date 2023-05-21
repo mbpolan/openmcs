@@ -51,6 +51,8 @@ type Interface struct {
 	Parent *Interface
 	// Children is a slice of child interfaces.
 	Children []*Interface
+	// Type is the type of interface.
+	Type int
 	// Actions is a slice of actions that this interface supports.
 	Actions []string
 	// Conditions is a slice of conditions for this interface.

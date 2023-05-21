@@ -92,13 +92,11 @@ func (l *InterfaceLoader) Load() ([]*model.Interface, error) {
 	for _, inf := range interfaces {
 		// check if this interface has a parent interface
 		parentID, ok := parentIDs[inf.ID]
-		if !ok || parentID == -1 || parentID == inf.ID {
-			continue
-		}
-
-		inf.Parent, ok = interfaces[parentID]
-		if !ok {
-			return nil, fmt.Errorf("missing parent %d for interface %d", parentID, inf.ID)
+		if ok && parentID != -1 && parentID != inf.ID {
+			inf.Parent, ok = interfaces[parentID]
+			if !ok {
+				return nil, fmt.Errorf("missing parent %d for interface %d", parentID, inf.ID)
+			}
 		}
 
 		children, ok := childIDs[inf.ID]
@@ -137,6 +135,8 @@ func (l *InterfaceLoader) readInterface(id, parentID int, reader *DataReader) (*
 	if err != nil {
 		return nil, nil, err
 	}
+
+	inf.Type = int(infType)
 
 	// read 1 byte for the action type
 	actionType, err := reader.Byte()
