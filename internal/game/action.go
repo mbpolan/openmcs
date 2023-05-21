@@ -82,5 +82,6 @@ type ShowInterfaceAction struct {
 
 // DoInterfaceAction is an action taken on an interface.
 type DoInterfaceAction struct {
-	InterfaceID int
+	Parent *model.Interface
+	Actor  *model.Interface
 }

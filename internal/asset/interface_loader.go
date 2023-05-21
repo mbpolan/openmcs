@@ -115,7 +115,7 @@ func (l *InterfaceLoader) Load() ([]*model.Interface, error) {
 		}
 	}
 
-	infs := make([]*model.Interface, len(interfaces))
+	var infs []*model.Interface
 	for _, inf := range interfaces {
 		infs = append(infs, inf)
 	}

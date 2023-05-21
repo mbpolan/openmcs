@@ -41,7 +41,7 @@ type Options struct {
 type Game struct {
 	doneChan         chan bool
 	interaction      *interaction.Manager
-	interfaces       []*model.Interface
+	interfaces       map[int]*model.Interface
 	items            map[int]*model.Item
 	lastPlayerUpdate time.Time
 	ticker           *time.Ticker
@@ -65,6 +65,7 @@ func NewGame(opts Options) (*Game, error) {
 	g := &Game{
 		doneChan:       make(chan bool, 1),
 		interaction:    interaction.New(opts.Config.Interfaces),
+		interfaces:     map[int]*model.Interface{},
 		items:          map[int]*model.Item{},
 		removePlayers:  map[int]*playerEntity{},
 		telemetry:      opts.Telemetry,
@@ -196,13 +197,26 @@ func (g *Game) MarkPlayerInactive(p *model.Player) {
 
 // DoInterfaceAction processes an action that a player performed on an interface.
 func (g *Game) DoInterfaceAction(p *model.Player, interfaceID int) {
-	pe, unlockFunc := g.findPlayerAndLockAll(p)
-	unlockFunc()
+	pe := g.findPlayer(p)
 	if pe == nil {
 		return
 	}
 
-	pe.DeferDoInterfaceAction(interfaceID)
+	// validate the interface is known
+	actor, ok := g.interfaces[interfaceID]
+	if !ok {
+		return
+	}
+
+	// find the parent interface that should receive the action
+	parent := actor
+	for parent.Parent != nil {
+		parent = parent.Parent
+	}
+
+	pe.mu.Lock()
+	defer pe.mu.Unlock()
+	pe.DeferDoInterfaceAction(parent, actor)
 }
 
 // DoInteractWithObject handles a player interaction with an object on the map.
@@ -777,9 +791,14 @@ func (g *Game) loadAssets(assetDir string, itemAttributes []*model.ItemAttribute
 	manager := asset.NewManager(assetDir)
 
 	// load interfaces
-	g.interfaces, err = manager.Interfaces()
+	interfaces, err := manager.Interfaces()
 	if err != nil {
 		return err
+	}
+
+	// create a map of interface ids to their models
+	for _, inf := range interfaces {
+		g.interfaces[inf.ID] = inf
 	}
 
 	// load world objects
@@ -1524,9 +1543,10 @@ func (g *Game) handleDeferredActions(pe *playerEntity) {
 		case ActionDoInterfaceAction:
 			action := deferred.DoInterfaceAction
 
-			err := g.scripts.DoInterface(pe, action.InterfaceID, 0)
+			// execute a script for the parent interface
+			err := g.scripts.DoInterface(pe, action.Parent, action.Actor, 0)
 			if err != nil {
-				logger.Warnf("failed to execute interface %d script: %s", action.InterfaceID, err)
+				logger.Warnf("failed to execute interface %d script: %s", action.Parent.ID, err)
 			}
 
 			pe.RemoveDeferredAction(deferred)

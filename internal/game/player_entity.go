@@ -290,11 +290,12 @@ func (pe *playerEntity) DeferHideInterfaces() {
 }
 
 // DeferDoInterfaceAction plans an action to handle an interaction with an interface.
-func (pe *playerEntity) DeferDoInterfaceAction(interfaceID int) {
+func (pe *playerEntity) DeferDoInterfaceAction(parent, actor *model.Interface) {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionDoInterfaceAction,
 		DoInterfaceAction: &DoInterfaceAction{
-			InterfaceID: interfaceID,
+			Parent: parent,
+			Actor:  actor,
 		},
 	})
 }

@@ -89,12 +89,12 @@ func (s *ScriptManager) Load() (int, error) {
 }
 
 // DoInterface executes an interface script for an action performed by the player.
-func (s *ScriptManager) DoInterface(pe *playerEntity, interfaceID, opCode int) error {
+func (s *ScriptManager) DoInterface(pe *playerEntity, parent, actor *model.Interface, opCode int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	// attempt to call a function for this interface's handler
-	function := fmt.Sprintf("interface_%d_on_action", interfaceID)
+	function := fmt.Sprintf("interface_%d_on_action", parent.ID)
 	err := s.state.CallByParam(lua.P{
 		Fn:      s.state.GetGlobal(function),
 		NRet:    0,
