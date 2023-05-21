@@ -10,8 +10,9 @@ const (
 )
 
 const (
-	archiveConfig   int = 2
-	archiveVersions     = 5
+	archiveConfig    int = 2
+	archiveInterface     = 3
+	archiveVersions      = 5
 )
 
 // Manager handles loading and managing game assets.
@@ -35,6 +36,17 @@ func NewManager(baseDir string) *Manager {
 func (m *Manager) Close() {
 	m.archives = map[int]*Archive{}
 	m.caches = map[int]*CacheFile{}
+}
+
+// Interfaces returns a slice of model.Interface data extracted from game assets.
+func (m *Manager) Interfaces() ([]*model.Interface, error) {
+	archive, err := m.archive(cacheMain, archiveInterface)
+	if err != nil {
+		return nil, err
+	}
+
+	interfaceLoader := NewInterfaceLoader(archive)
+	return interfaceLoader.Load()
 }
 
 // Map returns the world map extracted from game assets and populated with objects.

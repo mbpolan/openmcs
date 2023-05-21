@@ -17,6 +17,11 @@ func (r *DataReader) Byte() (byte, error) {
 	return r.Reader.ReadByte()
 }
 
+// HasMore returns true if more data is available to be read.
+func (r *DataReader) HasMore() bool {
+	return r.Reader.Len() > 0
+}
+
 // VarByte reads a variable-length value, either a byte or 2-bytes, depending on the most significant byte.
 func (r *DataReader) VarByte() (uint16, error) {
 	msb, err := r.Byte()

@@ -41,6 +41,7 @@ type Options struct {
 type Game struct {
 	doneChan         chan bool
 	interaction      *interaction.Manager
+	interfaces       []*model.Interface
 	items            map[int]*model.Item
 	lastPlayerUpdate time.Time
 	ticker           *time.Ticker
@@ -81,7 +82,8 @@ func NewGame(opts Options) (*Game, error) {
 		return nil, err
 	}
 
-	logger.Infof("loaded %d scripts", numScripts)
+	logger.Infof("loaded %d scripts in %s", numScripts, time.Now().Sub(start))
+	start = time.Now()
 
 	// load game assets
 	err = g.loadAssets(opts.Config.Server.AssetDir, opts.ItemAttributes)
@@ -773,6 +775,12 @@ func (g *Game) playerLoop(pe *playerEntity) {
 func (g *Game) loadAssets(assetDir string, itemAttributes []*model.ItemAttributes) error {
 	var err error
 	manager := asset.NewManager(assetDir)
+
+	// load interfaces
+	g.interfaces, err = manager.Interfaces()
+	if err != nil {
+		return err
+	}
 
 	// load world objects
 	g.objects, err = manager.WorldObjects()
