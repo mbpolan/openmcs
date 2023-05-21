@@ -916,7 +916,7 @@ func (g *Game) handleSetInterfaceModel(pe *playerEntity, interfaceID, itemID, zo
 // handleSetInterfaceText sends a player's client the text to show on an interface.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) handleSetInterfaceText(pe *playerEntity, interfaceID int, text string) {
-	// TODO
+	pe.Send(response.NewSetInterfaceTextResponse(interfaceID, text))
 }
 
 // handleRemovePlayer adds a player to the list of players that will be removed from the game.

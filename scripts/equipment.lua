@@ -34,6 +34,7 @@ function on_equip_item(player, item)
         inf_id = 776
     elseif style == WEAPON_STYLE_SLASH_SWORD then
         inf_id = 2423
+        inf_func = interface_2423_on_update
     elseif style == WEAPON_STYLE_SPEAR then
         inf_id = 4679
     elseif style == WEAPON_STYLE_SPIKED then
@@ -50,6 +51,10 @@ function on_equip_item(player, item)
 
     if inf_id > 0 then
         player:sidebar_interface(CLIENT_TAB_EQUIPPED_ITEM, inf_id)
+    end
+
+    if inf_func ~= nil then
+        inf_func(player, item)
     end
 end
 
