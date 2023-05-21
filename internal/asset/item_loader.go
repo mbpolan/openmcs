@@ -127,7 +127,7 @@ func (l *ItemLoader) readItem(id int, r *DataReader) (*model.Item, error) {
 
 		case opItemModelID:
 			// skip a byte containing the item model id
-			_, err := r.Byte()
+			_, err := r.Uint16()
 			if err != nil {
 				return nil, err
 			}
