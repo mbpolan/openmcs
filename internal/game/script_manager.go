@@ -15,14 +15,8 @@ import (
 )
 
 const luaTypePlayerEntity = "playerEntity"
+const luaTypeInterface = "interface"
 const luaTypeItem = "item"
-
-// scriptType enumerates the known types of scripts.
-type scriptType int
-
-const (
-	scriptTypeInterface scriptType = iota
-)
 
 // ScriptManager manages game server scripts.
 type ScriptManager struct {
@@ -99,7 +93,7 @@ func (s *ScriptManager) DoInterface(pe *playerEntity, parent, actor *model.Inter
 		Fn:      s.state.GetGlobal(function),
 		NRet:    0,
 		Protect: true,
-	}, s.playerEntity(pe, s.state), lua.LNumber(opCode))
+	}, s.playerEntityType(pe, s.state), s.interfaceType(actor, s.state), lua.LNumber(opCode))
 
 	if err != nil {
 		if le, ok := err.(*lua.ApiError); ok {
@@ -112,16 +106,25 @@ func (s *ScriptManager) DoInterface(pe *playerEntity, parent, actor *model.Inter
 }
 
 // playerEntity creates a Lua user-defined data type for a playerEntity.
-func (s *ScriptManager) playerEntity(pe *playerEntity, l *lua.LState) *lua.LUserData {
+func (s *ScriptManager) playerEntityType(pe *playerEntity, l *lua.LState) *lua.LUserData {
 	ud := l.NewUserData()
 	ud.Value = pe
 	ud.Metatable = l.GetTypeMetatable(luaTypePlayerEntity)
 	return ud
 }
 
+// playerEntity creates a Lua user-defined data type for a model.Interface.
+func (s *ScriptManager) interfaceType(inf *model.Interface, l *lua.LState) *lua.LUserData {
+	ud := l.NewUserData()
+	ud.Value = inf
+	ud.Metatable = l.GetTypeMetatable(luaTypeInterface)
+	return ud
+}
+
 // createState creates a new Lua state initialized with user-defined types and compiled functions.
 func (s *ScriptManager) createState() (*lua.LState, error) {
 	l := lua.NewState()
+	s.registerInterfaceModel(l)
 	s.registerItemModel(l)
 	s.registerPlayerModel(l)
 
@@ -131,6 +134,20 @@ func (s *ScriptManager) createState() (*lua.LState, error) {
 	}
 
 	return l, nil
+}
+
+// registerItemModel registers metadata for a model.Interface type.
+func (s *ScriptManager) registerInterfaceModel(l *lua.LState) {
+	mt := l.NewTypeMetatable(luaTypeInterface)
+	l.SetGlobal(luaTypeInterface, mt)
+
+	l.SetField(mt, "__index", l.SetFuncs(l.NewTable(), map[string]lua.LGFunction{
+		"id": func(state *lua.LState) int {
+			inf := state.CheckUserData(1).Value.(*model.Interface)
+			state.Push(lua.LNumber(inf.ID))
+			return 1
+		},
+	}))
 }
 
 // registerItemModel registers metadata for a model.Item type.
