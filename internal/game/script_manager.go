@@ -201,8 +201,8 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 		},
 		"sidebar_interface": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
-			interfaceID := state.CheckInt(2)
-			sidebarID := state.CheckInt(3)
+			sidebarID := state.CheckInt(2)
+			interfaceID := state.CheckInt(3)
 
 			s.handler.handleSetSidebarInterface(pe, interfaceID, sidebarID)
 			return 0

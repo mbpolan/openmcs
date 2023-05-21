@@ -172,14 +172,6 @@ func (pe *playerEntity) DeferSendSkills() {
 	})
 }
 
-// DeferSendInterfaces plans an action to send a player the client tab interface to display.
-func (pe *playerEntity) DeferSendInterfaces() {
-	pe.deferredActions = append(pe.deferredActions, &Action{
-		ActionType: ActionSendInterfaces,
-		TickDelay:  1,
-	})
-}
-
 // DeferSendModes plans an action to send a player their current chat modes.
 func (pe *playerEntity) DeferSendModes() {
 	pe.deferredActions = append(pe.deferredActions, &Action{

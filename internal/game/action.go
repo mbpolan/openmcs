@@ -9,7 +9,6 @@ const (
 	ActionMoveInventoryItem ActionType = iota
 	ActionSendServerMessage
 	ActionSendSkills
-	ActionSendInterfaces
 	ActionSendModes
 	ActionSendFriendList
 	ActionSendIgnoreList

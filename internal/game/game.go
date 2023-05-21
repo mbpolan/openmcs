@@ -477,7 +477,7 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 	}
 
 	// plan an update to the client sidebar interface
-	pe.DeferSendInterfaces()
+	_ = g.scripts.DoPlayerInit(pe)
 
 	// plan an event to clear the player's equipment
 	pe.DeferSendEquipment()
@@ -902,7 +902,7 @@ func (g *Game) handleClearSidebarInterface(pe *playerEntity, sidebarID int) {
 // handleSetInterfaceText sends a player's client the text to show on an interface.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) handleSetInterfaceText(pe *playerEntity, interfaceID int, text string) {
-
+	// TODO
 }
 
 // handleRemovePlayer adds a player to the list of players that will be removed from the game.
@@ -1465,10 +1465,6 @@ func (g *Game) handleDeferredActions(pe *playerEntity) {
 			g.handleSendPlayerSkills(pe)
 			pe.RemoveDeferredAction(deferred)
 
-		case ActionSendInterfaces:
-			g.handleSendPlayerInterfaces(pe)
-			pe.RemoveDeferredAction(deferred)
-
 		case ActionSendModes:
 			g.handleSendPlayerModes(pe)
 			pe.RemoveDeferredAction(deferred)
@@ -1615,26 +1611,6 @@ func (g *Game) handleSendPlayerInventory(pe *playerEntity) {
 	}
 
 	pe.Send(inventory)
-}
-
-// handleSendPlayerInterfaces handles sending a player the tab interface their client should display.
-// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) handleSendPlayerInterfaces(pe *playerEntity) {
-	var responses []response.Response
-
-	for _, tab := range model.ClientTabs {
-		// does the player have an interface for this tab?
-		var r *response.SidebarInterfaceResponse
-		if id, ok := pe.tabInterfaces[tab]; ok {
-			r = response.NewSidebarInterfaceResponse(tab, id)
-		} else {
-			r = response.NewRemoveSidebarInterfaceResponse(tab)
-		}
-
-		responses = append(responses, r)
-	}
-
-	pe.Send(responses...)
 }
 
 // handleSendPlayerModes handles sending a player their current chat modes.

@@ -37,23 +37,6 @@ const (
 	ClientTabMusic
 )
 
-// ClientTabs is a slice of all client tab interface.
-var ClientTabs = []ClientTab{
-	ClientTabEquippedItem,
-	ClientTabSkills,
-	ClientTabQuests,
-	ClientTabInventory,
-	ClientTabEquipment,
-	ClientTabPrayers,
-	ClientTabSpells,
-	ClientTabFriendsList,
-	ClientTabIgnoreList,
-	ClientTabLogout,
-	ClientTabSettings,
-	ClientTabControls,
-	ClientTabMusic,
-}
-
 // InterfaceCondition is a condition for an interface to be active.
 type InterfaceCondition struct {
 	Type  int
