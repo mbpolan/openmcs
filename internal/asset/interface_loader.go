@@ -38,8 +38,9 @@ func (l *InterfaceLoader) Load() ([]*model.Interface, error) {
 	childIDs := map[int][]int{}
 
 	// read data for each interface
+	lastParentID := -1
 	for reader.HasMore() {
-		var id, parentID int
+		var id int
 
 		// read 2 bytes for the interface id
 		v, err := reader.Uint16()
@@ -47,14 +48,14 @@ func (l *InterfaceLoader) Load() ([]*model.Interface, error) {
 			return nil, err
 		}
 
-		// check if this interface is the child of another interface. if so, read another 2 bytes for the parent id
+		// if the id is 0xFFFF, then this interface marks the beginning of a new parent
 		if v == 0xFFFF {
 			v, err = reader.Uint16()
 			if err != nil {
 				return nil, err
 			}
 
-			parentID = int(v)
+			lastParentID = int(v)
 
 			v, err = reader.Uint16()
 			if err != nil {
@@ -62,24 +63,23 @@ func (l *InterfaceLoader) Load() ([]*model.Interface, error) {
 			}
 
 			id = int(v)
-
-			// record the parent for this interface
-			parentIDs[id] = parentID
 		} else {
 			id = int(v)
-			parentID = id
 		}
+
+		// record the parent for this interface
+		parentIDs[id] = lastParentID
 
 		// bounds check both ids
 		if id < 0 || id > int(maxInterfaceID)-1 {
 			return nil, fmt.Errorf("interface id out of bounds: %d", id)
 		}
-		if parentID < 0 || id > int(maxInterfaceID)-1 {
-			return nil, fmt.Errorf("parent interface id out of bounds: %d", parentID)
+		if lastParentID < 0 || lastParentID > int(maxInterfaceID)-1 {
+			return nil, fmt.Errorf("parent interface id out of bounds: %d", lastParentID)
 		}
 
 		// read the interface data
-		inf, children, err := l.readInterface(id, parentID, reader)
+		inf, children, err := l.readInterface(id, lastParentID, reader)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed loading interface %d", id)
 		}
@@ -90,8 +90,9 @@ func (l *InterfaceLoader) Load() ([]*model.Interface, error) {
 
 	// resolve parent and child interfaces
 	for _, inf := range interfaces {
+		// check if this interface has a parent interface
 		parentID, ok := parentIDs[inf.ID]
-		if !ok {
+		if !ok || parentID == -1 || parentID == inf.ID {
 			continue
 		}
 
