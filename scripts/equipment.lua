@@ -11,7 +11,7 @@ function on_equip_item(player, item)
     inf_id = 0
     style = item:weapon_style()
     if style == WEAPON_STYLE_2H_SWORD then
-        inf_id = 5855
+        inf_id = 4705
     elseif style == WEAPON_STYLE_AXE then
         inf_id = 1698
     elseif style == WEAPON_STYLE_BOW then
@@ -67,5 +67,32 @@ function on_unequip_item(player, item)
         return
     end
 
+    set_unarmed(player)
+end
+
+-------------------------------------
+-- Sets the equipped item interface to unarmed
+-------------------------------------
+function set_unarmed(player)
     player:sidebar_interface(CLIENT_TAB_EQUIPPED_ITEM, 5855)
+    interface_5855_on_update(player)
+end
+
+-------------------------------------
+-- Interface: unarmed
+-------------------------------------
+function interface_5855_on_update(player)
+    -- 2425 is the weapon name
+    player:interface_text(5857, "none")
+end
+
+-------------------------------------
+-- Interface: slash/sword weapon
+-------------------------------------
+function interface_2423_on_update(player, item)
+    -- 2424 is the weapon model
+    player:interface_model(2424, item:id(), 169)
+
+    -- 2425 is the weapon name
+    player:interface_text(2426, " " .. item:name())
 end
