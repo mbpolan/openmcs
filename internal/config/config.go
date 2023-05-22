@@ -58,25 +58,7 @@ type InventoryTabInterfaceConfig struct {
 
 // EquipmentTabInterfaceConfig contains interface data for the equipment tab interface.
 type EquipmentTabInterfaceConfig struct {
-	ID      int `mapstructure:"id"`
-	Slots   int `mapstructure:"slots"`
-	Bonuses struct {
-		Attack  EquipmentTabBonusInterfaceConfig `mapstructure:"attack"`
-		Defense EquipmentTabBonusInterfaceConfig `mapstructure:"defense"`
-	} `mapstructure:"bonuses"`
-	Other struct {
-		Strength int `mapstructure:"strength"`
-		Prayer   int `mapstructure:"prayer"`
-	} `mapstructure:"other"`
-}
-
-// EquipmentTabBonusInterfaceConfig contains interface data for the equipment bonuses parent interface.
-type EquipmentTabBonusInterfaceConfig struct {
-	Stab  int `mapstructure:"stab"`
-	Slash int `mapstructure:"slash"`
-	Crush int `mapstructure:"crush"`
-	Magic int `mapstructure:"magic"`
-	Range int `mapstructure:"range"`
+	Slots int `mapstructure:"slots"`
 }
 
 // Load reads the game server configuration file from the given path.

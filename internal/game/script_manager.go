@@ -18,6 +18,21 @@ const luaTypePlayerEntity = "playerEntity"
 const luaTypeInterface = "interface"
 const luaTypeItem = "item"
 
+const (
+	combatStatAttackStab int = iota
+	combatStatAttackSlash
+	combatStatAttackCrush
+	combatStatAttackMagic
+	combatStatAttackRange
+	combatStatDefenseStab
+	combatStatDefenseSlash
+	combatStatDefenseCrush
+	combatStatDefenseMagic
+	combatStatDefenseRange
+	combatStatStrength
+	combatStatPrayer
+)
+
 // ScriptManager manages game server scripts.
 type ScriptManager struct {
 	baseDir string
@@ -228,6 +243,28 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 	l.SetGlobal(luaTypePlayerEntity, mt)
 
 	l.SetField(mt, "__index", l.SetFuncs(l.NewTable(), map[string]lua.LGFunction{
+		"combat_stats": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+
+			tbl := state.NewTable()
+			tbl.RawSetInt(combatStatAttackStab, lua.LNumber(pe.player.CombatStats.Attack.Stab))
+			tbl.RawSetInt(combatStatAttackSlash, lua.LNumber(pe.player.CombatStats.Attack.Slash))
+			tbl.RawSetInt(combatStatAttackCrush, lua.LNumber(pe.player.CombatStats.Attack.Crush))
+			tbl.RawSetInt(combatStatAttackMagic, lua.LNumber(pe.player.CombatStats.Attack.Magic))
+			tbl.RawSetInt(combatStatAttackRange, lua.LNumber(pe.player.CombatStats.Attack.Range))
+
+			tbl.RawSetInt(combatStatDefenseStab, lua.LNumber(pe.player.CombatStats.Defense.Stab))
+			tbl.RawSetInt(combatStatDefenseSlash, lua.LNumber(pe.player.CombatStats.Defense.Slash))
+			tbl.RawSetInt(combatStatDefenseCrush, lua.LNumber(pe.player.CombatStats.Defense.Crush))
+			tbl.RawSetInt(combatStatDefenseMagic, lua.LNumber(pe.player.CombatStats.Defense.Magic))
+			tbl.RawSetInt(combatStatDefenseRange, lua.LNumber(pe.player.CombatStats.Defense.Range))
+
+			tbl.RawSetInt(combatStatStrength, lua.LNumber(pe.player.CombatStats.Strength))
+			tbl.RawSetInt(combatStatPrayer, lua.LNumber(pe.player.CombatStats.Prayer))
+
+			state.Push(tbl)
+			return 1
+		},
 		"sidebar_clear": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 			sidebarID := state.CheckInt(2)

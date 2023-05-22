@@ -8,8 +8,8 @@ import (
 type Manager struct {
 	// CharacterDesigner is the interface for editing a player's appearance.
 	CharacterDesigner *SimpleInterface
-	// EquipmentTab is the interface for a player's equipment.
-	EquipmentTab *EquipmentTabInterface
+	// EquipmentTab is the interface with equipment slots.
+	EquipmentTab *SimpleInterface
 	// InventoryTab is the interface for a player's inventory.
 	InventoryTab *InventoryTabInterface
 
@@ -21,7 +21,7 @@ func New(cfg config.InterfacesConfig) *Manager {
 	return &Manager{
 		config:            cfg,
 		CharacterDesigner: newSimpleInterface(cfg.CharacterDesigner.ID),
-		EquipmentTab:      newEquipmentTabInterface(cfg.Equipment),
+		EquipmentTab:      newSimpleInterface(cfg.Equipment.Slots),
 		InventoryTab:      newInventoryTabInterface(cfg.Inventory),
 	}
 }

@@ -14,6 +14,7 @@ function init_player_tabs(player)
     item = player:equipped_item(EQUIP_SLOT_WEAPON)
     if item == nil then
         set_unarmed(player)
+        set_equip_stats(player)
     else
         on_equip_item(player, item)
     end

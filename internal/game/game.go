@@ -1189,13 +1189,12 @@ func (g *Game) equipPlayerInventoryItem(pe *playerEntity, item *model.Item) {
 	pe.Send(inventory)
 
 	// update the player's equipment status
-	equipment := response.NewSetInventoryItemResponse(g.interaction.EquipmentTab.SlotsID)
+	equipment := response.NewSetInventoryItemResponse(g.interaction.EquipmentTab.ID)
 	equipment.AddSlot(int(item.Attributes.EquipSlotType), invSlot.Item.ID, invSlot.Amount)
 	pe.Send(equipment)
 
 	// update the player's equipment interface and their equipped weapon interface tabs
 	g.checkScript(g.scripts.DoOnEquipItem(pe, item))
-	pe.Send(g.interaction.EquipmentTab.Update(pe.player)...)
 
 	// mark that we need to update the player's appearance if necessary
 	if item.Attributes.EquipSlotType.Visible() {
@@ -1220,12 +1219,11 @@ func (g *Game) unequipPlayerInventoryItem(pe *playerEntity, item *model.Item, sl
 	g.addPlayerInventoryItem(pe, slot.Item, slot.Amount)
 
 	// update the player's equipment status
-	equipment := response.NewSetInventoryItemResponse(g.interaction.EquipmentTab.SlotsID)
+	equipment := response.NewSetInventoryItemResponse(g.interaction.EquipmentTab.ID)
 	equipment.ClearSlot(int(item.Attributes.EquipSlotType))
 	pe.Send(equipment)
 
 	// update the player's equipment interface and their equipped weapon interface tabs
-	pe.Send(g.interaction.EquipmentTab.Update(pe.player)...)
 	g.checkScript(g.scripts.DoOnUnequipItem(pe, item))
 
 	// mark that we need to update the player's appearance if necessary
@@ -1491,7 +1489,6 @@ func (g *Game) handleDeferredActions(pe *playerEntity) {
 
 		case ActionSendEquipment:
 			g.handleSendPlayerEquipment(pe)
-			pe.Send(g.interaction.EquipmentTab.Update(pe.player)...)
 			pe.RemoveDeferredAction(deferred)
 
 		case ActionSendInventory:
@@ -1597,7 +1594,7 @@ func (g *Game) handleSendPlayerSkills(pe *playerEntity) {
 // handleSendPlayerEquipment handles sending a player their current equipped items.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) handleSendPlayerEquipment(pe *playerEntity) {
-	equipment := response.NewSetInventoryItemResponse(g.interaction.EquipmentTab.SlotsID)
+	equipment := response.NewSetInventoryItemResponse(g.interaction.EquipmentTab.ID)
 	for _, slotType := range model.EquipmentSlotTypes {
 		slot := pe.player.EquipmentSlot(slotType)
 		if slot == nil {

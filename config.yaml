@@ -44,19 +44,3 @@ interfaces:
   equipment:
     id: 1644
     slots: 1688
-    bonuses:
-      attack:
-        stab: 1675
-        slash: 1676
-        crush: 1677
-        magic: 1678
-        range: 1679
-      defense:
-        stab: 1680
-        slash: 1681
-        crush: 1682
-        magic: 1683
-        range: 1684
-    other:
-      strength: 1686
-      prayer: 1687
