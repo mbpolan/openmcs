@@ -123,7 +123,7 @@ end
 -------------------------------------
 function interface_2423_on_action(player, interface, op_code)
     style = interface:id()
-
+    
     if style == 2429 then
         player:attack_style(ATTACK_STYLE_CHOP)
     elseif style == 2432 then

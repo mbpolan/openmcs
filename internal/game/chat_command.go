@@ -18,6 +18,7 @@ const (
 	ChatCommandShowInterface
 	ChatCommandHideInterfaces
 	ChatCommandCharacterDesigner
+	ChatCommandReloadScripts
 )
 
 // ChatCommandSpawnItemParams contains parameters for a chat command that spawns a ground Item.
@@ -202,8 +203,15 @@ func ParseChatCommand(text string) *ChatCommand {
 		}
 
 	case "clear":
+		// clear open interfaces
 		return &ChatCommand{
 			Type: ChatCommandHideInterfaces,
+		}
+
+	case "rscripts":
+		// reload script manager
+		return &ChatCommand{
+			Type: ChatCommandReloadScripts,
 		}
 
 	default:

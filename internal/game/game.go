@@ -933,7 +933,7 @@ func (g *Game) handleRemovePlayer(pe *playerEntity) {
 }
 
 // handleChatCommand processes a chat command sent by a player.
-// Concurrency requirements: (a) game state should NOT be locked and (b) this player should NOT be locked.
+// Concurrency requirements: (a) game state should be locked and (b) this player should NOT be locked.
 func (g *Game) handleChatCommand(pe *playerEntity, command *ChatCommand) {
 	switch command.Type {
 	case ChatCommandTypeSpawnItem:
@@ -975,6 +975,16 @@ func (g *Game) handleChatCommand(pe *playerEntity, command *ChatCommand) {
 	case ChatCommandHideInterfaces:
 		// clear all interfaces
 		pe.DeferHideInterfaces()
+
+	case ChatCommandReloadScripts:
+		// clear script manager and reload all scripts
+		// FIXME: this probably should be scheduled until _after_ the next tick
+		n, err := g.scripts.Load()
+		if err != nil {
+			logger.Errorf("failed to reload scripts via command: %s", err)
+		} else {
+			logger.Infof("reloaded %d scripts via command", n)
+		}
 	}
 }
 

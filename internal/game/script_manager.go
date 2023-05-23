@@ -53,8 +53,16 @@ func NewScriptManager(baseDir string, handler ScriptHandler) *ScriptManager {
 }
 
 // Load parses and loads all script files located in the base directory, returning the number of scripts on success. If
-// any script fails to load, an error will be returned.
+// any script fails to load, an error will be returned. If this method is called after the initial script load is done,
+// a full reload of all scripts will be performed. This will destroy the current script manager state, so you need to
+// ensure that no consumers are currently awaiting a result from a script.
 func (s *ScriptManager) Load() (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// clear compiled script cache
+	s.protos = nil
+
 	entries, err := os.ReadDir(s.baseDir)
 	if err != nil {
 		return 0, err
