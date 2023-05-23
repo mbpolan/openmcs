@@ -121,6 +121,20 @@ end
 -------------------------------------
 -- Interface: slash/sword weapon
 -------------------------------------
+function interface_2423_on_action(player, interface, op_code)
+    style = interface:id()
+
+    if style == 2429 then
+        player:attack_style(ATTACK_STYLE_CHOP)
+    elseif style == 2432 then
+        player:attack_style(ATTACK_STYLE_SLASH)
+    elseif style == 2431 then
+        player:attack_style(ATTACK_STYLE_LUNGE)
+    elseif style == 2430 then
+        player:attack_style(ATTACK_STYLE_BLOCK)
+    end
+end
+
 function interface_2423_on_update(player, item)
     -- 2424 is the weapon model
     player:interface_model(2424, item:id(), 169)

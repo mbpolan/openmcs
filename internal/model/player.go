@@ -46,6 +46,7 @@ type Player struct {
 	Skills       SkillMap
 	Inventory    [MaxInventorySlots]*InventorySlot
 	CombatStats  EntityCombatStats
+	AttackStyle  AttackStyle
 	UpdateDesign bool
 }
 

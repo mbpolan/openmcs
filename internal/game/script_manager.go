@@ -310,6 +310,13 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 
 			return 1
 		},
+		"attack_style": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			style := state.CheckInt(2)
+
+			pe.player.AttackStyle = model.AttackStyle(style)
+			return 0
+		},
 		"disconnect": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 			s.handler.handleRemovePlayer(pe)
