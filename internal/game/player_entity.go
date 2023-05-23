@@ -53,6 +53,7 @@ func newPlayerEntity(p *model.Player, w *network.ProtocolWriter) *playerEntity {
 		doneChan:         make(chan bool, 1),
 		outChan:          make(chan response.Response, maxQueueSize),
 		privateMessageID: 1,
+		tabInterfaces:    map[model.ClientTab]int{},
 		writer:           w,
 	}
 }

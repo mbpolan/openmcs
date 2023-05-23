@@ -892,12 +892,18 @@ func (g *Game) playerRegionPosition(pe *playerEntity) (model.Vector2D, model.Vec
 // handleSetSidebarInterface sends a player's client an interface to show on a sidebar tab.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) handleSetSidebarInterface(pe *playerEntity, interfaceID, sidebarID int) {
-	pe.Send(response.NewSidebarInterfaceResponse(model.ClientTab(sidebarID), interfaceID))
+	tab := model.ClientTab(sidebarID)
+
+	pe.tabInterfaces[tab] = interfaceID
+	pe.Send(response.NewSidebarInterfaceResponse(tab, interfaceID))
 }
 
 // handleClearSidebarInterface sends a player's client a command to remove an interface on a sidebar tab.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) handleClearSidebarInterface(pe *playerEntity, sidebarID int) {
+	tab := model.ClientTab(sidebarID)
+
+	delete(pe.tabInterfaces, tab)
 	pe.Send(response.NewRemoveSidebarInterfaceResponse(model.ClientTab(sidebarID)))
 }
 
