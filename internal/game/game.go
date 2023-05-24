@@ -249,6 +249,11 @@ func (g *Game) DoPlayerChatCommand(p *model.Player, text string) {
 		return
 	}
 
+	// require the player to have administrator privileges before executing a command
+	if pe.player.Type != model.PlayerAdmin {
+		return
+	}
+
 	// determine if a valid and recognized chat command was sent
 	command := ParseChatCommand(text)
 	if command == nil {
