@@ -10,6 +10,8 @@ type ScriptHandler interface {
 	handleSetInterfaceModel(pe *playerEntity, interfaceID, itemID, zoom int)
 	// handleSetInterfaceText sends a player's client text to show on an interface.
 	handleSetInterfaceText(pe *playerEntity, interfaceID int, text string)
+	// handleSetInterfaceSetting sends a setting value for the current interface.
+	handleSetInterfaceSetting(pe *playerEntity, settingID, value int)
 	// handleRemovePlayer schedules a player to be removed from the game.
 	handleRemovePlayer(pe *playerEntity)
 }

@@ -251,6 +251,13 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 	l.SetGlobal(luaTypePlayerEntity, mt)
 
 	l.SetField(mt, "__index", l.SetFuncs(l.NewTable(), map[string]lua.LGFunction{
+		"attack_style": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			style := state.CheckInt(2)
+
+			pe.player.AttackStyle = model.AttackStyle(style)
+			return 0
+		},
 		"combat_stats": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 
@@ -305,6 +312,14 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			s.handler.handleSetInterfaceText(pe, interfaceID, text)
 			return 0
 		},
+		"interface_setting": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			settingID := state.CheckInt(2)
+			value := state.CheckInt(3)
+
+			s.handler.handleSetInterfaceSetting(pe, settingID, value)
+			return 0
+		},
 		"equipped_item": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 			slotType := state.CheckInt(2)
@@ -317,13 +332,6 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			}
 
 			return 1
-		},
-		"attack_style": func(state *lua.LState) int {
-			pe := state.CheckUserData(1).Value.(*playerEntity)
-			style := state.CheckInt(2)
-
-			pe.player.AttackStyle = model.AttackStyle(style)
-			return 0
 		},
 		"disconnect": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)

@@ -930,6 +930,17 @@ func (g *Game) handleSetInterfaceText(pe *playerEntity, interfaceID int, text st
 	pe.Send(response.NewSetInterfaceTextResponse(interfaceID, text))
 }
 
+// handleSetInterfaceSetting sends a setting value for the current interface.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleSetInterfaceSetting(pe *playerEntity, settingID, value int) {
+	r := &response.SetInterfaceSettingResponse{
+		SettingID: settingID,
+		Value:     value,
+	}
+
+	pe.Send(r)
+}
+
 // handleRemovePlayer adds a player to the list of players that will be removed from the game.
 // Concurrency requirements: (a) game state should be locked and (b) this player may be locked.
 func (g *Game) handleRemovePlayer(pe *playerEntity) {
