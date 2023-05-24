@@ -46,7 +46,7 @@ type Player struct {
 	Skills       SkillMap
 	Inventory    [MaxInventorySlots]*InventorySlot
 	CombatStats  EntityCombatStats
-	AttackStyle  AttackStyle
+	AttackStyles map[WeaponStyle]AttackStyle
 	UpdateDesign bool
 }
 
@@ -76,10 +76,21 @@ func NewPlayer(username string) *Player {
 	}
 
 	return &Player{
-		Username:   username,
-		Appearance: appearance,
-		Skills:     EmptySkillMap(),
+		Username:     username,
+		Appearance:   appearance,
+		AttackStyles: InitAttackStyleMap(),
+		Skills:       EmptySkillMap(),
 	}
+}
+
+// AttackStyle returns the active attack style for a particular weapon style.
+func (p *Player) AttackStyle(weaponStyle WeaponStyle) AttackStyle {
+	return p.AttackStyles[weaponStyle]
+}
+
+// SetAttackStyle sets the active attack style for a weapon style, overwriting any previously applied style.
+func (p *Player) SetAttackStyle(weaponStyle WeaponStyle, attackStyle AttackStyle) {
+	p.AttackStyles[weaponStyle] = attackStyle
 }
 
 // SetSkill sets the data for a player skill. This will recompute the player's derived levels (total and combat).
@@ -92,7 +103,7 @@ func (p *Player) SetSkill(skill *Skill) {
 func (p *Player) EquippedWeaponStyle() WeaponStyle {
 	slot, ok := p.Appearance.Equipment[EquipmentSlotTypeWeapon]
 	if !ok || slot.Item.Attributes == nil {
-		return WeaponStyleNone
+		return WeaponStyleUnarmed
 	}
 
 	return slot.Item.Attributes.WeaponStyle

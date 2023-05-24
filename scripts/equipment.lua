@@ -113,9 +113,37 @@ end
 -------------------------------------
 -- Interface: unarmed
 -------------------------------------
+function interface_5855_on_action(player, interface, op_code)
+    style = interface:id()
+
+    -- change the player's current weapon attack style
+    if style == 5860 then
+        player:attack_style(ATTACK_STYLE_PUNCH)
+    elseif style == 5862 then
+        player:attack_style(ATTACK_STYLE_KICK)
+    elseif style == 5861 then
+        player:attack_style(ATTACK_STYLE_BLOCK)
+    end
+end
+
 function interface_5855_on_update(player)
     -- 2425 is the weapon name
     player:interface_text(5857, "none")
+
+    style = player:attack_style()
+
+    style_value = -1
+    if style == ATTACK_STYLE_PUNCH then
+        style_value = 0
+    elseif style == ATTACK_STYLE_KICK then
+        style_value = 1
+    elseif style == ATTACK_STYLE_BLOCK then
+        style_value = 2
+    end
+
+    if style_value > -1 then
+        player:interface_setting(43, style_value)
+    end
 end
 
 -------------------------------------
@@ -123,7 +151,8 @@ end
 -------------------------------------
 function interface_2423_on_action(player, interface, op_code)
     style = interface:id()
-    
+
+    -- change the player's current weapon attack style
     if style == 2429 then
         player:attack_style(ATTACK_STYLE_CHOP)
     elseif style == 2432 then
@@ -141,4 +170,22 @@ function interface_2423_on_update(player, item)
 
     -- 2425 is the weapon name
     player:interface_text(2426, " " .. item:name())
+
+    style = player:attack_style()
+
+    -- setting id 43 toggles the appropriate attack style button
+    style_value = -1
+    if style == ATTACK_STYLE_CHOP then
+        style_value = 0
+    elseif style == ATTACK_STYLE_SLASH then
+        style_value = 1
+    elseif style == ATTACK_STYLE_LUNGE then
+        style_value = 2
+    elseif style == ATTACK_STYLE_BLOCK then
+        style_value = 3
+    end
+
+    if style_value > -1 then
+        player:interface_setting(43, style_value)
+    end
 end

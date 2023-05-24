@@ -135,7 +135,7 @@ func (s *SQLite3Driver) LoadItemAttributes() ([]*model.ItemAttributes, error) {
 			nature = model.ItemNatureEquippable
 		}
 
-		weaponStyle := model.WeaponStyleNone
+		weaponStyle := model.WeaponStyleUnarmed
 		if weaponStyleStr.Valid {
 			weaponStyle = weaponStyleValues[weaponStyleStr.String]
 		}

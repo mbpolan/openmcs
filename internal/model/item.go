@@ -12,7 +12,7 @@ const (
 type WeaponStyle int
 
 const (
-	WeaponStyleNone WeaponStyle = iota
+	WeaponStyleUnarmed WeaponStyle = iota
 	WeaponStyle2HSword
 	WeaponStyleAxe
 	WeaponStyleBow

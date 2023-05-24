@@ -253,10 +253,19 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 	l.SetField(mt, "__index", l.SetFuncs(l.NewTable(), map[string]lua.LGFunction{
 		"attack_style": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
-			style := state.CheckInt(2)
+			weaponStyle := pe.player.EquippedWeaponStyle()
 
-			pe.player.AttackStyle = model.AttackStyle(style)
-			return 0
+			// if another argument is present on the stack, treat this as a setter
+			if state.GetTop() == 2 {
+				style := model.AttackStyle(state.CheckInt(2))
+				pe.player.SetAttackStyle(weaponStyle, style)
+				return 0
+			}
+
+			style := pe.player.AttackStyle(weaponStyle)
+			state.Push(lua.LNumber(style))
+
+			return 1
 		},
 		"combat_stats": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
