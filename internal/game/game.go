@@ -1002,6 +1002,12 @@ func (g *Game) handleConsumeRunes(pe *playerEntity, runeIDsAmounts ...int) bool 
 	return true
 }
 
+// handleSendServerMessage sends a server message to a player.
+// Concurrency requirements: (a) game state may be locked and (b) this player may be locked.
+func (g *Game) handleSendServerMessage(pe *playerEntity, message string) {
+	pe.Send(response.NewServerMessageResponse(message))
+}
+
 // handleChatCommand processes a chat command sent by a player.
 // Concurrency requirements: (a) game state should be locked and (b) this player should NOT be locked.
 func (g *Game) handleChatCommand(pe *playerEntity, command *ChatCommand) {

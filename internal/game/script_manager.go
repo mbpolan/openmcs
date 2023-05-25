@@ -345,6 +345,13 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			state.Push(lua.LBool(valid))
 			return 1
 		},
+		"server_message": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			message := state.CheckString(2)
+
+			s.handler.handleSendServerMessage(pe, message)
+			return 0
+		},
 	}))
 }
 

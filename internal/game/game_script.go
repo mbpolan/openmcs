@@ -17,4 +17,6 @@ type ScriptHandler interface {
 	// handleConsumeRunes attempts to consume a set of runes from the player's inventory, returning true if successful or
 	// false if not. runeIDsAmounts should be a vararg slice consisting of the rune item ID followed by the amount.
 	handleConsumeRunes(pe *playerEntity, runeIDsAmounts ...int) bool
+	// handleSendServerMessage sends a server message to a player.
+	handleSendServerMessage(pe *playerEntity, message string)
 }
