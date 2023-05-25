@@ -63,37 +63,10 @@ func (s *ScriptManager) Load() (int, error) {
 	// clear compiled script cache
 	s.protos = nil
 
-	entries, err := os.ReadDir(s.baseDir)
+	// load all available scripts under the base directory
+	_, err := s.loadScriptDirectory(s.baseDir)
 	if err != nil {
 		return 0, err
-	}
-
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".lua") {
-			continue
-		}
-
-		scriptFile := path.Join(s.baseDir, entry.Name())
-
-		// read the contents of the script
-		data, err := os.ReadFile(scriptFile)
-		if err != nil {
-			return 0, errors.Wrapf(err, "failed to open script file: %s", scriptFile)
-		}
-
-		// parse it into a lua chunk
-		chunk, err := parse.Parse(bytes.NewReader(data), scriptFile)
-		if err != nil {
-			return 0, errors.Wrapf(err, "failed to compile script file: %s", scriptFile)
-		}
-
-		// compile the script into a function proto
-		compiled, err := lua.Compile(chunk, scriptFile)
-		if err != nil {
-			return 0, errors.Wrap(err, fmt.Sprintf("unable to load script file: %s", scriptFile))
-		}
-
-		s.protos = append(s.protos, compiled)
 	}
 
 	// create an initial state
@@ -108,7 +81,6 @@ func (s *ScriptManager) Load() (int, error) {
 // DoPlayerInit executes a script to initialize a player when they join the game.
 func (s *ScriptManager) DoPlayerInit(pe *playerEntity) error {
 	return s.doFunction("init_player_tabs", s.playerEntityType(pe, s.state))
-
 }
 
 // DoInterface executes an interface script for an action performed by the player.
@@ -362,4 +334,58 @@ func (s *ScriptManager) registerFunctionProtos(l *lua.LState) error {
 	}
 
 	return nil
+}
+
+// loadScriptDirectory parses script files in a directory and compiles them. Subdirectories will be processed as they
+// are encountered. If successful, the number of script files loaded will be returned, otherwise an error will be
+// returned if any script fails to compile.
+func (s *ScriptManager) loadScriptDirectory(dir string) (int, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0, err
+	}
+
+	count := 0
+	for _, entry := range entries {
+		// recursively examine subdirectories
+		if entry.IsDir() {
+			subDir := path.Join(dir, entry.Name())
+			n, err := s.loadScriptDirectory(subDir)
+			if err != nil {
+				return 0, err
+			}
+
+			count += n
+			continue
+		}
+
+		// ignore potentially unknown files
+		if !strings.HasSuffix(entry.Name(), ".lua") {
+			continue
+		}
+
+		scriptFile := path.Join(dir, entry.Name())
+
+		// read the contents of the script
+		data, err := os.ReadFile(scriptFile)
+		if err != nil {
+			return 0, errors.Wrapf(err, "failed to open script file: %s", scriptFile)
+		}
+
+		// parse it into a lua chunk
+		chunk, err := parse.Parse(bytes.NewReader(data), scriptFile)
+		if err != nil {
+			return 0, errors.Wrapf(err, "failed to compile script file: %s", scriptFile)
+		}
+
+		// compile the script into a function proto
+		compiled, err := lua.Compile(chunk, scriptFile)
+		if err != nil {
+			return 0, errors.Wrap(err, fmt.Sprintf("unable to load script file: %s", scriptFile))
+		}
+
+		s.protos = append(s.protos, compiled)
+	}
+
+	return count, nil
 }
