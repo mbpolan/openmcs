@@ -1,5 +1,9 @@
 package game
 
+import (
+	"github.com/mbpolan/openmcs/internal/model"
+)
+
 // ScriptHandler is the interface between the game engine and the script system.
 type ScriptHandler interface {
 	// handleSetSidebarInterface sends a player's client an interface to show on a sidebar tab.
@@ -19,4 +23,6 @@ type ScriptHandler interface {
 	handleConsumeRunes(pe *playerEntity, runeIDsAmounts ...int) bool
 	// handleSendServerMessage sends a server message to a player.
 	handleSendServerMessage(pe *playerEntity, message string)
+	// handleTeleportPlayer teleports a player to another location.
+	handleTeleportPlayer(pe *playerEntity, globalPos model.Vector3D)
 }

@@ -352,6 +352,33 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			s.handler.handleSendServerMessage(pe, message)
 			return 0
 		},
+		"teleport": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			x := state.CheckInt(2)
+			y := state.CheckInt(3)
+			z := state.CheckInt(4)
+
+			// validate coordinates to make sure they're at least sane
+			if x < 0 {
+				state.ArgError(2, "invalid coordinates")
+				return 0
+			}
+			if y < 0 {
+				state.ArgError(3, "invalid coordinates")
+				return 0
+			}
+			if z < 0 || z > 3 {
+				state.ArgError(4, "invalid coordinates")
+				return 0
+			}
+
+			s.handler.handleTeleportPlayer(pe, model.Vector3D{
+				X: x,
+				Y: y,
+				Z: z,
+			})
+			return 0
+		},
 	}))
 }
 

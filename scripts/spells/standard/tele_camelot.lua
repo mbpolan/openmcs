@@ -8,4 +8,7 @@ function spell_teleport_camelot(player)
         player:server_message("You do not have enough runes to cast this spell.")
         return
     end
+
+    -- TODO: this should randomly offset the location along the x- and y-axis
+    player:teleport(2757, 3478, 0)
 end

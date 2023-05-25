@@ -1339,7 +1339,7 @@ func (g *Game) handleGameUpdate() error {
 		}
 	}
 
-	// remove and disconnected players first
+	// remove any disconnected players first
 	for _, pe := range g.removePlayers {
 		idx := -1
 
@@ -1762,6 +1762,12 @@ func (g *Game) handleSendPlayerIgnoreList(pe *playerEntity) {
 func (g *Game) handleServerMessage(pe *playerEntity, message string) {
 	msg := response.NewServerMessageResponse(message)
 	pe.Send(msg)
+}
+
+// handleTeleportPlayer teleports a player to another location.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleTeleportPlayer(pe *playerEntity, globalPos model.Vector3D) {
+	pe.teleportGlobal = &globalPos
 }
 
 // handlePlayerSwapInventoryItem handles moving an item from one slot to another in a player's inventory.
