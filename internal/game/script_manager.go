@@ -319,6 +319,32 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			s.handler.handleRemovePlayer(pe)
 			return 0
 		},
+		"consume_runes": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+
+			// ensure an even number of arguments was given
+			stack := state.GetTop() - 1
+			if stack%2 != 0 {
+				state.ArgError(1, "invalid number of arguments")
+				return 0
+			}
+
+			// start at the first vararg on the stack
+			stackPtr := 2
+
+			// form a slice consisting of rune IDs and amounts
+			args := make([]int, stack)
+			for i := 0; i < stack; i += 2 {
+				args[i] = state.CheckInt(stackPtr)
+				args[i+1] = state.CheckInt(stackPtr + 1)
+				stackPtr += 2
+			}
+
+			// attempt to consume the runes from the player's inventory
+			valid := s.handler.handleConsumeRunes(pe, args...)
+			state.Push(lua.LBool(valid))
+			return 1
+		},
 	}))
 }
 

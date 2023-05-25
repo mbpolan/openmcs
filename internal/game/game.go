@@ -948,6 +948,60 @@ func (g *Game) handleRemovePlayer(pe *playerEntity) {
 	g.removePlayers[pe.player.ID] = pe
 }
 
+// handleConsumeRunes attempts to consume a set of runes from the player's inventory, returning true if successful or
+// false if not. runeIDsAmounts should be a vararg slice consisting of the rune item ID followed by the amount.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleConsumeRunes(pe *playerEntity, runeIDsAmounts ...int) bool {
+	slots := map[int]*model.InventorySlot{}
+	amounts := map[int]int{}
+
+	// find the inventory slots which contain the necessary runes with minimum amounts
+	for i := 0; i < len(runeIDsAmounts); i += 2 {
+		itemID := runeIDsAmounts[i]
+		amount := runeIDsAmounts[i+1]
+		amounts[itemID] = amount
+
+		ok := false
+		for _, slot := range pe.player.Inventory {
+			if slot == nil {
+				continue
+			}
+
+			if slot.Item.ID == itemID && slot.Amount >= amount {
+				slots[itemID] = slot
+				ok = true
+				break
+			}
+		}
+
+		// fail fast if the player doesn't meet the requirements for this rune
+		if !ok {
+			return false
+		}
+	}
+
+	// deduct and/or remove runes from inventory
+	var responses []response.Response
+	for itemID, slot := range slots {
+		inventory := response.NewSetInventoryItemResponse(g.interaction.InventoryTab.SlotsID)
+
+		// if this slot is now empty, remove it entirely
+		slot.Amount -= amounts[itemID]
+		if slot.Amount == 0 {
+			pe.player.ClearInventoryItem(slot.ID)
+			inventory.ClearSlot(slot.ID)
+		} else {
+			inventory.AddSlot(slot.ID, itemID, slot.Amount)
+		}
+
+		responses = append(responses, inventory)
+	}
+
+	// update the player's inventory now that we're done
+	pe.Send(responses...)
+	return true
+}
+
 // handleChatCommand processes a chat command sent by a player.
 // Concurrency requirements: (a) game state should be locked and (b) this player should NOT be locked.
 func (g *Game) handleChatCommand(pe *playerEntity, command *ChatCommand) {

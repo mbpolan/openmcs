@@ -14,4 +14,7 @@ type ScriptHandler interface {
 	handleSetInterfaceSetting(pe *playerEntity, settingID, value int)
 	// handleRemovePlayer schedules a player to be removed from the game.
 	handleRemovePlayer(pe *playerEntity)
+	// handleConsumeRunes attempts to consume a set of runes from the player's inventory, returning true if successful or
+	// false if not. runeIDsAmounts should be a vararg slice consisting of the rune item ID followed by the amount.
+	handleConsumeRunes(pe *playerEntity, runeIDsAmounts ...int) bool
 }
