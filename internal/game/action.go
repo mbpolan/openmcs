@@ -21,6 +21,7 @@ const (
 	ActionShowInterface
 	ActionHideInterfaces
 	ActionDoInterfaceAction
+	ActionTeleportPlayer
 )
 
 // Action is an action that will be performed after a number of game ticks have elapsed.
@@ -35,7 +36,16 @@ type Action struct {
 	UnequipItemAction       *UnequipItemAction
 	ShowInterfaceAction     *ShowInterfaceAction
 	DoInterfaceAction       *DoInterfaceAction
+	TeleportPlayerAction    *TeleportPlayerAction
 }
+
+// ActionResult is a bitmask describing the mutations resulting from an action.
+type ActionResult int
+
+const (
+	ActionResultNoChange      ActionResult = 0
+	ActionResultChangeRegions              = 1 << iota
+)
 
 // ServerMessageAction is an action to send the player a server message.
 type ServerMessageAction struct {
@@ -83,4 +93,9 @@ type ShowInterfaceAction struct {
 type DoInterfaceAction struct {
 	Parent *model.Interface
 	Actor  *model.Interface
+}
+
+// TeleportPlayerAction is an action to teleport a player.
+type TeleportPlayerAction struct {
+	GlobalPos model.Vector3D
 }

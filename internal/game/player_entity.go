@@ -27,7 +27,6 @@ type playerEntity struct {
 	lastChatTime        time.Time
 	chatHighWater       time.Time
 	tabInterfaces       map[model.ClientTab]int
-	teleportGlobal      *model.Vector3D
 	privateMessageID    int
 	regionOrigin        model.Vector2D
 	appearanceChanged   bool
@@ -289,6 +288,16 @@ func (pe *playerEntity) DeferDoInterfaceAction(parent, actor *model.Interface) {
 		DoInterfaceAction: &DoInterfaceAction{
 			Parent: parent,
 			Actor:  actor,
+		},
+	})
+}
+
+// DeferTeleportPlayer plans an action to teleport the player to a position, in global coordinates.
+func (pe *playerEntity) DeferTeleportPlayer(globalPos model.Vector3D) {
+	pe.deferredActions = append(pe.deferredActions, &Action{
+		ActionType: ActionTeleportPlayer,
+		TeleportPlayerAction: &TeleportPlayerAction{
+			GlobalPos: globalPos,
 		},
 	})
 }

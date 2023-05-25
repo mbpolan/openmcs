@@ -1029,11 +1029,11 @@ func (g *Game) handleChatCommand(pe *playerEntity, command *ChatCommand) {
 	case ChatCommandTeleportRelative:
 		// relocate the player to a new location relative to their current position
 		newPos := pe.player.GlobalPos.Add(command.Pos)
-		pe.teleportGlobal = &newPos
+		pe.DeferTeleportPlayer(newPos)
 
 	case ChatCommandTeleport:
 		// relocate the player to a new location
-		pe.teleportGlobal = &command.Pos
+		pe.DeferTeleportPlayer(command.Pos)
 
 	case ChatCommandTypePosition:
 		// send a message containing player's server position on the world map
@@ -1379,28 +1379,11 @@ func (g *Game) handleGameUpdate() error {
 		}
 		update := pe.nextUpdate
 
-		// has this player teleported to a new location?
-		if pe.teleportGlobal != nil {
-			pe.player.GlobalPos = *pe.teleportGlobal
-			origin, relative := g.playerRegionPosition(pe)
-
-			if origin != pe.regionOrigin {
-				pe.regionOrigin = origin
-
-				region := response.NewLoadRegionResponse(pe.regionOrigin)
-				pe.Send(region)
-			}
-
-			relocate := response.NewPlayerUpdateResponse(pe.player.ID)
-			relocate.SetLocalPlayerPosition(relative, true)
-			pe.Send(relocate)
-
-			changedRegions[pe.player.ID] = true
-			pe.teleportGlobal = nil
-		}
-
 		// handle a deferred action for the player
-		g.handleDeferredActions(pe)
+		result := g.handleDeferredActions(pe)
+		if result&ActionResultChangeRegions != 0 {
+			changedRegions[pe.player.ID] = true
+		}
 
 		// if this player's appearance has changed, we need to include it in their update
 		if pe.appearanceChanged {
@@ -1551,7 +1534,9 @@ func (g *Game) handleGameUpdate() error {
 
 // handleDeferredActions processes scheduled actions for a player.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) handleDeferredActions(pe *playerEntity) {
+func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
+	result := ActionResultNoChange
+
 	deferredActions := pe.TickDeferredActions()
 	for _, deferred := range deferredActions {
 		switch deferred.ActionType {
@@ -1666,9 +1651,33 @@ func (g *Game) handleDeferredActions(pe *playerEntity) {
 
 			pe.RemoveDeferredAction(deferred)
 
+		case ActionTeleportPlayer:
+			action := deferred.TeleportPlayerAction
+
+			// move the player to the new position
+			pe.player.GlobalPos = action.GlobalPos
+			origin, relative := g.playerRegionPosition(pe)
+
+			// if the teleport position is in another region, we need to send a region change
+			if origin != pe.regionOrigin {
+				pe.regionOrigin = origin
+
+				region := response.NewLoadRegionResponse(pe.regionOrigin)
+				pe.Send(region)
+			}
+
+			relocate := response.NewPlayerUpdateResponse(pe.player.ID)
+			relocate.SetLocalPlayerPosition(relative, true)
+			pe.Send(relocate)
+
+			result |= ActionResultChangeRegions
+			pe.RemoveDeferredAction(deferred)
+
 		default:
 		}
 	}
+
+	return result
 }
 
 // handleSendPlayerSkills handles sending a player their current skill levels and experience.
@@ -1767,7 +1776,7 @@ func (g *Game) handleServerMessage(pe *playerEntity, message string) {
 // handleTeleportPlayer teleports a player to another location.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) handleTeleportPlayer(pe *playerEntity, globalPos model.Vector3D) {
-	pe.teleportGlobal = &globalPos
+	pe.DeferTeleportPlayer(globalPos)
 }
 
 // handlePlayerSwapInventoryItem handles moving an item from one slot to another in a player's inventory.
