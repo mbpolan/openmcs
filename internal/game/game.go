@@ -864,7 +864,9 @@ func (g *Game) findEffectiveRegion(pe *playerEntity) model.Vector2D {
 		regionOrigin.X -= util.Chunk2D.X
 	} else if util.Abs(pe.player.GlobalPos.X-baseBound.X) < util.RegionBoundary2D.X {
 		regionOrigin.X += util.Chunk2D.X
-	} else if util.Abs(pe.player.GlobalPos.Y-base.Y) < util.RegionBoundary2D.Y {
+	}
+
+	if util.Abs(pe.player.GlobalPos.Y-base.Y) < util.RegionBoundary2D.Y {
 		regionOrigin.Y -= util.Chunk2D.Y
 	} else if util.Abs(pe.player.GlobalPos.Y-baseBound.Y) < util.RegionBoundary2D.Y {
 		regionOrigin.Y += util.Chunk2D.Y
