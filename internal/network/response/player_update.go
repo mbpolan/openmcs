@@ -13,6 +13,9 @@ const PlayerUpdateResponseHeader byte = 0x51
 // localPlayerID identifies the local player.
 const localPlayerID = 0x7FF
 
+// animationResetID indicates that an entity animation should be reset.
+const animationResetID = 0x00FFFF
+
 const (
 	playerMoveNoUpdate  byte = 0xFF
 	playerMoveUnchanged      = 0x00
@@ -59,12 +62,18 @@ var directionCodes = map[model.Direction]byte{
 type playerUpdate struct {
 	mask        uint16
 	appearance  *entityAppearance
+	animation   *entityAnimation
 	chatMessage *model.ChatMessage
+}
+
+type entityAnimation struct {
+	ID    int
+	Delay int
 }
 
 type entityAppearance struct {
 	name       string
-	appearance *model.EntityAppearance
+	appearance model.EntityAppearance
 }
 
 type trackedPlayer struct {
@@ -146,6 +155,7 @@ func (p *PlayerUpdateResponse) SetLocalPlayerPosition(pos model.Vector3D, clearW
 	p.list[localPlayerID] = &trackedPlayer{}
 }
 
+// AddOtherPlayerNoUpdate reports that another player has not changed since the last update.
 func (p *PlayerUpdateResponse) AddOtherPlayerNoUpdate(playerID int) {
 	p.ensurePlayer(playerID).movement = &playerMovement{
 		moveType: playerMoveNoUpdate,
@@ -174,7 +184,7 @@ func (p *PlayerUpdateResponse) AddToPlayerList(playerID int, posOffset model.Vec
 }
 
 // AddAppearanceUpdate adds a player or NPC appearance update to send to the client.
-func (p *PlayerUpdateResponse) AddAppearanceUpdate(playerID int, name string, a *model.EntityAppearance) {
+func (p *PlayerUpdateResponse) AddAppearanceUpdate(playerID int, name string, a model.EntityAppearance) {
 	// if this appearance is for the local player, use the well-known id instead
 	id := playerID
 	if id == p.localPlayerID {
@@ -199,6 +209,35 @@ func (p *PlayerUpdateResponse) AddChatMessage(playerID int, msg *model.ChatMessa
 	update := p.ensureUpdate(playerID)
 	update.mask |= updateChatMessageText
 	update.chatMessage = msg
+}
+
+// AddAnimation reports that a player should begin an animation sequence after a delay.
+func (p *PlayerUpdateResponse) AddAnimation(playerID, animationID, delay int) {
+	id := playerID
+	if id == p.localPlayerID {
+		id = localPlayerID
+	}
+
+	update := p.ensureUpdate(id)
+	update.mask |= updateAnimations
+	update.animation = &entityAnimation{
+		ID:    animationID,
+		Delay: delay,
+	}
+}
+
+// ClearAnimation reports that a player's current animation should be completed.
+func (p *PlayerUpdateResponse) ClearAnimation(playerID int) {
+	id := playerID
+	if id == p.localPlayerID {
+		id = localPlayerID
+	}
+
+	update := p.ensureUpdate(id)
+	update.mask |= updateAnimations
+	update.animation = &entityAnimation{
+		ID: animationResetID,
+	}
 }
 
 // Write writes the contents of the message to a stream.
@@ -455,6 +494,24 @@ func (p *PlayerUpdateResponse) writePlayerUpdate(update *playerUpdate, w *networ
 		}
 	} else {
 		err := w.WriteUint8(byte(update.mask))
+		if err != nil {
+			return err
+		}
+	}
+
+	// write each update sequentially. the ordering is important; when the client parses the response, it will do so
+	// in a specific sequence, and so we need to match that expectation.
+
+	// write animations
+	if update.mask&updateAnimations != 0 {
+		// write 2 bytes for the animation id
+		err := w.WriteUint16LE(uint16(update.animation.ID))
+		if err != nil {
+			return err
+		}
+
+		// write 1 byte for the delay
+		err = w.WriteUint8(uint8(update.animation.Delay * -1))
 		if err != nil {
 			return err
 		}

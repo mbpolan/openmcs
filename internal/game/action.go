@@ -45,6 +45,7 @@ type ActionResult int
 const (
 	ActionResultNoChange      ActionResult = 0
 	ActionResultChangeRegions              = 1 << iota
+	ActionResultClearAnimations
 )
 
 // ServerMessageAction is an action to send the player a server message.

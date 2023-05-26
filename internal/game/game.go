@@ -1063,6 +1063,10 @@ func (g *Game) handleChatCommand(pe *playerEntity, command *ChatCommand) {
 		} else {
 			logger.Infof("reloaded %d scripts via command", n)
 		}
+
+	case ChatCommandAnimate:
+		// the player requested an animation
+		pe.SetAnimation(command.Animate.ID)
 	}
 }
 
@@ -1387,6 +1391,16 @@ func (g *Game) handleGameUpdate() error {
 			changedRegions[pe.player.ID] = true
 		}
 
+		// add the player's current animation if there is one in progress. otherwise, if the current animation should
+		// be completed, we need to explicitly tell the client to reset it.
+		// this needs to be done before we check for appearance changes, since animations require another appearance
+		// update be sent if they changed.
+		if pe.Animating() {
+			update.AddAnimation(pe.player.ID, pe.AnimationID(), 0)
+		} else if result&ActionResultClearAnimations != 0 {
+			update.ClearAnimation(pe.player.ID)
+		}
+
 		// if this player's appearance has changed, we need to include it in their update
 		if pe.appearanceChanged {
 			update.AddAppearanceUpdate(pe.player.ID, pe.player.Username, pe.player.Appearance)
@@ -1656,6 +1670,10 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 		case ActionTeleportPlayer:
 			action := deferred.TeleportPlayerAction
 
+			// reset the player's teleporting animation
+			result |= ActionResultClearAnimations
+			pe.ClearAnimation()
+
 			// move the player to the new position
 			pe.player.GlobalPos = action.GlobalPos
 			origin, relative := g.playerRegionPosition(pe)
@@ -1664,6 +1682,7 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 			if origin != pe.regionOrigin {
 				pe.regionOrigin = origin
 
+				result |= ActionResultChangeRegions
 				region := response.NewLoadRegionResponse(pe.regionOrigin)
 				pe.Send(region)
 			}
@@ -1672,7 +1691,6 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 			relocate.SetLocalPlayerPosition(relative, true)
 			pe.Send(relocate)
 
-			result |= ActionResultChangeRegions
 			pe.RemoveDeferredAction(deferred)
 
 		default:
@@ -1778,6 +1796,11 @@ func (g *Game) handleServerMessage(pe *playerEntity, message string) {
 // handleTeleportPlayer teleports a player to another location.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) handleTeleportPlayer(pe *playerEntity, globalPos model.Vector3D) {
+	// animate the player performing the teleport action
+	// FIXME: this should not be hardcoded
+	pe.SetAnimation(0x2CA)
+
+	// defer the teleport action for its tick delay
 	pe.DeferTeleportPlayer(globalPos)
 }
 

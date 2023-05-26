@@ -19,6 +19,7 @@ const (
 	ChatCommandHideInterfaces
 	ChatCommandCharacterDesigner
 	ChatCommandReloadScripts
+	ChatCommandAnimate
 )
 
 // ChatCommandSpawnItemParams contains parameters for a chat command that spawns a ground Item.
@@ -33,12 +34,19 @@ type ChatCommandShowInterfaceParams struct {
 	InterfaceID int
 }
 
+// ChatCommandAnimateParams contains parameters for an animation.
+type ChatCommandAnimateParams struct {
+	ID    int
+	Delay int
+}
+
 // ChatCommand is a game command embedded in a player chat message.
 type ChatCommand struct {
 	Type          ChatCommandType
 	Pos           model.Vector3D
 	SpawnItem     *ChatCommandSpawnItemParams
 	ShowInterface *ChatCommandShowInterfaceParams
+	Animate       *ChatCommandAnimateParams
 }
 
 // ParseChatCommand attempts to parse a chat command from a string of text. If no recognized command is found, then
@@ -212,6 +220,30 @@ func ParseChatCommand(text string) *ChatCommand {
 		// reload script manager
 		return &ChatCommand{
 			Type: ChatCommandReloadScripts,
+		}
+
+	case "anim":
+		if len(args) < 2 {
+			return nil
+		}
+
+		id, err := strconv.Atoi(args[0])
+		if err != nil {
+			return nil
+		}
+
+		delay, err := strconv.Atoi(args[1])
+		if err != nil {
+			return nil
+		}
+
+		// animate the player
+		return &ChatCommand{
+			Type: ChatCommandAnimate,
+			Animate: &ChatCommandAnimateParams{
+				ID:    id,
+				Delay: delay,
+			},
 		}
 
 	default:

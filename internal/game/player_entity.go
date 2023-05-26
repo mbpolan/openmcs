@@ -30,6 +30,7 @@ type playerEntity struct {
 	privateMessageID    int
 	regionOrigin        model.Vector2D
 	appearanceChanged   bool
+	lastAnimations      map[model.AnimationID]int
 	nextStatusBroadcast *playerStatusBroadcast
 	nextUpdate          *response.PlayerUpdateResponse
 	deferredActions     []*Action
@@ -55,6 +56,45 @@ func newPlayerEntity(p *model.Player, w *network.ProtocolWriter) *playerEntity {
 		tabInterfaces:    map[model.ClientTab]int{},
 		writer:           w,
 	}
+}
+
+// Animating returns true if the player has an ongoing animation, false if not.
+func (pe *playerEntity) Animating() bool {
+	if pe.lastAnimations == nil {
+		return false
+	}
+
+	return true
+}
+
+// AnimationID returns the ID of the animation the player is currently performing.
+func (pe *playerEntity) AnimationID() int {
+	return pe.player.Appearance.Animations[model.AnimationStand]
+}
+
+// SetAnimation sets an animation the player's client should start performing, taking precedence over the default
+// animation. This will also flag the player's appearance as changed.
+func (pe *playerEntity) SetAnimation(animationID int) {
+	// save the player's current animations
+	pe.lastAnimations = map[model.AnimationID]int{}
+	for k, v := range pe.player.Appearance.Animations {
+		pe.lastAnimations[k] = v
+	}
+
+	// set the new animation
+	pe.player.Appearance.Animations[model.AnimationStand] = animationID
+	pe.appearanceChanged = true
+}
+
+// ClearAnimation removes the current animation for the player. This will also flag the player's appearance as changed.
+func (pe *playerEntity) ClearAnimation() {
+	// restore the player's previous animations
+	for k, v := range pe.lastAnimations {
+		pe.player.Appearance.Animations[k] = v
+	}
+
+	pe.lastAnimations = nil
+	pe.appearanceChanged = true
 }
 
 // MarkStatusBroadcast marks that this player's online/offline status should be broadcast to everyone.
@@ -296,6 +336,7 @@ func (pe *playerEntity) DeferDoInterfaceAction(parent, actor *model.Interface) {
 func (pe *playerEntity) DeferTeleportPlayer(globalPos model.Vector3D) {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionTeleportPlayer,
+		TickDelay:  4,
 		TeleportPlayerAction: &TeleportPlayerAction{
 			GlobalPos: globalPos,
 		},
