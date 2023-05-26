@@ -23,3 +23,14 @@ seed-sqlite3:
 clean:
 	rm -f data/game.db
 	rm -f openmcs
+
+# starts up the docker compose monitoring stack
+.PHONY: monitoring
+start-monitoring:
+	docker compose up -d
+
+# stops the docker compose monitoring stack
+.PHONY: monitoring
+stop-monitoring:
+	docker compose down
+
