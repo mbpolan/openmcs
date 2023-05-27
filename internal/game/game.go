@@ -1374,7 +1374,6 @@ func (g *Game) handleGameUpdate() error {
 	}
 
 	g.removePlayers = map[int]*playerEntity{}
-	changedAppearance := map[int]bool{}
 	changedRegions := map[int]bool{}
 
 	// process each player, handling deferred actions and movement sequences
@@ -1405,7 +1404,6 @@ func (g *Game) handleGameUpdate() error {
 		if pe.appearanceChanged {
 			update.AddAppearanceUpdate(pe.player.ID, pe.player.Username, pe.player.Appearance)
 			pe.appearanceChanged = false
-			changedAppearance[pe.player.ID] = true
 		}
 
 		// check if the player is walking
@@ -1502,11 +1500,7 @@ func (g *Game) handleGameUpdate() error {
 					update.AddOtherPlayerNoUpdate(other.player.ID)
 				} else {
 					update.SyncLocalMovement(other.player.ID, theirUpdate)
-				}
-
-				// if the player has changed their appearance, include it in the update
-				if changedAppearance[other.player.ID] {
-					update.AddAppearanceUpdate(other.player.ID, other.player.Username, other.player.Appearance)
+					update.SyncLocalUpdate(other.player.ID, theirUpdate)
 				}
 			}
 

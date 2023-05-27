@@ -25,7 +25,8 @@ const (
 )
 
 const (
-	updatePlayerWalking     uint16 = 0x400
+	updatePlayerNone        uint16 = 0x000
+	updatePlayerWalking            = 0x400
 	updateGraphics                 = 0x100
 	updateAnimations               = 0x008
 	updateOverheadText             = 0x004
@@ -122,6 +123,21 @@ func (p *PlayerUpdateResponse) Tracking(playerID int) bool {
 // SyncLocalMovement adds the other player's movement update to this player's update.
 func (p *PlayerUpdateResponse) SyncLocalMovement(playerID int, other *PlayerUpdateResponse) {
 	p.ensurePlayer(playerID).movement = other.local
+}
+
+// SyncLocalUpdate adds the other player's updates to this player's update.
+func (p *PlayerUpdateResponse) SyncLocalUpdate(playerID int, other *PlayerUpdateResponse) {
+	otherPlayer, ok := other.list[localPlayerID]
+	if !ok || otherPlayer.update == nil || otherPlayer.update.mask == updatePlayerNone {
+		return
+	}
+
+	// synchronize the other player's updates into this player's update
+	// TODO: can chat messages be included here?
+	them := p.ensurePlayer(playerID)
+	them.update = otherPlayer.update
+	them.update.animation = otherPlayer.update.animation
+	them.update.appearance = otherPlayer.update.appearance
 }
 
 // SetLocalPlayerNoMovement reports that the local player's state has not changed.
