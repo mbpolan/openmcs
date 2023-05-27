@@ -1818,12 +1818,11 @@ func (g *Game) handleServerMessage(pe *playerEntity, message string) {
 	pe.Send(msg)
 }
 
-// handleTeleportPlayer teleports a player to another location.
+// handleTeleportPlayer teleports a player to another location with an animation.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) handleTeleportPlayer(pe *playerEntity, globalPos model.Vector3D) {
+func (g *Game) handleTeleportPlayer(pe *playerEntity, animationID int, globalPos model.Vector3D) {
 	// animate the player performing the teleport action
-	// FIXME: this should not be hardcoded
-	pe.SetAnimation(0x2CA)
+	pe.SetAnimation(animationID)
 
 	// defer the teleport action for its tick delay
 	pe.DeferTeleportPlayer(globalPos)

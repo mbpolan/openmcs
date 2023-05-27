@@ -357,6 +357,7 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			x := state.CheckInt(2)
 			y := state.CheckInt(3)
 			z := state.CheckInt(4)
+			animationID := state.CheckInt(5)
 
 			// validate coordinates to make sure they're at least sane
 			if x < 0 {
@@ -372,11 +373,7 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 				return 0
 			}
 
-			s.handler.handleTeleportPlayer(pe, model.Vector3D{
-				X: x,
-				Y: y,
-				Z: z,
-			})
+			s.handler.handleTeleportPlayer(pe, animationID, model.Vector3D{X: x, Y: y, Z: z})
 			return 0
 		},
 	}))
