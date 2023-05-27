@@ -79,6 +79,11 @@ func NewGame(opts Options) (*Game, error) {
 		worldID:        opts.Config.Server.WorldID,
 	}
 
+	// initialize player index tracker
+	for i := range g.playerIndices {
+		g.playerIndices[i] = -1
+	}
+
 	start := time.Now()
 
 	// load scripts
@@ -1379,7 +1384,7 @@ func (g *Game) handleGameUpdate() error {
 		if idx > -1 {
 			// drop the player from the player list
 			g.players = append(g.players[:idx], g.players[idx+1:]...)
-			g.playerIndices[idx] = -1
+			g.playerIndices[pe.index] = -1
 
 			// mark the player as offline and broadcast their status
 			g.telemetry.RecordPlayerDisconnected()
@@ -1399,7 +1404,7 @@ func (g *Game) handleGameUpdate() error {
 	for _, pe := range g.players {
 		// prepare a new player update or use the pending, existing one
 		if pe.nextUpdate == nil {
-			pe.nextUpdate = response.NewPlayerUpdateResponse(pe.player.ID)
+			pe.nextUpdate = response.NewPlayerUpdateResponse(pe.index)
 		}
 		update := pe.nextUpdate
 
@@ -1414,14 +1419,14 @@ func (g *Game) handleGameUpdate() error {
 		// this needs to be done before we check for appearance changes, since animations require another appearance
 		// update be sent if they changed.
 		if pe.Animating() {
-			update.AddAnimation(pe.player.ID, pe.AnimationID(), 0)
+			update.AddAnimation(pe.index, pe.AnimationID(), 0)
 		} else if result&ActionResultClearAnimations != 0 {
-			update.ClearAnimation(pe.player.ID)
+			update.ClearAnimation(pe.index)
 		}
 
 		// if this player's appearance has changed, we need to include it in their update
 		if pe.appearanceChanged {
-			update.AddAppearanceUpdate(pe.player.ID, pe.player.Username, pe.player.Appearance)
+			update.AddAppearanceUpdate(pe.index, pe.player.Username, pe.player.Appearance)
 			pe.appearanceChanged = false
 		}
 
@@ -1506,9 +1511,10 @@ func (g *Game) handleGameUpdate() error {
 			// (c) we've seen them before and know their last update: no action needed
 			if !known {
 				posOffset := other.player.GlobalPos.Sub(pe.player.GlobalPos).To2D()
-				update.AddToPlayerList(other.player.ID, posOffset, true, true)
+				update.AddToPlayerList(other.index, posOffset, true, true)
 
-				update.AddAppearanceUpdate(other.player.ID, other.player.Username, other.player.Appearance)
+				update.AddAppearanceUpdate(other.index, other.player.Username, other.player.Appearance)
+				update.ClearAnimation(other.index)
 				pe.tracking[other.player.ID] = other
 			} else {
 				theirUpdate := other.nextUpdate
@@ -1516,10 +1522,10 @@ func (g *Game) handleGameUpdate() error {
 				// if the other player does not have an update, do not change their posture relative to us. otherwise
 				// synchronize with their local movement
 				if theirUpdate == nil {
-					update.AddOtherPlayerNoUpdate(other.player.ID)
+					update.AddOtherPlayerNoUpdate(other.index)
 				} else {
-					update.SyncLocalMovement(other.player.ID, theirUpdate)
-					update.SyncLocalUpdate(other.player.ID, theirUpdate)
+					update.SyncLocalMovement(other.index, theirUpdate)
+					update.SyncLocalUpdate(other.index, theirUpdate)
 				}
 			}
 
@@ -1542,7 +1548,7 @@ func (g *Game) handleGameUpdate() error {
 
 				// only include this chat message if the player should receive it
 				if receive {
-					update.AddChatMessage(other.player.ID, other.lastChatMessage)
+					update.AddChatMessage(other.index, other.lastChatMessage)
 				}
 			}
 		}
@@ -1562,7 +1568,7 @@ func (g *Game) handleGameUpdate() error {
 }
 
 // handleDeferredActions processes scheduled actions for a player.
-// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+// Concurrency requirements: (a) game state should be locked and (b) this player should be locked.
 func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 	result := ActionResultNoChange
 
@@ -1691,6 +1697,14 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 			pe.player.GlobalPos = action.GlobalPos
 			origin, relative := g.playerRegionPosition(pe)
 
+			// remove this player from the tracking list of other players
+			for _, tpe := range g.players {
+				if tpe.player.ID != pe.player.ID {
+					delete(tpe.tracking, pe.player.ID)
+				}
+			}
+			pe.tracking = map[int]*playerEntity{}
+
 			// if the teleport position is in another region, we need to send a region change
 			if origin != pe.regionOrigin {
 				pe.regionOrigin = origin
@@ -1700,10 +1714,8 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 				pe.Send(region)
 			}
 
-			relocate := response.NewPlayerUpdateResponse(pe.player.ID)
-			relocate.SetLocalPlayerPosition(relative, true)
-			pe.Send(relocate)
-
+			pe.nextUpdate.SetLocalPlayerPosition(relative, true)
+			pe.nextUpdate.AddAppearanceUpdate(pe.index, pe.player.Username, pe.player.Appearance)
 			pe.RemoveDeferredAction(deferred)
 
 		default:

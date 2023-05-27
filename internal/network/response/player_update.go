@@ -288,6 +288,7 @@ func (p *PlayerUpdateResponse) Write(w *network.ProtocolWriter) error {
 	return nil
 }
 
+// ensurePlayer returns or creates an entry in the update list for a player with an ID.
 func (p *PlayerUpdateResponse) ensurePlayer(playerID int) *trackedPlayer {
 	pl, ok := p.list[playerID]
 	if !ok {
@@ -308,25 +309,34 @@ func (p *PlayerUpdateResponse) ensureUpdate(playerID int) *playerUpdate {
 	return pl.update
 }
 
+// writePayload writes the payload of the update response to a stream.
 func (p *PlayerUpdateResponse) writePayload(w *network.ProtocolWriter) error {
-	// collect all players and updates and order them by the player id
-	var playerIDs []int
-	for k, _ := range p.list {
-		playerIDs = append(playerIDs, k)
-	}
-
-	sort.Slice(playerIDs, func(i, j int) bool {
-		return playerIDs[i] < playerIDs[j]
-	})
-
 	// prepare a bitset for writing bit-level data
 	bs := network.NewBitSet()
 
 	// write local player movement details
-	p.writeLocalPlayer(bs)
+	localHasUpdate := p.writeLocalPlayer(bs)
 
-	// write 8 bits for the number of other players to update
+	// write movement details for players other than the local player
 	p.writeOtherMovements(bs)
+	
+	// collect all players, other than the local player, with updates
+	var playerIDs []int
+	for k, _ := range p.list {
+		if k != localPlayerID {
+			playerIDs = append(playerIDs, k)
+		}
+	}
+
+	// sort the players by the ids in descending order
+	sort.Slice(playerIDs, func(i, j int) bool {
+		return playerIDs[i] < playerIDs[j]
+	})
+
+	// if the local player has an update, put them at the front of the list
+	if localHasUpdate {
+		playerIDs = append([]int{localPlayerID}, playerIDs...)
+	}
 
 	// write the local player list
 	p.writePlayerList(playerIDs, bs)
@@ -346,15 +356,17 @@ func (p *PlayerUpdateResponse) writePayload(w *network.ProtocolWriter) error {
 	return nil
 }
 
-func (p *PlayerUpdateResponse) writeLocalPlayer(bs *network.BitSet) {
+// writeLocalPlayer writes the local player's movement updates. If the local player has an update that needs to be
+// tracked in the player list, true will be returned.
+func (p *PlayerUpdateResponse) writeLocalPlayer(bs *network.BitSet) bool {
 	moveType := p.local.moveType
 
 	// first bit is a flag if there is an update for the local player
 	if moveType == playerMoveNoUpdate {
+		// if the local player does have an update pending, we need to send an unchanged movement type instead
 		if p.list[localPlayerID] == nil || p.list[localPlayerID].update == nil {
-			// if the local player does have an update pending, we need to send an unchanged movement type instead
 			bs.Clear()
-			return
+			return false
 		}
 
 		moveType = playerMoveUnchanged
@@ -396,8 +408,11 @@ func (p *PlayerUpdateResponse) writeLocalPlayer(bs *network.BitSet) {
 		bs.SetBits(uint32(p.local.position.Y), 7)
 		bs.SetBits(uint32(p.local.position.X), 7)
 	}
+
+	return true
 }
 
+// writeOtherMovements writes updates for all non-local players that were tracked.
 func (p *PlayerUpdateResponse) writeOtherMovements(bs *network.BitSet) {
 	movements := 0
 	for playerID, other := range p.list {
@@ -455,6 +470,7 @@ func (p *PlayerUpdateResponse) writeOtherMovements(bs *network.BitSet) {
 	}
 }
 
+// writePlayerList writes an entry for each player in the local player list.
 func (p *PlayerUpdateResponse) writePlayerList(playerIDs []int, bs *network.BitSet) {
 	for _, playerID := range playerIDs {
 		pl := p.list[playerID]
@@ -483,6 +499,8 @@ func (p *PlayerUpdateResponse) writePlayerList(playerIDs []int, bs *network.BitS
 	bs.SetBits(0x7FF, 11)
 }
 
+// writePlayerUpdates writes additional updates for each applicable player. The playerIDs slice is used to determine
+// which player should have their updates written first.
 func (p *PlayerUpdateResponse) writePlayerUpdates(playerIDs []int, w *network.ProtocolWriter) error {
 	for _, playerID := range playerIDs {
 		pl := p.list[playerID]
@@ -501,6 +519,7 @@ func (p *PlayerUpdateResponse) writePlayerUpdates(playerIDs []int, w *network.Pr
 	return nil
 }
 
+// writePlayerUpdate writes additional updates for a single player.
 func (p *PlayerUpdateResponse) writePlayerUpdate(update *playerUpdate, w *network.ProtocolWriter) error {
 	// if the mask cannot fit into a single byte, split it into two
 	if update.mask > 0xFF {
@@ -582,6 +601,7 @@ func (p *PlayerUpdateResponse) writePlayerUpdate(update *playerUpdate, w *networ
 	return nil
 }
 
+// writeAppearance writes the appearance data for a single player.
 func (p *PlayerUpdateResponse) writeAppearance(ea *entityAppearance, w *network.ProtocolWriter) error {
 	a := ea.appearance
 
