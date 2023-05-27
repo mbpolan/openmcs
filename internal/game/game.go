@@ -27,6 +27,9 @@ const tickInterval = 600 * time.Millisecond
 // itemDespawnInterval defines how long an Item remains on the map before despawning.
 const itemDespawnInterval = 3 * time.Minute
 
+// maxPlayers is the maximum amount of players that can be connected to the game server.
+const maxPlayers = 2000
+
 // ErrConflict is reported when a player is already connected to the game.
 var ErrConflict = errors.New("already logged in")
 
@@ -48,6 +51,7 @@ type Game struct {
 	mapManager       *MapManager
 	mu               sync.RWMutex
 	players          []*playerEntity
+	playerIndices    [maxPlayers]int
 	objects          []*model.WorldObject
 	playersOnline    sync.Map
 	removePlayers    map[int]*playerEntity
@@ -67,6 +71,7 @@ func NewGame(opts Options) (*Game, error) {
 		interaction:    interaction.New(opts.Config.Interfaces),
 		interfaces:     map[int]*model.Interface{},
 		items:          map[int]*model.Item{},
+		playerIndices:  [maxPlayers]int{},
 		removePlayers:  map[int]*playerEntity{},
 		telemetry:      opts.Telemetry,
 		tick:           0,
@@ -437,8 +442,15 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 		}
 	}
 
-	// add the player to the player list
+	// add the player to the player list, and assign them their index on the server player list
 	g.mu.Lock()
+	for i, used := range g.playerIndices {
+		if used == -1 {
+			g.playerIndices[i] = pe.player.ID
+			pe.index = i
+			break
+		}
+	}
 	g.players = append(g.players, pe)
 	g.mu.Unlock()
 
@@ -449,6 +461,12 @@ func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
 
 	// start the player's event loop
 	go g.playerLoop(pe)
+
+	// tell the player's client that the player is initialized on the server
+	pe.Send(&response.InitPlayerResponse{
+		Member:      pe.player.Member,
+		ServerIndex: pe.index,
+	})
 
 	// compute the player's region and position
 	regionOrigin, regionRelative := g.playerRegionPosition(pe)
@@ -1361,6 +1379,7 @@ func (g *Game) handleGameUpdate() error {
 		if idx > -1 {
 			// drop the player from the player list
 			g.players = append(g.players[:idx], g.players[idx+1:]...)
+			g.playerIndices[idx] = -1
 
 			// mark the player as offline and broadcast their status
 			g.telemetry.RecordPlayerDisconnected()

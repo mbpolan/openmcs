@@ -14,6 +14,7 @@ const maxQueueSize = 100
 
 // playerEntity represents a player and their state while they are logged into the game world.
 type playerEntity struct {
+	index               int
 	lastInteraction     time.Time
 	player              *model.Player
 	tracking            map[int]*playerEntity

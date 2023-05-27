@@ -7,12 +7,18 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	"github.com/mbpolan/openmcs/internal/config"
 	"github.com/mbpolan/openmcs/internal/model"
+	"github.com/pkg/errors"
+	"math"
 	_ "modernc.org/sqlite"
 	"strings"
+	"time"
 )
 
 const playerListTypeFriend int = 0
 const playerListTypeIgnored int = 1
+
+// sqlite datetime layout
+const dateFormat = "2006-01-02 15:04:05"
 
 // slotIDsToEquipmentSlots maps numeric slot IDs from the database to model.EquipmentSlotType values.
 var slotIDsToEquipmentSlots = map[int]model.EquipmentSlotType{
@@ -307,7 +313,9 @@ func (s *SQLite3Driver) loadPlayerInfo(username string, p *model.Player) error {
 		    PUBLIC_CHAT_MODE,
 		    PRIVATE_CHAT_MODE,
 		    INTERACTION_MODE,
-		    TYPE
+		    TYPE,
+		    MEMBER,
+		    MEMBER_END_DTTM
 		FROM
 		    PLAYER
 		WHERE
@@ -321,6 +329,8 @@ func (s *SQLite3Driver) loadPlayerInfo(username string, p *model.Player) error {
 
 	// expect exactly zero or one row
 	row := stmt.QueryRow(username)
+
+	var memberEndDate sql.NullString
 
 	// extract their data into their model
 	err = row.Scan(
@@ -337,9 +347,21 @@ func (s *SQLite3Driver) loadPlayerInfo(username string, p *model.Player) error {
 		&p.Modes.PublicChat,
 		&p.Modes.PrivateChat,
 		&p.Modes.Interaction,
-		&p.Type)
+		&p.Type,
+		&p.Member,
+		&memberEndDate)
 	if err != nil {
 		return err
+	}
+
+	// parse the member end date if available
+	if memberEndDate.Valid {
+		endDate, err := time.Parse(dateFormat, memberEndDate.String)
+		if err != nil {
+			return errors.Wrap(err, "failed to parse player MEMBER_END_DTTM")
+		}
+
+		p.MemberDays = int(math.Floor(time.Now().Sub(endDate).Hours() * 24))
 	}
 
 	return nil

@@ -37,6 +37,10 @@ CREATE TABLE PLAYER (
     INTERACTION_MODE INTEGER NOT NULL,
     -- access rights of the player (normal, mod, admin, etc.)
     TYPE INTEGER NOT NULL,
+    -- membership status (0 for non-member, 1 for member)
+    MEMBER INTEGER NOT NULL,
+    -- date of membership expiration
+    MEMBER_END_DTTM TEXT NULL,
     -- date time when the player last logged in
     LAST_LOGIN_DTTM TEXT NULL,
     -- date time when the row was inserted

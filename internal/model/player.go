@@ -5,16 +5,14 @@ import (
 	"strings"
 )
 
-type PlayerType int
-
-// NumPlayerSkills is the number of available player skills.
-const NumPlayerSkills = 21
-
 // MaxInventorySlots is the maximum number of inventory slots.
 const MaxInventorySlots = 28
 
 // MaxStackableSize is the maximum size of a single stack of an item.
 var MaxStackableSize = int64(math.Pow(2, 31) - 1)
+
+// PlayerType enumerates the possible player access levels.
+type PlayerType int
 
 const (
 	PlayerNormal PlayerType = iota
@@ -24,36 +22,62 @@ const (
 
 // InventorySlot is an item stored in a player's inventory.
 type InventorySlot struct {
-	ID     int
-	Item   *Item
+	// ID is the identifier of the inventory slot.
+	ID int
+	// Item is a pointer to a model.Item in this slot.
+	Item *Item
+	// Amount is the stack size of the item in this slot.
 	Amount int
 }
 
 // Player is a human player connected to the game server. This struct stores a player's persistent data, including
 // various preferences, game world properties and other such attributes.
 type Player struct {
-	ID           int
-	Username     string
+	// ID is the player's globally unique identifier.
+	ID int
+	// Username is the player's display name.
+	Username string
+	// PasswordHash is the player's hashed password.
 	PasswordHash string
-	Type         PlayerType
-	Flagged      bool
-	GlobalPos    Vector3D
-	Appearance   EntityAppearance
-	Modes        PlayerModes
-	Muted        bool
-	Friends      []string
-	Ignored      []string
-	Skills       SkillMap
-	Inventory    [MaxInventorySlots]*InventorySlot
-	CombatStats  EntityCombatStats
+	// Type determines the level of access this player is granted.
+	Type PlayerType
+	// Flagged is true when the player is suspected of cheating, false if not.
+	Flagged bool
+	// GlobalPos is the player's position on the world map, in global coordinates.
+	GlobalPos Vector3D
+	// Appearance is the player's model appearance.
+	Appearance EntityAppearance
+	// Modes determine what level of chat and trade interaction the player has configured.
+	Modes PlayerModes
+	// Muted is true when the player is not able to chat, false if not.
+	Muted bool
+	// Friends is a slice of usernames of players added as friends.
+	Friends []string
+	// Ignored is a slice of usernames of players that are ignored.
+	Ignored []string
+	// Skills is a map of this player's skill levels and experience.
+	Skills SkillMap
+	// Member is true when the player has an active subscription, false if not.
+	Member bool
+	// MemberDays is the number of days of subscription remaining.
+	MemberDays int
+	// Inventory is the player's current inventory of items.
+	Inventory [MaxInventorySlots]*InventorySlot
+	// CombatStats are the player's combat statistics.
+	CombatStats EntityCombatStats
+	// AttackStyles if a map of the player's preferred attack styles for a given weapon style.
 	AttackStyles map[WeaponStyle]AttackStyle
+	// UpdateDesign is true when the player should be shown the character design interface, false if not.
 	UpdateDesign bool
 }
 
 // PlayerModes indicates what types of chat and interactions a player wishes to receive.
 type PlayerModes struct {
-	PublicChat  ChatMode
+	// PublicChat is the player's public chat interaction setting.
+	PublicChat ChatMode
+	// PrivateChat is the player's public chat interaction setting.
 	PrivateChat ChatMode
+	// Interaction is the player's trade/duel request interaction setting.
 	Interaction InteractionMode
 }
 
