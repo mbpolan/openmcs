@@ -363,12 +363,18 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			s.handler.handleSendServerMessage(pe, message)
 			return 0
 		},
+		"animate": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			animationID := state.CheckInt(2)
+
+			s.handler.handleAnimatePlayer(pe, animationID)
+			return 0
+		},
 		"teleport": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 			x := state.CheckInt(2)
 			y := state.CheckInt(3)
 			z := state.CheckInt(4)
-			animationID := state.CheckInt(5)
 
 			// validate coordinates to make sure they're at least sane
 			if x < 0 {
@@ -384,7 +390,7 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 				return 0
 			}
 
-			s.handler.handleTeleportPlayer(pe, animationID, model.Vector3D{X: x, Y: y, Z: z})
+			s.handler.handleTeleportPlayer(pe, model.Vector3D{X: x, Y: y, Z: z})
 			return 0
 		},
 	}))

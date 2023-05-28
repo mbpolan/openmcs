@@ -17,5 +17,9 @@ function teleport_standard(player, x, y, z, ...)
         return
     end
 
-    player:teleport(x, y, z, 714)
+    -- animate the teleportation spell
+    player:animate(714)
+
+    -- teleport the player to their new position
+    player:teleport(x, y, z)
 end

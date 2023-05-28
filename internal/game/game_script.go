@@ -23,6 +23,8 @@ type ScriptHandler interface {
 	handleConsumeRunes(pe *playerEntity, runeIDsAmounts ...int) bool
 	// handleSendServerMessage sends a server message to a player.
 	handleSendServerMessage(pe *playerEntity, message string)
-	// handleTeleportPlayer teleports a player to another location with an animation.
-	handleTeleportPlayer(pe *playerEntity, animationID int, globalPos model.Vector3D)
+	// handleTeleportPlayer teleports a player to another location.
+	handleTeleportPlayer(pe *playerEntity, globalPos model.Vector3D)
+	// handleAnimatePlayer sets a player's current animation.
+	handleAnimatePlayer(pe *playerEntity, animationID int)
 }
