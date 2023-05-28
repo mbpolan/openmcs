@@ -91,6 +91,7 @@ func (s *SQLite3Driver) LoadItemAttributes() ([]*model.ItemAttributes, error) {
 		    EQUIP_SLOT_ID,
 		    SPEED,
 		    WEIGHT,
+		    VALUE,
 		    WEAPON_STYLE,
 		    ATTACK_STAB,
 			ATTACK_SLASH,
@@ -120,7 +121,7 @@ func (s *SQLite3Driver) LoadItemAttributes() ([]*model.ItemAttributes, error) {
 
 	defer rows.Close()
 	for rows.Next() {
-		var itemID int
+		var itemID, value int
 		var weight float64
 		var weaponStyleStr sql.NullString
 		var slotID, speed sql.NullInt32
@@ -128,7 +129,7 @@ func (s *SQLite3Driver) LoadItemAttributes() ([]*model.ItemAttributes, error) {
 		var defStab, defSlash, defCrush, defMagic, defRange sql.NullInt32
 		var strength, prayer sql.NullInt32
 
-		err := rows.Scan(&itemID, &slotID, &speed, &weight, &weaponStyleStr,
+		err := rows.Scan(&itemID, &slotID, &speed, &weight, &value, &weaponStyleStr,
 			&atkStab, &atkSlash, &atkCrush, &atkMagic, &atkRange,
 			&defStab, &defSlash, &defCrush, &defMagic, &defRange,
 			&strength, &prayer)
@@ -163,6 +164,7 @@ func (s *SQLite3Driver) LoadItemAttributes() ([]*model.ItemAttributes, error) {
 			WeaponStyle:   weaponStyle,
 			Speed:         itemSpeed,
 			Weight:        weight,
+			Value:         value,
 			Attack: model.ItemCombatAttributes{
 				Stab:  safeNullInt32(atkStab, 0),
 				Slash: safeNullInt32(atkSlash, 0),

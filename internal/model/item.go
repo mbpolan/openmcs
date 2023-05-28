@@ -62,6 +62,8 @@ type ItemAttributes struct {
 	Speed int
 	// Weight is the weight of the item.
 	Weight float64
+	// Value is the value of the item, in coins.
+	Value int
 	// AttackBonuses are the offensive combat attributes.
 	Attack ItemCombatAttributes
 	// DefenseBonuses are the defensive combat attributes.

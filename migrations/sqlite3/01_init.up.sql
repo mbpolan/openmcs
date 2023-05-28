@@ -413,6 +413,8 @@ CREATE TABLE ITEM_ATTRIBUTES (
     ),
     -- the weight of the item
     WEIGHT REAL NOT NULL,
+    -- the in-game/shop value of the item, in coins
+    VALUE INT NOT NULL,
     -- the offensive stab bonus
     ATTACK_STAB INT NULL,
     -- the offensive slash bonus
