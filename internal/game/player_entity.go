@@ -343,3 +343,17 @@ func (pe *playerEntity) DeferTeleportPlayer(globalPos model.Vector3D) {
 		},
 	})
 }
+
+// DeferCastSpellOnItem plans an action to cast a spell on a player's inventory item.
+func (pe *playerEntity) DeferCastSpellOnItem(slotID, itemID, inventoryInterfaceID, spellInterfaceID int) {
+	pe.deferredActions = append(pe.deferredActions, &Action{
+		ActionType: ActionCastSpellOnItem,
+		TickDelay:  1,
+		CastSpellOnItemAction: &CastSpellOnItemAction{
+			SlotID:               slotID,
+			ItemID:               itemID,
+			InventoryInterfaceID: inventoryInterfaceID,
+			SpellInterfaceID:     spellInterfaceID,
+		},
+	})
+}

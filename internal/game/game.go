@@ -234,6 +234,18 @@ func (g *Game) DoInteractWithObject(p *model.Player, action int, globalPos model
 	// TODO
 }
 
+// DoCastSpellOnItem handles a player casting a spell on one of their inventory items.
+func (g *Game) DoCastSpellOnItem(p *model.Player, slotID, itemID, inventoryInterfaceID, spellInterfaceID int) {
+	pe := g.findPlayer(p)
+	if pe == nil {
+		return
+	}
+
+	pe.mu.Lock()
+	defer pe.mu.Unlock()
+	pe.DeferCastSpellOnItem(slotID, itemID, inventoryInterfaceID, spellInterfaceID)
+}
+
 // DoSetPlayerDesign handles updating a player's character design.
 func (g *Game) DoSetPlayerDesign(p *model.Player, gender model.EntityGender, base model.EntityBase, bodyColors []int) {
 	pe := g.findPlayer(p)
@@ -1716,6 +1728,10 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 
 			pe.nextUpdate.SetLocalPlayerPosition(relative, true)
 			pe.nextUpdate.AddAppearanceUpdate(pe.index, pe.player.Username, pe.player.Appearance)
+			pe.RemoveDeferredAction(deferred)
+
+		case ActionCastSpellOnItem:
+			// TODO
 			pe.RemoveDeferredAction(deferred)
 
 		default:

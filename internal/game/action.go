@@ -22,6 +22,7 @@ const (
 	ActionHideInterfaces
 	ActionDoInterfaceAction
 	ActionTeleportPlayer
+	ActionCastSpellOnItem
 )
 
 // Action is an action that will be performed after a number of game ticks have elapsed.
@@ -37,6 +38,7 @@ type Action struct {
 	ShowInterfaceAction     *ShowInterfaceAction
 	DoInterfaceAction       *DoInterfaceAction
 	TeleportPlayerAction    *TeleportPlayerAction
+	CastSpellOnItemAction   *CastSpellOnItemAction
 }
 
 // ActionResult is a bitmask describing the mutations resulting from an action.
@@ -99,4 +101,12 @@ type DoInterfaceAction struct {
 // TeleportPlayerAction is an action to teleport a player.
 type TeleportPlayerAction struct {
 	GlobalPos model.Vector3D
+}
+
+// CastSpellOnItemAction is an action to cast a spell on an inventory item.
+type CastSpellOnItemAction struct {
+	SlotID               int
+	ItemID               int
+	InventoryInterfaceID int
+	SpellInterfaceID     int
 }

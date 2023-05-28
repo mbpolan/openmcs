@@ -506,6 +506,16 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 
 		c.game.DoInteractWithObject(c.player, req.Action, req.GlobalPos)
 
+	case request.CastSpellOnItemRequestHeader:
+		// the player cast a spell on an inventory item
+		var req request.CastSpellOnItemRequest
+		err = req.Read(c.reader)
+		if err != nil {
+			break
+		}
+
+		c.game.DoCastSpellOnItem(c.player, req.SlotID, req.ItemID, req.InventoryInterfaceID, req.SpellInterfaceID)
+
 	case request.CharacterDesignRequestHeader:
 		// the player submitted a new character design
 		var req request.CharacterDesignRequest
