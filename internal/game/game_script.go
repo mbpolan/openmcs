@@ -24,6 +24,9 @@ type ScriptHandler interface {
 	// handleConsumeInventoryItem removes an inventory item, or decrements its amount by one, returning true if
 	// successful.
 	handleConsumeInventoryItem(pe *playerEntity, slotID int) bool
+	// handleAddInventoryItem adds an item with an amount to the player's inventory. If the player's inventory is full,
+	// the item is dropped on the ground instead.
+	handleAddInventoryItem(pe *playerEntity, itemID, amount int)
 	// handleSendServerMessage sends a server message to a player.
 	handleSendServerMessage(pe *playerEntity, message string)
 	// handleTeleportPlayer teleports a player to another location.

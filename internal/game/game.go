@@ -1065,16 +1065,37 @@ func (g *Game) handleConsumeInventoryItem(pe *playerEntity, slotID int) bool {
 	if slot.Item.Stackable {
 		slot.Amount--
 		if slot.Amount == 0 {
+			pe.player.ClearInventoryItem(slotID)
 			inventory.ClearSlot(slotID)
 		} else {
 			inventory.AddSlot(slotID, slot.Item.ID, slot.Amount)
 		}
 	} else {
+		pe.player.ClearInventoryItem(slotID)
 		inventory.ClearSlot(slotID)
 	}
 
 	pe.Send(inventory)
 	return true
+}
+
+// handleAddInventoryItem adds an item with an amount to the player's inventory. If the player's inventory is full,
+// the item is dropped on the ground instead.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleAddInventoryItem(pe *playerEntity, itemID, amount int) {
+	item, ok := g.items[itemID]
+	if !ok {
+		return
+	}
+
+	// if there is no room in the player's inventory, drop the item instead
+	if !pe.player.InventoryCanHoldItem(item) {
+		timeout := int(itemDespawnInterval.Seconds())
+		g.mapManager.AddGroundItem(item.ID, amount, item.Stackable, &timeout, pe.player.GlobalPos)
+		return
+	}
+
+	g.addPlayerInventoryItem(pe, item, amount)
 }
 
 // handleSendServerMessage sends a server message to a player.
