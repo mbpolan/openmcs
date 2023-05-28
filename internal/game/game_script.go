@@ -33,4 +33,6 @@ type ScriptHandler interface {
 	handleTeleportPlayer(pe *playerEntity, globalPos model.Vector3D)
 	// handleAnimatePlayer sets a player's current animation with an expiration after a number of game ticks.
 	handleAnimatePlayer(pe *playerEntity, animationID, tickDuration int)
+	// handleGrantExperience grants a player experience, delaying the current action for an amount of game ticks.
+	handleGrantExperience(pe *playerEntity, skillType model.SkillType, experience, tickDelay int)
 }

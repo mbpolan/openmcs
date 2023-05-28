@@ -341,6 +341,15 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			s.handler.handleRemovePlayer(pe)
 			return 0
 		},
+		"grant_experience": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			skillType := model.SkillType(state.CheckInt(2))
+			experience := state.CheckInt(3)
+			tickDelay := state.CheckInt(4)
+
+			s.handler.handleGrantExperience(pe, skillType, experience, tickDelay)
+			return 0
+		},
 		"consume_runes": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 

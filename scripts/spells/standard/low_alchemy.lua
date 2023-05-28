@@ -22,4 +22,7 @@ function spell_low_alchemy(player, item, slot_id)
     -- add the necessary amount of gold to the player's inventory
     coins = math.floor(item:value() * 0.4)
     player:add_item(995, coins)
+
+    -- grant 31 magic exp after a 5 tick delay
+    player:grant_experience(SKILL_MAGIC, 31, 5)
 end

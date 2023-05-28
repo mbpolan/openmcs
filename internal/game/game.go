@@ -1692,7 +1692,8 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 
 			// pick up a ground item only if the player has reached the position of that item
 			if pe.player.GlobalPos != action.GlobalPos {
-				break
+				result = ActionResultPending
+				return result
 			}
 
 			// check if the player has room in their inventory
@@ -1828,6 +1829,16 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 
 			pe.RemoveDeferredAction(deferred)
 
+		case ActionExperienceGrant:
+			action := deferred.ExperienceGrantAction
+
+			// grant the player experience in the given skill
+			pe.player.Skills[action.SkillType].Experience += action.Experience
+
+			// TODO: send the client an experience drop update
+
+			pe.RemoveDeferredAction(deferred)
+
 		default:
 		}
 	}
@@ -1936,8 +1947,15 @@ func (g *Game) handleTeleportPlayer(pe *playerEntity, globalPos model.Vector3D) 
 }
 
 // handleAnimatePlayer sets a player's current animation with an expiration after a number of game ticks.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) handleAnimatePlayer(pe *playerEntity, animationID, tickDuration int) {
 	pe.SetAnimation(animationID, tickDuration)
+}
+
+// handleGrantExperience grants a player experience, delaying the current action for an amount of game ticks.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleGrantExperience(pe *playerEntity, skillType model.SkillType, experience, tickDelay int) {
+	pe.DeferExperienceGrant(skillType, experience, tickDelay)
 }
 
 // handlePlayerSwapInventoryItem handles moving an item from one slot to another in a player's inventory.

@@ -2,6 +2,16 @@ package game
 
 import "github.com/mbpolan/openmcs/internal/model"
 
+// ActionPriority enumerates the priority of an action when it's deferred.
+type ActionPriority int
+
+const (
+	// ActionPriorityNormal is an action scheduled after all currently deferred actions.
+	ActionPriorityNormal ActionPriority = iota
+	// ActionPriorityHigh is an action scheduled ahead of all currently deferred actions.
+	ActionPriorityHigh
+)
+
 // ActionType enumerates deferred actions that a player can take.
 type ActionType int
 
@@ -23,6 +33,7 @@ const (
 	ActionDoInterfaceAction
 	ActionTeleportPlayer
 	ActionCastSpellOnItem
+	ActionExperienceGrant
 )
 
 // Action is an action that will be performed after a number of game ticks have elapsed.
@@ -39,14 +50,16 @@ type Action struct {
 	DoInterfaceAction       *DoInterfaceAction
 	TeleportPlayerAction    *TeleportPlayerAction
 	CastSpellOnItemAction   *CastSpellOnItemAction
+	ExperienceGrantAction   *ExperienceGrantAction
 }
 
 // ActionResult is a bitmask describing the mutations resulting from an action.
 type ActionResult int
 
 const (
-	ActionResultNoChange      ActionResult = 0
-	ActionResultChangeRegions              = 1 << iota
+	ActionResultNoChange ActionResult = 0
+	ActionResultPending               = 1 << iota
+	ActionResultChangeRegions
 	ActionResultClearAnimations
 )
 
@@ -109,4 +122,10 @@ type CastSpellOnItemAction struct {
 	ItemID               int
 	InventoryInterfaceID int
 	SpellInterfaceID     int
+}
+
+// ExperienceGrantAction is an action to grant the player experience after a delay.
+type ExperienceGrantAction struct {
+	SkillType  model.SkillType
+	Experience int
 }

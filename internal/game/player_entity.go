@@ -169,8 +169,11 @@ func (pe *playerEntity) TickDeferredActions() []*Action {
 			deferred.TickDelay--
 		}
 
+		// stop iterating once we reach an action that is still pending
 		if deferred.TickDelay == 0 {
 			expired = append(expired, deferred)
+		} else {
+			break
 		}
 	}
 
@@ -361,4 +364,26 @@ func (pe *playerEntity) DeferCastSpellOnItem(slotID, itemID, inventoryInterfaceI
 			SpellInterfaceID:     spellInterfaceID,
 		},
 	})
+}
+
+// DeferExperienceGrant plans an action to grant the player experience in a skill.
+func (pe *playerEntity) DeferExperienceGrant(skillType model.SkillType, experience, tickDelay int) {
+	pe.planAction(&Action{
+		ActionType: ActionExperienceGrant,
+		TickDelay:  uint(tickDelay),
+		ExperienceGrantAction: &ExperienceGrantAction{
+			SkillType:  skillType,
+			Experience: experience,
+		},
+	}, ActionPriorityHigh)
+}
+
+// planAction plans a deferred action with a priority.
+func (pe *playerEntity) planAction(action *Action, priority ...ActionPriority) {
+	if len(priority) == 0 || priority[0] == ActionPriorityNormal {
+		pe.deferredActions = append(pe.deferredActions, action)
+		return
+	}
+
+	pe.deferredActions = append([]*Action{action}, pe.deferredActions...)
 }
