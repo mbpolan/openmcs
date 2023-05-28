@@ -1960,6 +1960,13 @@ func (g *Game) handleGrantExperience(pe *playerEntity, skillType model.SkillType
 	pe.DeferExperienceGrant(skillType, experience, tickDelay)
 }
 
+// handleSetSidebarTab sets the active tab on the client's sidebar.
+// Concurrency requirements: (a) game state may be locked and (b) this player may be locked.
+func (g *Game) handleSetSidebarTab(pe *playerEntity, tab model.ClientTab) {
+	resp := &response.SidebarTabResponse{TabID: tab}
+	pe.Send(resp)
+}
+
 // handlePlayerSwapInventoryItem handles moving an item from one slot to another in a player's inventory.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) handlePlayerSwapInventoryItem(pe *playerEntity, action *MoveInventoryItemAction) {

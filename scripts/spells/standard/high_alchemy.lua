@@ -23,6 +23,9 @@ function spell_high_alchemy(player, item, slot_id)
     coins = math.floor(item:value() * 0.6)
     player:add_item(995, coins)
 
+    -- switch back to the spell book
+    player:sidebar_tab(CLIENT_TAB_SPELLS)
+
     -- grant 65 magic exp after a 5 tick delay
     player:grant_experience(SKILL_MAGIC, 65, 5)
 end

@@ -399,6 +399,13 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			s.handler.handleSendServerMessage(pe, message)
 			return 0
 		},
+		"sidebar_tab": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			tab := state.CheckInt(2)
+
+			s.handler.handleSetSidebarTab(pe, model.ClientTab(tab))
+			return 0
+		},
 		"animate": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 			animationID := state.CheckInt(2)

@@ -35,4 +35,6 @@ type ScriptHandler interface {
 	handleAnimatePlayer(pe *playerEntity, animationID, tickDuration int)
 	// handleGrantExperience grants a player experience, delaying the current action for an amount of game ticks.
 	handleGrantExperience(pe *playerEntity, skillType model.SkillType, experience, tickDelay int)
+	// handleSetSidebarTab sets the active tab on the client's sidebar.
+	handleSetSidebarTab(pe *playerEntity, tab model.ClientTab)
 }
