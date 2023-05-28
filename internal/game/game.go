@@ -30,6 +30,9 @@ const itemDespawnInterval = 3 * time.Minute
 // maxPlayers is the maximum amount of players that can be connected to the game server.
 const maxPlayers = 2000
 
+// maxSkillExperience is the maximum amount of experience a player can have in a skill.
+const maxSkillExperience = 200_000_000
+
 // ValidationResult enumerates the errors that can result from game engine player validation.
 type ValidationResult int
 
@@ -1833,11 +1836,12 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 			action := deferred.ExperienceGrantAction
 
 			// grant the player experience in the given skill
-			pe.player.Skills[action.SkillType].Experience += action.Experience
+			experience := util.Min(pe.player.SkillExperience(action.SkillType)+action.Experience, maxSkillExperience)
+			pe.player.SetSkillExperience(action.SkillType, experience)
 
 			// send the client an experience drop update
-			skill := response.NewSkillDataResponse(pe.player.Skills[action.SkillType])
-			pe.Send(skill)
+			skillData := response.NewSkillDataResponse(pe.player.Skills[action.SkillType])
+			pe.Send(skillData)
 
 			pe.RemoveDeferredAction(deferred)
 

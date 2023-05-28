@@ -518,7 +518,6 @@ func (s *SQLite3Driver) loadPlayerSkills(p *model.Player) error {
 	stmt, err := s.db.Prepare(`
 		SELECT
 		    SKILL_ID,
-		    LEVEL,
 		    EXPERIENCE
 		FROM
 		    PLAYER_SKILL
@@ -535,19 +534,17 @@ func (s *SQLite3Driver) loadPlayerSkills(p *model.Player) error {
 	}
 
 	for rows.Next() {
-		var skillID, level, experience int
-		err := rows.Scan(&skillID, &level, &experience)
+		var skillID, experience int
+		err := rows.Scan(&skillID, &experience)
 		if err != nil {
 			return err
 		}
 
 		// map the skill id to a skill type
 		skillType := model.SkillType(skillID)
-		p.SetSkill(&model.Skill{
-			Type:       skillType,
-			Level:      level,
-			Experience: experience,
-		})
+
+		// set the skill experience points and let the model recompute the level
+		p.SetSkillExperience(skillType, experience)
 	}
 
 	return nil

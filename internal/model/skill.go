@@ -1,5 +1,9 @@
 package model
 
+import (
+	"math"
+)
+
 // SkillType is an individual skill that can be trained by a player. Each skill has a well-known identifier that is
 // shared between the client and server.
 type SkillType int
@@ -47,6 +51,25 @@ func NewSkill(skillType SkillType) *Skill {
 // SkillMap is a map of skill types to their progress. Use the EmptySkillMap() function to create a map of all skills
 // initialized to their base levels.
 type SkillMap map[SkillType]*Skill
+
+// SkillExperienceLevels is a slice of experience points corresponding to each skill level.
+var SkillExperienceLevels = func() []int {
+	rawExp := make([]float64, 100)
+	rawExp[1] = 0
+
+	// compute the experience points for each level based on the difference from the prior level
+	for i := 2; i <= 99; i++ {
+		e := 0.25 * math.Floor(float64(i-1)+300.0*math.Pow(2, float64(i-1)/7.0))
+		rawExp[i] = rawExp[i-1] + e
+	}
+
+	// normalize the raw experience points into integer values
+	exp := make([]int, 100)
+	for i := 1; i <= 99; i++ {
+		exp[i] = int(rawExp[i])
+	}
+	return exp
+}()
 
 // EmptySkillMap returns a SkillMap initialized with all skills to their base levels.
 func EmptySkillMap() SkillMap {

@@ -124,10 +124,17 @@ func (p *Player) SetAttackStyle(weaponStyle WeaponStyle, attackStyle AttackStyle
 	p.AttackStyles[weaponStyle] = attackStyle
 }
 
-// SetSkill sets the data for a player skill. This will recompute the player's derived levels (total and combat).
-func (p *Player) SetSkill(skill *Skill) {
-	p.Skills[skill.Type] = skill
-	p.recomputeSkills()
+// SetSkillExperience sets the experience points for a player skill. The skill level and combat levels will be
+// recomputed after the fact.
+func (p *Player) SetSkillExperience(skillType SkillType, experience int) {
+	p.Skills[skillType].Experience = experience
+	p.Skills[skillType].Level = p.recomputeSkillLevel(experience)
+	p.recomputeCombatSkills()
+}
+
+// SkillExperience returns the player's current experience points for a skill.
+func (p *Player) SkillExperience(skillType SkillType) int {
+	return p.Skills[skillType].Experience
 }
 
 // EquippedWeaponStyle returns the attack style of the player's equipped weapon, if any.
@@ -245,8 +252,19 @@ func (p *Player) IsIgnored(username string) bool {
 	return false
 }
 
-// recomputeSkills updates the derived levels (total and combat) based on the player's current skills.
-func (p *Player) recomputeSkills() {
+// recomputeSkillLevel returns the level for a skill based on the total amount of experience points.
+func (p *Player) recomputeSkillLevel(experience int) int {
+	for i := 1; i <= 99; i++ {
+		if SkillExperienceLevels[i] > experience {
+			return i - 1
+		}
+	}
+
+	return 99
+}
+
+// recomputeCombatSkills updates the derived levels (total and combat) based on the player's current skills.
+func (p *Player) recomputeCombatSkills() {
 	totalLevel := 0
 
 	// compute the total skill level
