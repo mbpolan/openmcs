@@ -1053,6 +1053,30 @@ func (g *Game) handleConsumeRunes(pe *playerEntity, runeIDsAmounts ...int) bool 
 	return true
 }
 
+// handleConsumeInventoryItem removes an inventory item, or decrements its amount by one, returning true if successful.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleConsumeInventoryItem(pe *playerEntity, slotID int) bool {
+	slot := pe.player.Inventory[slotID]
+	if slot == nil {
+		return false
+	}
+
+	inventory := response.NewSetInventoryItemResponse(g.interaction.InventoryTab.SlotsID)
+	if slot.Item.Stackable {
+		slot.Amount--
+		if slot.Amount == 0 {
+			inventory.ClearSlot(slotID)
+		} else {
+			inventory.AddSlot(slotID, slot.Item.ID, slot.Amount)
+		}
+	} else {
+		inventory.ClearSlot(slotID)
+	}
+
+	pe.Send(inventory)
+	return true
+}
+
 // handleSendServerMessage sends a server message to a player.
 // Concurrency requirements: (a) game state may be locked and (b) this player may be locked.
 func (g *Game) handleSendServerMessage(pe *playerEntity, message string) {

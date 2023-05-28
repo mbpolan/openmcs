@@ -356,6 +356,14 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			state.Push(lua.LBool(valid))
 			return 1
 		},
+		"consume_item": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			slotID := state.CheckInt(2)
+
+			valid := s.handler.handleConsumeInventoryItem(pe, slotID)
+			state.Push(lua.LBool(valid))
+			return 1
+		},
 		"server_message": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 			message := state.CheckString(2)

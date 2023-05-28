@@ -6,5 +6,9 @@ function spell_low_alchemy(player, item, slot_id)
     -- animate the player
     player:animate(712, 2)
 
-    
+    -- consume the target item
+    ok = player:consume_item(slot_id)
+    if not ok then
+        return
+    end
 end
