@@ -36,6 +36,7 @@ type playerEntity struct {
 	nextUpdate          *response.PlayerUpdateResponse
 	deferredActions     []*Action
 	mu                  sync.Mutex
+	animationTicks      int
 }
 
 type playerStatusBroadcast struct {
@@ -47,6 +48,7 @@ func newPlayerEntity(p *model.Player, w *network.ProtocolWriter) *playerEntity {
 	changeChan := make(chan bool)
 
 	return &playerEntity{
+		animationTicks:   -1,
 		lastInteraction:  time.Now(),
 		player:           p,
 		tracking:         map[int]*playerEntity{},
@@ -74,8 +76,9 @@ func (pe *playerEntity) AnimationID() int {
 }
 
 // SetAnimation sets an animation the player's client should start performing, taking precedence over the default
-// animation. This will also flag the player's appearance as changed.
-func (pe *playerEntity) SetAnimation(animationID int) {
+// animation. This will also flag the player's appearance as changed. The tickDuration specifies after how many game
+// ticks the animation will be stopped.
+func (pe *playerEntity) SetAnimation(animationID, tickDuration int) {
 	// save the player's current animations
 	pe.lastAnimations = map[model.AnimationID]int{}
 	for k, v := range pe.player.Appearance.Animations {
@@ -84,6 +87,7 @@ func (pe *playerEntity) SetAnimation(animationID int) {
 
 	// set the new animation
 	pe.player.Appearance.Animations[model.AnimationStand] = animationID
+	pe.animationTicks = tickDuration
 	pe.appearanceChanged = true
 }
 
@@ -95,6 +99,7 @@ func (pe *playerEntity) ClearAnimation() {
 	}
 
 	pe.lastAnimations = nil
+	pe.animationTicks = -1
 	pe.appearanceChanged = true
 }
 

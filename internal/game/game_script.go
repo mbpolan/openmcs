@@ -25,6 +25,6 @@ type ScriptHandler interface {
 	handleSendServerMessage(pe *playerEntity, message string)
 	// handleTeleportPlayer teleports a player to another location.
 	handleTeleportPlayer(pe *playerEntity, globalPos model.Vector3D)
-	// handleAnimatePlayer sets a player's current animation.
-	handleAnimatePlayer(pe *playerEntity, animationID int)
+	// handleAnimatePlayer sets a player's current animation with an expiration after a number of game ticks.
+	handleAnimatePlayer(pe *playerEntity, animationID, tickDuration int)
 }

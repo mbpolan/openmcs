@@ -1115,7 +1115,7 @@ func (g *Game) handleChatCommand(pe *playerEntity, command *ChatCommand) {
 
 	case ChatCommandAnimate:
 		// the player requested an animation
-		pe.SetAnimation(command.Animate.ID)
+		pe.SetAnimation(command.Animate.ID, -1)
 	}
 }
 
@@ -1446,6 +1446,15 @@ func (g *Game) handleGameUpdate() error {
 		// update be sent if they changed.
 		if pe.Animating() {
 			update.AddAnimation(pe.index, pe.AnimationID(), 0)
+
+			// if the animation has an expiration, decrement the tick count and clear it if needed
+			if pe.animationTicks > -1 {
+				pe.animationTicks--
+				if pe.animationTicks == 0 {
+					pe.ClearAnimation()
+					update.ClearAnimation(pe.index)
+				}
+			}
 		} else if result&ActionResultClearAnimations != 0 {
 			update.ClearAnimation(pe.index)
 		}
@@ -1881,9 +1890,9 @@ func (g *Game) handleTeleportPlayer(pe *playerEntity, globalPos model.Vector3D) 
 	pe.DeferTeleportPlayer(globalPos)
 }
 
-// handleAnimatePlayer sets a player's current animation.
-func (g *Game) handleAnimatePlayer(pe *playerEntity, animationID int) {
-	pe.SetAnimation(animationID)
+// handleAnimatePlayer sets a player's current animation with an expiration after a number of game ticks.
+func (g *Game) handleAnimatePlayer(pe *playerEntity, animationID, tickDuration int) {
+	pe.SetAnimation(animationID, tickDuration)
 }
 
 // handlePlayerSwapInventoryItem handles moving an item from one slot to another in a player's inventory.
