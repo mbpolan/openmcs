@@ -30,8 +30,17 @@ const itemDespawnInterval = 3 * time.Minute
 // maxPlayers is the maximum amount of players that can be connected to the game server.
 const maxPlayers = 2000
 
-// ErrConflict is reported when a player is already connected to the game.
-var ErrConflict = errors.New("already logged in")
+// ValidationResult enumerates the errors that can result from game engine player validation.
+type ValidationResult int
+
+const (
+	// ValidationResultSuccess indicates no error was found during player validation.
+	ValidationResultSuccess ValidationResult = iota
+	// ValidationResultAlreadyLoggedIn indicates a player already has an existing session.
+	ValidationResultAlreadyLoggedIn
+	// ValidationResultNoCapacity indicates the server cannot accommodate more players.
+	ValidationResultNoCapacity
+)
 
 // Options are parameters that configure how the game engine behaves.
 type Options struct {
@@ -417,18 +426,23 @@ func (g *Game) WalkPlayer(p *model.Player, start model.Vector2D, waypoints []mod
 }
 
 // ValidatePlayer checks if a player can be added to the game.
-func (g *Game) ValidatePlayer(p *model.Player) error {
+func (g *Game) ValidatePlayer(p *model.Player) ValidationResult {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
+
+	// check if the server is at capacity
+	if len(g.players) == maxPlayers {
+		return ValidationResultNoCapacity
+	}
 
 	// prevent the player from logging in again if they are already connected
 	for _, tpe := range g.players {
 		if tpe.player.ID == p.ID {
-			return ErrConflict
+			return ValidationResultAlreadyLoggedIn
 		}
 	}
 
-	return nil
+	return ValidationResultSuccess
 }
 
 // AddPlayer joins a player to the world and handles ongoing game events and network interactions.

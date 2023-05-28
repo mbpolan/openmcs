@@ -18,10 +18,11 @@ import (
 	"time"
 )
 
-type clientState int
-
 // clientVersion is the client version that is supported by the server.
 const clientVersion = 317
+
+// clientState is an enumeration of the various states a player's connection may be in.
+type clientState int
 
 const (
 	initializing clientState = iota
@@ -206,18 +207,23 @@ func (c *ClientHandler) handleLogin() (clientState, error) {
 	}
 
 	// check if the player can be added to the game
-	err = c.game.ValidatePlayer(player)
-	if err != nil {
-		var resp *response.InitResponse
+	result := c.game.ValidatePlayer(player)
+	if result != game.ValidationResultSuccess {
+		var resp response.Response
 
-		// guard against players logging in multiple times on the same character
-		if err == game.ErrConflict {
+		switch result {
+		case game.ValidationResultAlreadyLoggedIn:
 			resp = response.NewFailedInitResponse(response.InitAccountLoggedIn)
-		} else {
-			resp = response.NewFailedInitResponse(response.InitLoginFailed)
+		case game.ValidationResultNoCapacity:
+			resp = response.NewFailedInitResponse(response.InitServerFull)
+		default:
+			break
 		}
 
-		err := resp.Write(c.writer)
+		if resp != nil {
+			err = resp.Write(c.writer)
+		}
+
 		return failed, err
 	}
 
