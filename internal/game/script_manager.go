@@ -99,6 +99,17 @@ func (s *ScriptManager) DoOnUnequipItem(pe *playerEntity, item *model.Item) erro
 	return s.doFunction("on_unequip_item", s.playerEntityType(pe, s.state), s.itemType(item, s.state))
 }
 
+// DoCastSpellOnItem executes a script to handle a player casting a spell on an inventory items.
+func (s *ScriptManager) DoCastSpellOnItem(pe *playerEntity, item *model.Item, slotID int, inventory, spellBook, spell *model.Interface) error {
+	return s.doFunction("on_cast_spell_on_item",
+		s.playerEntityType(pe, s.state),
+		s.itemType(item, s.state),
+		lua.LNumber(slotID),
+		s.interfaceType(inventory, s.state),
+		s.interfaceType(spellBook, s.state),
+		s.interfaceType(spell, s.state))
+}
+
 // playerEntity creates a Lua user-defined data type for a playerEntity.
 func (s *ScriptManager) playerEntityType(pe *playerEntity, l *lua.LState) *lua.LUserData {
 	ud := l.NewUserData()

@@ -1745,7 +1745,33 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 			pe.RemoveDeferredAction(deferred)
 
 		case ActionCastSpellOnItem:
-			// TODO
+			action := deferred.CastSpellOnItemAction
+
+			// find the parent spell book interface and inventory interfaces
+			spellInterface := g.interfaces[action.SpellInterfaceID]
+			if spellInterface == nil {
+				pe.RemoveDeferredAction(deferred)
+				break
+			}
+
+			spellBookInterface := spellInterface.Parent
+			inventoryInterface := g.interfaces[action.InventoryInterfaceID]
+
+			// find the slot containing the item
+			slot := pe.player.Inventory[action.SlotID]
+
+			// validate all interfaces exists, and the slot and item exist
+			if inventoryInterface == nil || spellBookInterface == nil || slot == nil || slot.Item.ID != action.ItemID {
+				pe.RemoveDeferredAction(deferred)
+				break
+			}
+
+			// execute a script to handle this spell
+			err := g.scripts.DoCastSpellOnItem(pe, slot.Item, action.SlotID, inventoryInterface, spellBookInterface, spellInterface)
+			if err != nil {
+				logger.Warnf("failed to execute cast item on spell script: %s", err)
+			}
+
 			pe.RemoveDeferredAction(deferred)
 
 		default:
