@@ -1835,7 +1835,9 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 			// grant the player experience in the given skill
 			pe.player.Skills[action.SkillType].Experience += action.Experience
 
-			// TODO: send the client an experience drop update
+			// send the client an experience drop update
+			skill := response.NewSkillDataResponse(pe.player.Skills[action.SkillType])
+			pe.Send(skill)
 
 			pe.RemoveDeferredAction(deferred)
 
