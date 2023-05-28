@@ -205,6 +205,17 @@ func (s *ScriptManager) registerItemModel(l *lua.LState) {
 			state.Push(lua.LString(item.Name))
 			return 1
 		},
+		"value": func(state *lua.LState) int {
+			item := state.CheckUserData(1).Value.(*model.Item)
+
+			value := 0
+			if item.Attributes != nil {
+				value = item.Attributes.Value
+			}
+
+			state.Push(lua.LNumber(value))
+			return 1
+		},
 		"equipment_slot": func(state *lua.LState) int {
 			item := state.CheckUserData(1).Value.(*model.Item)
 			if item.Attributes == nil {

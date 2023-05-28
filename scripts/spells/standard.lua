@@ -36,7 +36,7 @@ function on_cast_spell_on_item(player, item, slot_id, inv_interface, spell_book_
     if spell_id == 1162 then
         spell_low_alchemy(player, item, slot_id)
     elseif spell_id == 1178 then
-        -- TODO: high alchemy
+        spell_high_alchemy(player, item, slot_id)
     else
         print('unknown spell: ', spell_id)
     end
