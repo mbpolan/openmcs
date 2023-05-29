@@ -3,6 +3,11 @@
 -- @param item The item the spell is being cast on
 -- @param slot_id The ID of the inventory slot containing the item
 function spell_low_alchemy(player, item, slot_id)
+    ok = skill_level_minimum(player, SKILL_MAGIC, 21, "You need magic level 21 to cast this spell.")
+    if not ok then
+        return
+    end
+
     -- require 3 fire runes and 1 nature rune
     ok = player:consume_runes(554, 3, 561, 1)
     if not ok then

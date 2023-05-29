@@ -121,8 +121,8 @@ func (pe *playerEntity) GraphicHeight() int {
 	return pe.player.Appearance.GraphicHeight
 }
 
-// GraphicDelay returns the number of game ticks to wait before the player model graphic should be initially rendered.
-// If no graphic is set on the player model, the return value from this method is undefined.
+// GraphicDelay returns the number of client-side ticks to wait before the player model graphic should be initially
+// rendered. If no graphic is set on the player model, the return value from this method is undefined.
 func (pe *playerEntity) GraphicDelay() int {
 	return pe.player.Appearance.GraphicDelay
 }
