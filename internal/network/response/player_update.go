@@ -16,6 +16,9 @@ const localPlayerID = 0x7FF
 // animationResetID indicates that an entity animation should be reset.
 const animationResetID = 0x00FFFF
 
+// graphicResetID indicates that an entity graphic should be reset.
+const graphicResetID = 0x00FFFF
+
 const (
 	playerMoveNoUpdate  byte = 0xFF
 	playerMoveUnchanged      = 0x00
@@ -65,9 +68,15 @@ type playerUpdate struct {
 	appearance  *entityAppearance
 	animation   *entityAnimation
 	chatMessage *model.ChatMessage
+	graphic     *entityGraphic
 }
 
 type entityAnimation struct {
+	ID    int
+	Delay int
+}
+
+type entityGraphic struct {
 	ID    int
 	Delay int
 }
@@ -256,6 +265,35 @@ func (p *PlayerUpdateResponse) ClearAnimation(playerID int) {
 	}
 }
 
+// AddGraphic reports that a player model should be drawn with a graphic after a delay.
+func (p *PlayerUpdateResponse) AddGraphic(playerID, graphicID, delay int) {
+	id := playerID
+	if id == p.localPlayerID {
+		id = localPlayerID
+	}
+
+	update := p.ensureUpdate(id)
+	update.mask |= updateGraphics
+	update.graphic = &entityGraphic{
+		ID:    graphicID,
+		Delay: delay,
+	}
+}
+
+// ClearGraphic reports that a player's current graphic should be removed.
+func (p *PlayerUpdateResponse) ClearGraphic(playerID int) {
+	id := playerID
+	if id == p.localPlayerID {
+		id = localPlayerID
+	}
+
+	update := p.ensureUpdate(id)
+	update.mask |= updateGraphics
+	update.graphic = &entityGraphic{
+		ID: graphicResetID,
+	}
+}
+
 // Write writes the contents of the message to a stream.
 func (p *PlayerUpdateResponse) Write(w *network.ProtocolWriter) error {
 	// since the payload can vary in length, we need to use a buffered write to later compute the size
@@ -319,7 +357,7 @@ func (p *PlayerUpdateResponse) writePayload(w *network.ProtocolWriter) error {
 
 	// write movement details for players other than the local player
 	p.writeOtherMovements(bs)
-	
+
 	// collect all players, other than the local player, with updates
 	var playerIDs []int
 	for k, _ := range p.list {
@@ -521,9 +559,15 @@ func (p *PlayerUpdateResponse) writePlayerUpdates(playerIDs []int, w *network.Pr
 
 // writePlayerUpdate writes additional updates for a single player.
 func (p *PlayerUpdateResponse) writePlayerUpdate(update *playerUpdate, w *network.ProtocolWriter) error {
-	// if the mask cannot fit into a single byte, split it into two
+	// if the mask cannot fit into a single byte, split it into two using 0x40 as an indicator for the client
 	if update.mask > 0xFF {
-		err := w.WriteUint16(update.mask)
+		// write the low byte with the indicator
+		err := w.WriteUint8(uint8(update.mask) | 0x40)
+		if err != nil {
+			return err
+		}
+
+		err = w.WriteUint8(uint8(update.mask >> 8))
 		if err != nil {
 			return err
 		}
@@ -536,6 +580,21 @@ func (p *PlayerUpdateResponse) writePlayerUpdate(update *playerUpdate, w *networ
 
 	// write each update sequentially. the ordering is important; when the client parses the response, it will do so
 	// in a specific sequence, and so we need to match that expectation.
+
+	// write graphics
+	if update.mask&updateGraphics != 0 {
+		// write 2 bytes for the graphic id
+		err := w.WriteUint16LE(uint16(update.graphic.ID))
+		if err != nil {
+			return err
+		}
+
+		// write 4 bytes for the delay
+		err = w.WriteUint32(uint32(update.graphic.Delay))
+		if err != nil {
+			return err
+		}
+	}
 
 	// write animations
 	if update.mask&updateAnimations != 0 {

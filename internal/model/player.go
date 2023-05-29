@@ -103,7 +103,7 @@ func NewPlayer(username string) *Player {
 		Animations: defaultAnimations(),
 		Equipment:  map[EquipmentSlotType]*EquipmentSlot{},
 		BodyColors: make([]int, NumBodyColors),
-		Updated:    false,
+		GraphicID:  -1,
 	}
 
 	return &Player{

@@ -98,16 +98,26 @@ type EntityCombatStats struct {
 
 // EntityAppearance describes the properties of an entity such as a player or NPC.
 type EntityAppearance struct {
-	Base           EntityBase
-	NPCAppearance  int
-	Equipment      map[EquipmentSlotType]*EquipmentSlot
-	BodyColors     []int
-	Animations     map[AnimationID]int
-	Gender         EntityGender
+	// Base is the base model appearance.
+	Base EntityBase
+	// NPCAppearance is a flag that indicates if the entity assumes a predefined NPC appearance.
+	NPCAppearance int
+	// Equipment is a map of equipment slots to the items equipped at those slots.
+	Equipment map[EquipmentSlotType]*EquipmentSlot
+	// BodyColors is a slice of color codes for each body part.
+	BodyColors []int
+	// Animations is a map of animation types to their animation sequence IDs.
+	Animations map[AnimationID]int
+	// GraphicID is the ID of a graphic the player assumes, or -1 if none.
+	GraphicID int
+	// Gender is the entity's gender.
+	Gender EntityGender
+	// OverheadIconID is the ID of the graphic to use for an overhead icon.
 	OverheadIconID int
-	CombatLevel    int
-	TotalLevel     int
-	Updated        bool
+	// CombatLevel is the entity's combat level.
+	CombatLevel int
+	// TotalLevel is the entity's total skill level.
+	TotalLevel int
 }
 
 // IsNPCAppearance returns true if the appearance should take that of a predefined NPC, false if not.

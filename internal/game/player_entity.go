@@ -37,6 +37,7 @@ type playerEntity struct {
 	deferredActions     []*Action
 	mu                  sync.Mutex
 	animationTicks      int
+	graphicTicks        int
 }
 
 type playerStatusBroadcast struct {
@@ -100,6 +101,31 @@ func (pe *playerEntity) ClearAnimation() {
 
 	pe.lastAnimations = nil
 	pe.animationTicks = -1
+	pe.appearanceChanged = true
+}
+
+// HasGraphic returns true if a graphic should be displayed along with the player model.
+func (pe *playerEntity) HasGraphic() bool {
+	return pe.player.Appearance.GraphicID != -1
+}
+
+// GraphicID returns the ID of the graphic the player model is currently displaying.
+func (pe *playerEntity) GraphicID() int {
+	return pe.player.Appearance.GraphicID
+}
+
+// SetGraphic sets the graphic to display along with the player's model. This will also flag the player's appearance as
+// changed. The tickDuration specifies after how many game ticks the graphic will be cleared.
+func (pe *playerEntity) SetGraphic(graphicID, tickDuration int) {
+	pe.player.Appearance.GraphicID = graphicID
+	pe.graphicTicks = tickDuration
+	pe.appearanceChanged = true
+}
+
+// ClearGraphic removes the current graphic for the player. This will also flag the player's appearance as changed.
+func (pe *playerEntity) ClearGraphic() {
+	pe.player.Appearance.GraphicID = -1
+	pe.graphicTicks = -1
 	pe.appearanceChanged = true
 }
 

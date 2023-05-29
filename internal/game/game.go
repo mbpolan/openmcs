@@ -1507,6 +1507,22 @@ func (g *Game) handleGameUpdate() error {
 			update.ClearAnimation(pe.index)
 		}
 
+		// do the same for the player's graphic, if one is currently set
+		if pe.HasGraphic() {
+			update.AddGraphic(pe.index, pe.GraphicID(), 0)
+
+			// if the graphic has an expiration, decrement the tick count and clear it if needed
+			if pe.graphicTicks > -1 {
+				pe.graphicTicks--
+				if pe.graphicTicks == 0 {
+					pe.ClearGraphic()
+					update.ClearGraphic(pe.index)
+				}
+			}
+		} else if result&ActionResultClearGraphics != 0 {
+			update.ClearGraphic(pe.index)
+		}
+
 		// if this player's appearance has changed, we need to include it in their update
 		if pe.appearanceChanged {
 			update.AddAppearanceUpdate(pe.index, pe.player.Username, pe.player.Appearance)
@@ -1773,9 +1789,11 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 		case ActionTeleportPlayer:
 			action := deferred.TeleportPlayerAction
 
-			// reset the player's teleporting animation
+			// reset the player's teleporting animation and graphic
 			result |= ActionResultClearAnimations
+			result |= ActionResultClearGraphics
 			pe.ClearAnimation()
+			pe.ClearGraphic()
 
 			// move the player to the new position
 			pe.player.GlobalPos = action.GlobalPos
@@ -1956,6 +1974,13 @@ func (g *Game) handleTeleportPlayer(pe *playerEntity, globalPos model.Vector3D) 
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) handleAnimatePlayer(pe *playerEntity, animationID, tickDuration int) {
 	pe.SetAnimation(animationID, tickDuration)
+}
+
+// handleSetPlayerGraphic sets a graphic to display with the player model, with an expiration after a number of
+// game ticks.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleSetPlayerGraphic(pe *playerEntity, graphicID, tickDuration int) {
+	pe.SetGraphic(graphicID, tickDuration)
 }
 
 // handleGrantExperience grants a player experience, delaying the current action for an amount of game ticks.

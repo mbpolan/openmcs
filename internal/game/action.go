@@ -61,6 +61,7 @@ const (
 	ActionResultPending               = 1 << iota
 	ActionResultChangeRegions
 	ActionResultClearAnimations
+	ActionResultClearGraphics
 )
 
 // ServerMessageAction is an action to send the player a server message.
