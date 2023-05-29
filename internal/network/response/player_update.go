@@ -77,8 +77,9 @@ type entityAnimation struct {
 }
 
 type entityGraphic struct {
-	ID    int
-	Delay int
+	ID     int
+	Height int
+	Delay  int
 }
 
 type entityAppearance struct {
@@ -265,8 +266,9 @@ func (p *PlayerUpdateResponse) ClearAnimation(playerID int) {
 	}
 }
 
-// AddGraphic reports that a player model should be drawn with a graphic after a delay.
-func (p *PlayerUpdateResponse) AddGraphic(playerID, graphicID, delay int) {
+// AddGraphic reports that a player model should be drawn with a graphic, at a particular height offset from the ground,
+// after a tick delay.
+func (p *PlayerUpdateResponse) AddGraphic(playerID, graphicID, height, delay int) {
 	id := playerID
 	if id == p.localPlayerID {
 		id = localPlayerID
@@ -275,8 +277,9 @@ func (p *PlayerUpdateResponse) AddGraphic(playerID, graphicID, delay int) {
 	update := p.ensureUpdate(id)
 	update.mask |= updateGraphics
 	update.graphic = &entityGraphic{
-		ID:    graphicID,
-		Delay: delay,
+		ID:     graphicID,
+		Height: height,
+		Delay:  delay,
 	}
 }
 
@@ -589,8 +592,10 @@ func (p *PlayerUpdateResponse) writePlayerUpdate(update *playerUpdate, w *networ
 			return err
 		}
 
-		// write 4 bytes for the delay
-		err = w.WriteUint32(uint32(update.graphic.Delay))
+		// write 4 bytes for the height and delay values
+		// the height offset is in the high 2 bytes, and the delay is in the remaining low 2 bytes
+		value := uint32(update.graphic.Height<<16 | update.graphic.Delay&0xFFFF)
+		err = w.WriteUint32(value)
 		if err != nil {
 			return err
 		}

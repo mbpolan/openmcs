@@ -114,10 +114,17 @@ func (pe *playerEntity) GraphicID() int {
 	return pe.player.Appearance.GraphicID
 }
 
+// GraphicHeight returns the height offset from the ground where the player model graphic should be rendered. If no
+// graphic is set on the player model, the return value from this method is undefined.
+func (pe *playerEntity) GraphicHeight() int {
+	return pe.player.Appearance.GraphicHeight
+}
+
 // SetGraphic sets the graphic to display along with the player's model. This will also flag the player's appearance as
 // changed. The tickDuration specifies after how many game ticks the graphic will be cleared.
-func (pe *playerEntity) SetGraphic(graphicID, tickDuration int) {
+func (pe *playerEntity) SetGraphic(graphicID, height, tickDuration int) {
 	pe.player.Appearance.GraphicID = graphicID
+	pe.player.Appearance.GraphicHeight = height
 	pe.graphicTicks = tickDuration
 	pe.appearanceChanged = true
 }
@@ -125,6 +132,7 @@ func (pe *playerEntity) SetGraphic(graphicID, tickDuration int) {
 // ClearGraphic removes the current graphic for the player. This will also flag the player's appearance as changed.
 func (pe *playerEntity) ClearGraphic() {
 	pe.player.Appearance.GraphicID = -1
+	pe.player.Appearance.GraphicHeight = 0
 	pe.graphicTicks = -1
 	pe.appearanceChanged = true
 }

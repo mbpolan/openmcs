@@ -1509,7 +1509,7 @@ func (g *Game) handleGameUpdate() error {
 
 		// do the same for the player's graphic, if one is currently set
 		if pe.HasGraphic() {
-			update.AddGraphic(pe.index, pe.GraphicID(), 0)
+			update.AddGraphic(pe.index, pe.GraphicID(), pe.GraphicHeight(), 0)
 
 			// if the graphic has an expiration, decrement the tick count and clear it if needed
 			if pe.graphicTicks > -1 {
@@ -1976,11 +1976,11 @@ func (g *Game) handleAnimatePlayer(pe *playerEntity, animationID, tickDuration i
 	pe.SetAnimation(animationID, tickDuration)
 }
 
-// handleSetPlayerGraphic sets a graphic to display with the player model, with an expiration after a number of
-// game ticks.
+// handleSetPlayerGraphic sets a graphic to display with the player model at a height offset from the ground, with
+// an expiration after a number of game ticks.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) handleSetPlayerGraphic(pe *playerEntity, graphicID, tickDuration int) {
-	pe.SetGraphic(graphicID, tickDuration)
+func (g *Game) handleSetPlayerGraphic(pe *playerEntity, graphicID, height, tickDuration int) {
+	pe.SetGraphic(graphicID, height, tickDuration)
 }
 
 // handleGrantExperience grants a player experience, delaying the current action for an amount of game ticks.

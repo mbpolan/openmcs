@@ -421,13 +421,14 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 		"graphic": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 			graphicID := state.CheckInt(2)
+			height := state.CheckInt(3)
 
 			tickDuration := -1
-			if state.GetTop() == 3 {
-				tickDuration = state.CheckInt(3)
+			if state.GetTop() == 4 {
+				tickDuration = state.CheckInt(4)
 			}
 
-			s.handler.handleSetPlayerGraphic(pe, graphicID, tickDuration)
+			s.handler.handleSetPlayerGraphic(pe, graphicID, height, tickDuration)
 			return 0
 		},
 		"teleport": func(state *lua.LState) int {

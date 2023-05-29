@@ -110,6 +110,8 @@ type EntityAppearance struct {
 	Animations map[AnimationID]int
 	// GraphicID is the ID of a graphic the player assumes, or -1 if none.
 	GraphicID int
+	// GraphicHeight is the height offset from the ground where the graphic should be rendered.
+	GraphicHeight int
 	// Gender is the entity's gender.
 	Gender EntityGender
 	// OverheadIconID is the ID of the graphic to use for an overhead icon.
