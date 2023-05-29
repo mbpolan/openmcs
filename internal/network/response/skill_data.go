@@ -39,10 +39,10 @@ func (p *SkillDataResponse) Write(w *network.ProtocolWriter) error {
 
 	// split the experience points into a sequence of bytes since the client expects them to be ordered in
 	// a really weird way
-	exp1 := uint8(p.experience << 8)
+	exp1 := uint8(p.experience >> 8)
 	exp2 := uint8(p.experience)
-	exp3 := uint8(p.experience << 24)
-	exp4 := uint8(p.experience << 16)
+	exp3 := uint8(p.experience >> 24)
+	exp4 := uint8(p.experience >> 16)
 
 	// write 4 bytes for the experience
 	err = w.WriteUint8(exp1)

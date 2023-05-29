@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func Test_Player_SetSkill_combatLevels_hitpoints(t *testing.T) {
+func Test_Player_SetSkillExperience_combatLevels_hitpoints(t *testing.T) {
 	p := NewPlayer("mike")
 
 	// level 10 attack
@@ -14,7 +14,7 @@ func Test_Player_SetSkill_combatLevels_hitpoints(t *testing.T) {
 	assert.Equal(t, 3, p.Appearance.CombatLevel)
 }
 
-func Test_Player_SetSkill_combatLevels_melee(t *testing.T) {
+func Test_Player_SetSkillExperience_combatLevels_melee(t *testing.T) {
 	p := NewPlayer("mike")
 
 	// level 4 attack
@@ -23,7 +23,7 @@ func Test_Player_SetSkill_combatLevels_melee(t *testing.T) {
 	assert.Equal(t, 2, p.Appearance.CombatLevel)
 }
 
-func Test_Player_SetSkill_combatLevels_magic(t *testing.T) {
+func Test_Player_SetSkillExperience_combatLevels_magic(t *testing.T) {
 	p := NewPlayer("mike")
 
 	// level 4 magic
@@ -32,7 +32,7 @@ func Test_Player_SetSkill_combatLevels_magic(t *testing.T) {
 	assert.Equal(t, 2, p.Appearance.CombatLevel)
 }
 
-func Test_Player_SetSkill_combatLevels_ranged(t *testing.T) {
+func Test_Player_SetSkillExperience_combatLevels_ranged(t *testing.T) {
 	p := NewPlayer("mike")
 
 	// level 4 ranged
@@ -41,11 +41,23 @@ func Test_Player_SetSkill_combatLevels_ranged(t *testing.T) {
 	assert.Equal(t, 2, p.Appearance.CombatLevel)
 }
 
-func Test_Player_SetSkill_combatLevels_prayer(t *testing.T) {
+func Test_Player_SetSkillExperience_combatLevels_prayer(t *testing.T) {
 	p := NewPlayer("mike")
 
 	// level 10 prayer
 	p.SetSkillExperience(SkillTypePrayer, 1160)
 
 	assert.Equal(t, 2, p.Appearance.CombatLevel)
+}
+
+func Test_Player_SetSkillExperience_level(t *testing.T) {
+	p := NewPlayer("mike")
+
+	// level 2
+	p.SetSkillExperience(SkillTypeFletching, 165)
+	// level 10
+	p.SetSkillExperience(SkillTypePrayer, 1160)
+
+	assert.Equal(t, 2, p.Skills[SkillTypeFletching].Level)
+	assert.Equal(t, 10, p.Skills[SkillTypePrayer].Level)
 }
