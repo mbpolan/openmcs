@@ -112,6 +112,8 @@ type EntityAppearance struct {
 	GraphicID int
 	// GraphicHeight is the height offset from the ground where the graphic should be rendered.
 	GraphicHeight int
+	// GraphicDelay is the amount of game ticks to wait before initially displaying the graphic.
+	GraphicDelay int
 	// Gender is the entity's gender.
 	Gender EntityGender
 	// OverheadIconID is the ID of the graphic to use for an overhead icon.

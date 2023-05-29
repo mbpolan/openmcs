@@ -33,9 +33,10 @@ type ScriptHandler interface {
 	handleTeleportPlayer(pe *playerEntity, globalPos model.Vector3D)
 	// handleAnimatePlayer sets a player's current animation with an expiration after a number of game ticks.
 	handleAnimatePlayer(pe *playerEntity, animationID, tickDuration int)
-	// handleSetPlayerGraphic sets a graphic to display with the player model at a height offset from the ground, with
-	// an expiration after a number of game ticks.
-	handleSetPlayerGraphic(pe *playerEntity, graphicID, height, tickDuration int)
+	// handleSetPlayerGraphic sets a graphic to display with the player model at a height offset from the ground. A
+	// client-side tick delay can be provided to delay the start of the graphic being applied, and an expiration after a
+	// number of game ticks when the graphic will be removed.
+	handleSetPlayerGraphic(pe *playerEntity, graphicID, height, delay, tickDuration int)
 	// handleGrantExperience grants a player experience, delaying the current action for an amount of game ticks.
 	handleGrantExperience(pe *playerEntity, skillType model.SkillType, experience, tickDelay int)
 	// handleSetSidebarTab sets the active tab on the client's sidebar.

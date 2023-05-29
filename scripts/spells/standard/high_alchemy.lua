@@ -12,7 +12,7 @@ function spell_high_alchemy(player, item, slot_id)
 
     -- animate the player with a graphic
     player:animate(713, 4)
-    player:graphic(113, 75, 4)
+    player:graphic(113, 75, 4, 4)
 
     -- consume the target item
     ok = player:consume_item(slot_id)

@@ -38,6 +38,7 @@ type playerEntity struct {
 	mu                  sync.Mutex
 	animationTicks      int
 	graphicTicks        int
+	graphicApplied      bool
 }
 
 type playerStatusBroadcast struct {
@@ -120,11 +121,20 @@ func (pe *playerEntity) GraphicHeight() int {
 	return pe.player.Appearance.GraphicHeight
 }
 
+// GraphicDelay returns the number of game ticks to wait before the player model graphic should be initially rendered.
+// If no graphic is set on the player model, the return value from this method is undefined.
+func (pe *playerEntity) GraphicDelay() int {
+	return pe.player.Appearance.GraphicDelay
+}
+
 // SetGraphic sets the graphic to display along with the player's model. This will also flag the player's appearance as
-// changed. The tickDuration specifies after how many game ticks the graphic will be cleared.
-func (pe *playerEntity) SetGraphic(graphicID, height, tickDuration int) {
+// changed. The delay is how many client-side ticks (frames) to wait before displaying the graphic. The tickDuration
+// specifies after how many game ticks the graphic will be cleared.
+func (pe *playerEntity) SetGraphic(graphicID, height, delay, tickDuration int) {
 	pe.player.Appearance.GraphicID = graphicID
 	pe.player.Appearance.GraphicHeight = height
+	pe.player.Appearance.GraphicDelay = delay
+	pe.graphicApplied = false
 	pe.graphicTicks = tickDuration
 	pe.appearanceChanged = true
 }
@@ -133,6 +143,7 @@ func (pe *playerEntity) SetGraphic(graphicID, height, tickDuration int) {
 func (pe *playerEntity) ClearGraphic() {
 	pe.player.Appearance.GraphicID = -1
 	pe.player.Appearance.GraphicHeight = 0
+	pe.player.Appearance.GraphicDelay = 0
 	pe.graphicTicks = -1
 	pe.appearanceChanged = true
 }

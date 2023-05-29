@@ -1509,7 +1509,10 @@ func (g *Game) handleGameUpdate() error {
 
 		// do the same for the player's graphic, if one is currently set
 		if pe.HasGraphic() {
-			update.AddGraphic(pe.index, pe.GraphicID(), pe.GraphicHeight(), 0)
+			if !pe.graphicApplied {
+				update.AddGraphic(pe.index, pe.GraphicID(), pe.GraphicHeight(), pe.GraphicDelay())
+				pe.graphicApplied = true
+			}
 
 			// if the graphic has an expiration, decrement the tick count and clear it if needed
 			if pe.graphicTicks > -1 {
@@ -1789,12 +1792,6 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 		case ActionTeleportPlayer:
 			action := deferred.TeleportPlayerAction
 
-			// reset the player's teleporting animation and graphic
-			result |= ActionResultClearAnimations
-			result |= ActionResultClearGraphics
-			pe.ClearAnimation()
-			pe.ClearGraphic()
-
 			// move the player to the new position
 			pe.player.GlobalPos = action.GlobalPos
 			origin, relative := g.playerRegionPosition(pe)
@@ -1976,11 +1973,12 @@ func (g *Game) handleAnimatePlayer(pe *playerEntity, animationID, tickDuration i
 	pe.SetAnimation(animationID, tickDuration)
 }
 
-// handleSetPlayerGraphic sets a graphic to display with the player model at a height offset from the ground, with
-// an expiration after a number of game ticks.
+// handleSetPlayerGraphic sets a graphic to display with the player model at a height offset from the ground. A
+// client-side tick delay can be provided to delay the start of the graphic being applied, and an expiration after a
+// number of game ticks when the graphic will be removed.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) handleSetPlayerGraphic(pe *playerEntity, graphicID, height, tickDuration int) {
-	pe.SetGraphic(graphicID, height, tickDuration)
+func (g *Game) handleSetPlayerGraphic(pe *playerEntity, graphicID, height, delay, tickDuration int) {
+	pe.SetGraphic(graphicID, height, delay, tickDuration)
 }
 
 // handleGrantExperience grants a player experience, delaying the current action for an amount of game ticks.
