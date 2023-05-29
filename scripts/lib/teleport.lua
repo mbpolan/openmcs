@@ -11,7 +11,7 @@
 -- @param y The destination y-coordinate, in global coordinates
 -- @param z The destination z-coordinate
 function teleport_standard(player, x, y, z, ...)
-    ok = player:consume_runes(unpack(arg))
+    ok = player:consume_items(unpack(arg))
     if not ok then
         player:server_message("You do not have enough runes to cast this spell.")
         return

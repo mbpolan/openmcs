@@ -1002,82 +1002,74 @@ func (g *Game) handleRemovePlayer(pe *playerEntity) {
 	g.removePlayers[pe.player.ID] = pe
 }
 
-// handleConsumeRunes attempts to consume a set of runes from the player's inventory, returning true if successful or
-// false if not. runeIDsAmounts should be a vararg slice consisting of the rune item ID followed by the amount.
+// handleConsumeInventoryItems attempts to consume a set of items from the player's inventory, returning true if
+// successful or false if not. itemIDAmounts should be a vararg slice consisting of the item ID followed by the amount.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) handleConsumeRunes(pe *playerEntity, runeIDsAmounts ...int) bool {
-	slots := map[int]*model.InventorySlot{}
-	amounts := map[int]int{}
+func (g *Game) handleConsumeInventoryItems(pe *playerEntity, itemIDAmounts ...int) bool {
+	itemTargetSlots := map[int]*model.InventorySlot{}
+	itemAmounts := map[int]int{}
+	consumedSlots := map[int]bool{}
 
-	// find the inventory slots which contain the necessary runes with minimum amounts
-	for i := 0; i < len(runeIDsAmounts); i += 2 {
-		itemID := runeIDsAmounts[i]
-		amount := runeIDsAmounts[i+1]
-		amounts[itemID] = amount
+	// find the inventory slots which contain the necessary items with minimum amounts
+	for i := 0; i < len(itemIDAmounts); i += 2 {
+		itemID := itemIDAmounts[i]
+		amount := itemIDAmounts[i+1]
+		itemAmounts[itemID] = amount
 
-		ok := false
+		// validate the item is known
+		item, ok := g.items[itemID]
+		if !ok {
+			return false
+		}
+
+		// find a candidate slot in the inventory
+		ok = false
 		for _, slot := range pe.player.Inventory {
-			if slot == nil {
+			// skip empty slots or slots that we've already marked as consumed
+			if slot == nil || consumedSlots[slot.ID] {
 				continue
 			}
 
-			if slot.Item.ID == itemID && slot.Amount >= amount {
-				slots[itemID] = slot
+			// check if this slot contains the item we're looking for. if the item is stackable, see if the amount in
+			// this stack is sufficient. if the item is not stackable, we just need to check if this slot contains
+			// it. once we find a candidate, mark the slot as consumed so we don't revisit it again
+			if slot.Item.ID == itemID && (!item.Stackable || (item.Stackable && slot.Amount >= amount)) {
+				itemTargetSlots[itemID] = slot
+				consumedSlots[slot.ID] = true
 				ok = true
 				break
 			}
 		}
 
-		// fail fast if the player doesn't meet the requirements for this rune
+		// fail fast if the player doesn't meet the requirements for this item
 		if !ok {
 			return false
 		}
 	}
 
-	// deduct and/or remove runes from inventory
-	var responses []response.Response
-	for itemID, slot := range slots {
-		inventory := response.NewSetInventoryItemResponse(g.interaction.InventoryTab.SlotsID)
-
-		// if this slot is now empty, remove it entirely
-		slot.Amount -= amounts[itemID]
-		if slot.Amount == 0 {
-			pe.player.ClearInventoryItem(slot.ID)
-			inventory.ClearSlot(slot.ID)
-		} else {
-			inventory.AddSlot(slot.ID, itemID, slot.Amount)
-		}
-
-		responses = append(responses, inventory)
+	// deduct and/or remove items from inventory
+	inventory := response.NewSetInventoryItemResponse(g.interaction.InventoryTab.SlotsID)
+	for itemID, slot := range itemTargetSlots {
+		g.consumePlayerInventorySlot(pe, g.items[itemID], slot, itemAmounts[itemID], inventory)
 	}
 
 	// update the player's inventory now that we're done
-	pe.Send(responses...)
+	pe.Send(inventory)
 	return true
 }
 
-// handleConsumeInventoryItem removes an inventory item, or decrements its amount by one, returning true if successful.
+// handleConsumeInventoryItemInSlot attempts to consume an item at a particular slot in the player's inventory,
+// returning true if successful or false if not.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) handleConsumeInventoryItem(pe *playerEntity, slotID int) bool {
+func (g *Game) handleConsumeInventoryItemInSlot(pe *playerEntity, slotID, amount int) bool {
 	slot := pe.player.Inventory[slotID]
 	if slot == nil {
 		return false
 	}
 
+	// consume the item at the specified inventory slot
 	inventory := response.NewSetInventoryItemResponse(g.interaction.InventoryTab.SlotsID)
-	if slot.Item.Stackable {
-		slot.Amount--
-		if slot.Amount == 0 {
-			pe.player.ClearInventoryItem(slotID)
-			inventory.ClearSlot(slotID)
-		} else {
-			inventory.AddSlot(slotID, slot.Item.ID, slot.Amount)
-		}
-	} else {
-		pe.player.ClearInventoryItem(slotID)
-		inventory.ClearSlot(slotID)
-	}
-
+	g.consumePlayerInventorySlot(pe, slot.Item, slot, amount, inventory)
 	pe.Send(inventory)
 	return true
 }
@@ -1325,6 +1317,30 @@ func (g *Game) dropPlayerInventoryItem(pe *playerEntity, item *model.Item) *mode
 	pe.Send(inventory)
 
 	return slot
+}
+
+// consumeItemInSlot consumes an item in an inventory slot. If an item is stackable, its stack amount will be decreased.
+// If th item is not stackable, it will be removed entirely. Response r will be modified to reflect the new state of
+// the inventory slot.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) consumePlayerInventorySlot(pe *playerEntity, item *model.Item, slot *model.InventorySlot, amount int,
+	r *response.SetInventoryItemsResponse) {
+
+	// if the item is stackable, deduct from its stack and remove the item if the stack is then empty
+	if item.Stackable {
+		slot.Amount -= amount
+
+		// if this slot is now empty, remove it entirely
+		if slot.Amount == 0 {
+			pe.player.ClearInventoryItem(slot.ID)
+			r.ClearSlot(slot.ID)
+		} else {
+			r.AddSlot(slot.ID, item.ID, slot.Amount)
+		}
+	} else {
+		pe.player.ClearInventoryItem(slot.ID)
+		r.ClearSlot(slot.ID)
+	}
 }
 
 // equipPlayerInventoryItem removes the first occurrence of an item in the player's inventory and adds it to their

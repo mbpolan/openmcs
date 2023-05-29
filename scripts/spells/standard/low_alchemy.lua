@@ -9,7 +9,7 @@ function spell_low_alchemy(player, item, slot_id)
     end
 
     -- require 3 fire runes and 1 nature rune
-    ok = player:consume_runes(554, 3, 561, 1)
+    ok = player:consume_items(554, 3, 561, 1)
     if not ok then
         player:server_message("You do not have enough runes to cast this spell.")
         return
@@ -20,7 +20,7 @@ function spell_low_alchemy(player, item, slot_id)
     player:graphic(112, 75, 0, 2)
 
     -- consume the target item
-    ok = player:consume_item(slot_id)
+    ok = player:consume_item_in_slot(slot_id, 1)
     if not ok then
         return
     end

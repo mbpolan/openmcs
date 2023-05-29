@@ -18,12 +18,12 @@ type ScriptHandler interface {
 	handleSetInterfaceSetting(pe *playerEntity, settingID, value int)
 	// handleRemovePlayer schedules a player to be removed from the game.
 	handleRemovePlayer(pe *playerEntity)
-	// handleConsumeRunes attempts to consume a set of runes from the player's inventory, returning true if successful or
-	// false if not. runeIDsAmounts should be a vararg slice consisting of the rune item ID followed by the amount.
-	handleConsumeRunes(pe *playerEntity, runeIDsAmounts ...int) bool
-	// handleConsumeInventoryItem removes an inventory item, or decrements its amount by one, returning true if
-	// successful.
-	handleConsumeInventoryItem(pe *playerEntity, slotID int) bool
+	// handleConsumeInventoryItems attempts to consume a set of items from the player's inventory, returning true if successful
+	// or false if not. itemIDsAmounts should be a vararg slice consisting of the item ID followed by the amount.
+	handleConsumeInventoryItems(pe *playerEntity, itemIDsAmounts ...int) bool
+	// handleConsumeInventoryItemInSlot attempts to consume an item at a particular slot in the player's inventory,
+	// returning true if successful or false if not.
+	handleConsumeInventoryItemInSlot(pe *playerEntity, slotID, amount int) bool
 	// handleAddInventoryItem adds an item with an amount to the player's inventory. If the player's inventory is full,
 	// the item is dropped on the ground instead.
 	handleAddInventoryItem(pe *playerEntity, itemID, amount int)

@@ -20,6 +20,8 @@ function interface_1151_on_action(player, interface)
         spell_teleport_watchtower(player)
     elseif spell_id == 7455 then
         spell_teleport_trollheim(player)
+    elseif spell_id == 18470 then
+        spell_teleport_ape_atoll(player)
     end
 end
 

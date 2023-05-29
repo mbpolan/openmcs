@@ -8,5 +8,5 @@ function spell_teleport_camelot(player)
     end
 
     -- require 1 law rune and 10 air runes
-    teleport_standard(player, 2757, 3478, 0, 563, 1, 556, 10)
+    teleport_standard(player, 2757, 3478, 0, 563, 1, 556, 5)
 end

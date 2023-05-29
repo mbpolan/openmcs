@@ -356,7 +356,7 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			s.handler.handleGrantExperience(pe, skillType, experience, tickDelay)
 			return 0
 		},
-		"consume_runes": func(state *lua.LState) int {
+		"consume_items": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 
 			// ensure an even number of arguments was given
@@ -377,16 +377,17 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 				stackPtr += 2
 			}
 
-			// attempt to consume the runes from the player's inventory
-			valid := s.handler.handleConsumeRunes(pe, args...)
+			// attempt to consume the required items from the player's inventory
+			valid := s.handler.handleConsumeInventoryItems(pe, args...)
 			state.Push(lua.LBool(valid))
 			return 1
 		},
-		"consume_item": func(state *lua.LState) int {
+		"consume_item_in_slot": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 			slotID := state.CheckInt(2)
+			amount := state.CheckInt(3)
 
-			valid := s.handler.handleConsumeInventoryItem(pe, slotID)
+			valid := s.handler.handleConsumeInventoryItemInSlot(pe, slotID, amount)
 			state.Push(lua.LBool(valid))
 			return 1
 		},
