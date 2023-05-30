@@ -390,7 +390,7 @@ func (pe *playerEntity) DeferDoInterfaceAction(parent, actor *model.Interface) {
 func (pe *playerEntity) DeferTeleportPlayer(globalPos model.Vector3D) {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionTeleportPlayer,
-		TickDelay:  4,
+		TickDelay:  1,
 		TeleportPlayerAction: &TeleportPlayerAction{
 			GlobalPos: globalPos,
 		},
@@ -412,7 +412,7 @@ func (pe *playerEntity) DeferCastSpellOnItem(slotID, itemID, inventoryInterfaceI
 }
 
 // DeferExperienceGrant plans an action to grant the player experience in a skill.
-func (pe *playerEntity) DeferExperienceGrant(skillType model.SkillType, experience int) {
+func (pe *playerEntity) DeferExperienceGrant(skillType model.SkillType, experience float64) {
 	pe.planAction(&Action{
 		ActionType: ActionExperienceGrant,
 		TickDelay:  1,

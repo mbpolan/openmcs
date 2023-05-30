@@ -129,5 +129,5 @@ type CastSpellOnItemAction struct {
 // ExperienceGrantAction is an action to grant the player experience after a delay.
 type ExperienceGrantAction struct {
 	SkillType  model.SkillType
-	Experience int
+	Experience float64
 }

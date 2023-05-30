@@ -36,7 +36,7 @@ const (
 type Skill struct {
 	Type       SkillType
 	Level      int
-	Experience int
+	Experience float64
 }
 
 // NewSkill returns a Skill initialized to its base level.
@@ -53,7 +53,7 @@ func NewSkill(skillType SkillType) *Skill {
 type SkillMap map[SkillType]*Skill
 
 // SkillExperienceLevels is a slice of experience points corresponding to each skill level.
-var SkillExperienceLevels = func() []int {
+var SkillExperienceLevels = func() []float64 {
 	rawExp := make([]float64, 100)
 	rawExp[1] = 0
 
@@ -64,9 +64,9 @@ var SkillExperienceLevels = func() []int {
 	}
 
 	// normalize the raw experience points into integer values
-	exp := make([]int, 100)
+	exp := make([]float64, 100)
 	for i := 1; i <= 99; i++ {
-		exp[i] = int(rawExp[i])
+		exp[i] = math.Floor(rawExp[i])
 	}
 	return exp
 }()

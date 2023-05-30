@@ -7,5 +7,8 @@ function spell_teleport_varrock(player)
     end
 
     -- require 1 law rune, 3 air runes and 1 fire rune
-    teleport_standard(player, 3213, 3424, 0, ITEM_LAW_RUNE, 1, ITEM_AIR_RUNE, 3, ITEM_FIRE_RUNE, 1)
+    teleport_standard(player, 3213, 3424, 0, 35,
+            ITEM_LAW_RUNE, 1,
+            ITEM_AIR_RUNE, 3,
+            ITEM_FIRE_RUNE, 1)
 end

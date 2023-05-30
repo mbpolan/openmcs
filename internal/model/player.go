@@ -126,14 +126,14 @@ func (p *Player) SetAttackStyle(weaponStyle WeaponStyle, attackStyle AttackStyle
 
 // SetSkillExperience sets the experience points for a player skill. The skill level and combat levels will be
 // recomputed after the fact.
-func (p *Player) SetSkillExperience(skillType SkillType, experience int) {
+func (p *Player) SetSkillExperience(skillType SkillType, experience float64) {
 	p.Skills[skillType].Experience = experience
 	p.Skills[skillType].Level = p.recomputeSkillLevel(experience)
 	p.recomputeCombatSkills()
 }
 
 // SkillExperience returns the player's current experience points for a skill.
-func (p *Player) SkillExperience(skillType SkillType) int {
+func (p *Player) SkillExperience(skillType SkillType) float64 {
 	return p.Skills[skillType].Experience
 }
 
@@ -253,7 +253,7 @@ func (p *Player) IsIgnored(username string) bool {
 }
 
 // recomputeSkillLevel returns the level for a skill based on the total amount of experience points.
-func (p *Player) recomputeSkillLevel(experience int) int {
+func (p *Player) recomputeSkillLevel(experience float64) int {
 	for i := 1; i <= 99; i++ {
 		if SkillExperienceLevels[i] > experience {
 			return i - 1

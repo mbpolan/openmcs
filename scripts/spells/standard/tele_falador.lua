@@ -7,5 +7,8 @@ function spell_teleport_falador(player)
     end
 
     -- require 1 law rune, 3 air runes and 1 water rune
-    teleport_standard(player, 2963, 3379, 0, ITEM_LAW_RUNE, 1, ITEM_AIR_RUNE, 3, ITEM_WATER_RUNE, 1)
+    teleport_standard(player, 2963, 3379, 0, 48,
+            ITEM_LAW_RUNE, 1,
+            ITEM_AIR_RUNE, 3,
+            ITEM_WATER_RUNE, 1)
 end

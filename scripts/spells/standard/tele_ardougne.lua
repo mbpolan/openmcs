@@ -7,5 +7,7 @@ function spell_teleport_ardougne(player)
     end
 
     -- require 2 law runes and 2 water runes
-    teleport_standard(player, 2662, 3306, 0, ITEM_LAW_RUNE, 2, ITEM_WATER_RUNE, 2)
+    teleport_standard(player, 2662, 3306, 0, 61,
+            ITEM_LAW_RUNE, 2,
+            ITEM_WATER_RUNE, 2)
 end

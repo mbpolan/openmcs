@@ -299,7 +299,7 @@ CREATE TABLE PLAYER_SKILL (
     -- skill level
     LEVEL INT NOT NULL,
     -- skill experience
-    EXPERIENCE INT NOT NULL,
+    EXPERIENCE REAL NOT NULL,
     -- date time when the row was inserted
     CREATED_DTTM TEXT NOT NULL DEFAULT CURRENT_DATE,
     -- date time when the row was updated

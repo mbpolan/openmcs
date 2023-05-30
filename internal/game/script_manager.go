@@ -374,7 +374,7 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 		"grant_experience": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 			skillType := model.SkillType(state.CheckInt(2))
-			experience := state.CheckInt(3)
+			experience := float64(state.CheckNumber(3))
 
 			s.handler.handleGrantExperience(pe, skillType, experience)
 			return 0

@@ -7,5 +7,7 @@ function spell_teleport_watchtower(player)
     end
 
     -- require 2 law runes and 2 earth runes
-    teleport_standard(player, 2546, 3113, 2, ITEM_LAW_RUNE, 2, ITEM_EARTH_RUNE, 2)
+    teleport_standard(player, 2546, 3113, 2, 68,
+            ITEM_LAW_RUNE, 2,
+            ITEM_EARTH_RUNE, 2)
 end

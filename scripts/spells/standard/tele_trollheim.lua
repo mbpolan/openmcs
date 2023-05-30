@@ -7,5 +7,7 @@ function spell_teleport_trollheim(player)
     end
 
     -- require 2 law runes and 2 fire runes
-    teleport_standard(player, 2890, 3678, 0, ITEM_LAW_RUNE, 2, ITEM_FIRE_RUNE, 2)
+    teleport_standard(player, 2890, 3678, 0, 68,
+            ITEM_LAW_RUNE, 2,
+            ITEM_FIRE_RUNE, 2)
 end

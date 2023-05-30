@@ -534,7 +534,8 @@ func (s *SQLite3Driver) loadPlayerSkills(p *model.Player) error {
 	}
 
 	for rows.Next() {
-		var skillID, experience int
+		var skillID int
+		var experience float64
 		err := rows.Scan(&skillID, &experience)
 		if err != nil {
 			return err

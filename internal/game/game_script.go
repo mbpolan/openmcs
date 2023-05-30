@@ -42,7 +42,7 @@ type ScriptHandler interface {
 	// number of game ticks when the graphic will be removed.
 	handleSetPlayerGraphic(pe *playerEntity, graphicID, height, delay, tickDuration int)
 	// handleGrantExperience grants a player experience points in a skill.
-	handleGrantExperience(pe *playerEntity, skillType model.SkillType, experience int)
+	handleGrantExperience(pe *playerEntity, skillType model.SkillType, experience float64)
 	// handleSetSidebarTab sets the active tab on the client's sidebar.
 	handleSetSidebarTab(pe *playerEntity, tab model.ClientTab)
 	// handleDelayCurrentAction blocks the player from performing other actions until a set amount of game ticks have

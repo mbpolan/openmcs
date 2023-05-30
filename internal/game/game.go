@@ -12,6 +12,7 @@ import (
 	"github.com/mbpolan/openmcs/internal/telemetry"
 	"github.com/mbpolan/openmcs/internal/util"
 	"github.com/pkg/errors"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -1892,7 +1893,7 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 			action := deferred.ExperienceGrantAction
 
 			// grant the player experience in the given skill
-			experience := util.Min(pe.player.SkillExperience(action.SkillType)+action.Experience, maxSkillExperience)
+			experience := math.Min(pe.player.SkillExperience(action.SkillType)+action.Experience, maxSkillExperience)
 			pe.player.SetSkillExperience(action.SkillType, experience)
 
 			// send the client an experience drop update
@@ -2024,7 +2025,7 @@ func (g *Game) handleSetPlayerGraphic(pe *playerEntity, graphicID, height, delay
 
 // handleGrantExperience grants a player experience points in a skill.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) handleGrantExperience(pe *playerEntity, skillType model.SkillType, experience int) {
+func (g *Game) handleGrantExperience(pe *playerEntity, skillType model.SkillType, experience float64) {
 	pe.DeferExperienceGrant(skillType, experience)
 }
 
