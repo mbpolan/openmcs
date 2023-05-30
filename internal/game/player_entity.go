@@ -412,14 +412,22 @@ func (pe *playerEntity) DeferCastSpellOnItem(slotID, itemID, inventoryInterfaceI
 }
 
 // DeferExperienceGrant plans an action to grant the player experience in a skill.
-func (pe *playerEntity) DeferExperienceGrant(skillType model.SkillType, experience, tickDelay int) {
+func (pe *playerEntity) DeferExperienceGrant(skillType model.SkillType, experience int) {
 	pe.planAction(&Action{
 		ActionType: ActionExperienceGrant,
-		TickDelay:  uint(tickDelay),
+		TickDelay:  1,
 		ExperienceGrantAction: &ExperienceGrantAction{
 			SkillType:  skillType,
 			Experience: experience,
 		},
+	}, ActionPriorityHigh)
+}
+
+// DeferActionCompletion plans an artificial delay to indicate the player is occupied with an ongoing action.
+func (pe *playerEntity) DeferActionCompletion(tickDuration int) {
+	pe.planAction(&Action{
+		ActionType: ActionDelayCurrent,
+		TickDelay:  uint(tickDuration),
 	}, ActionPriorityHigh)
 }
 

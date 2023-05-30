@@ -1093,6 +1093,23 @@ func (g *Game) handleAddInventoryItem(pe *playerEntity, itemID, amount int) {
 	g.addPlayerInventoryItem(pe, item, amount)
 }
 
+// handleCountInventoryItems returns the number of items that existing in the player's inventory. If an item is
+// stackable, the total number of stacked items of that kind will be returned. Otherwise, a count of each instance
+// of a non-stackable item will be returned,
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleCountInventoryItems(pe *playerEntity, itemID int) int {
+	count := 0
+	for _, slot := range pe.player.Inventory {
+		if slot == nil || slot.Item.ID != itemID {
+			continue
+		}
+
+		count += slot.Amount
+	}
+
+	return count
+}
+
 // handleSendServerMessage sends a server message to a player.
 // Concurrency requirements: (a) game state may be locked and (b) this player may be locked.
 func (g *Game) handleSendServerMessage(pe *playerEntity, message string) {
@@ -1693,6 +1710,10 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 	deferredActions := pe.TickDeferredActions()
 	for _, deferred := range deferredActions {
 		switch deferred.ActionType {
+		case ActionDelayCurrent:
+			// nothing to do; this action simply blocks other actions from being processed until it expires
+			pe.RemoveDeferredAction(deferred)
+
 		case ActionSendServerMessage:
 			g.handleServerMessage(pe, deferred.ServerMessageAction.Message)
 			pe.RemoveDeferredAction(deferred)
@@ -1856,12 +1877,16 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 			}
 
 			// execute a script to handle this spell
-			err := g.scripts.DoCastSpellOnItem(pe, slot.Item, action.SlotID, inventoryInterface, spellBookInterface, spellInterface)
+			done, err := g.scripts.DoCastSpellOnItem(pe, slot.Item, action.SlotID, inventoryInterface, spellBookInterface, spellInterface)
 			if err != nil {
 				logger.Warnf("failed to execute cast item on spell script: %s", err)
 			}
 
+			// remove this deferred action, and bail out early if the spell has scheduled more blocking actions
 			pe.RemoveDeferredAction(deferred)
+			if !done {
+				return ActionResultPending
+			}
 
 		case ActionExperienceGrant:
 			action := deferred.ExperienceGrantAction
@@ -1997,10 +2022,10 @@ func (g *Game) handleSetPlayerGraphic(pe *playerEntity, graphicID, height, delay
 	pe.SetGraphic(graphicID, height, delay, tickDuration)
 }
 
-// handleGrantExperience grants a player experience, delaying the current action for an amount of game ticks.
+// handleGrantExperience grants a player experience points in a skill.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) handleGrantExperience(pe *playerEntity, skillType model.SkillType, experience, tickDelay int) {
-	pe.DeferExperienceGrant(skillType, experience, tickDelay)
+func (g *Game) handleGrantExperience(pe *playerEntity, skillType model.SkillType, experience int) {
+	pe.DeferExperienceGrant(skillType, experience)
 }
 
 // handleSetSidebarTab sets the active tab on the client's sidebar.
@@ -2008,6 +2033,12 @@ func (g *Game) handleGrantExperience(pe *playerEntity, skillType model.SkillType
 func (g *Game) handleSetSidebarTab(pe *playerEntity, tab model.ClientTab) {
 	resp := &response.SidebarTabResponse{TabID: tab}
 	pe.Send(resp)
+}
+
+// handleDelayCurrentAction blocks the player from performing other actions until a set amount of game ticks have
+// elapsed.
+func (g *Game) handleDelayCurrentAction(pe *playerEntity, tickDuration int) {
+	pe.DeferActionCompletion(tickDuration)
 }
 
 // handlePlayerSwapInventoryItem handles moving an item from one slot to another in a player's inventory.

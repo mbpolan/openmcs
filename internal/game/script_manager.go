@@ -80,28 +80,30 @@ func (s *ScriptManager) Load() (int, error) {
 
 // DoPlayerInit executes a script to initialize a player when they join the game.
 func (s *ScriptManager) DoPlayerInit(pe *playerEntity) error {
-	return s.doFunction("init_player_tabs", s.playerEntityType(pe, s.state))
+	return s.doFunctionVoid("init_player_tabs", s.playerEntityType(pe, s.state))
 }
 
 // DoInterface executes an interface script for an action performed by the player.
 func (s *ScriptManager) DoInterface(pe *playerEntity, parent, actor *model.Interface, opCode int) error {
 	function := fmt.Sprintf("interface_%d_on_action", parent.ID)
-	return s.doFunction(function, s.playerEntityType(pe, s.state), s.interfaceType(actor, s.state), lua.LNumber(opCode))
+	return s.doFunctionVoid(function, s.playerEntityType(pe, s.state), s.interfaceType(actor, s.state), lua.LNumber(opCode))
 }
 
 // DoOnEquipItem executes a script to handle a player (un)equipping an item.
 func (s *ScriptManager) DoOnEquipItem(pe *playerEntity, item *model.Item) error {
-	return s.doFunction("on_equip_item", s.playerEntityType(pe, s.state), s.itemType(item, s.state))
+	return s.doFunctionVoid("on_equip_item", s.playerEntityType(pe, s.state), s.itemType(item, s.state))
 }
 
 // DoOnUnequipItem executes a script to handle a player unequipping an item.
 func (s *ScriptManager) DoOnUnequipItem(pe *playerEntity, item *model.Item) error {
-	return s.doFunction("on_unequip_item", s.playerEntityType(pe, s.state), s.itemType(item, s.state))
+	return s.doFunctionVoid("on_unequip_item", s.playerEntityType(pe, s.state), s.itemType(item, s.state))
 }
 
-// DoCastSpellOnItem executes a script to handle a player casting a spell on an inventory items.
-func (s *ScriptManager) DoCastSpellOnItem(pe *playerEntity, item *model.Item, slotID int, inventory, spellBook, spell *model.Interface) error {
-	return s.doFunction("on_cast_spell_on_item",
+// DoCastSpellOnItem executes a script to handle a player casting a spell on an inventory items. If the spell has no
+// further deferred actions, true will be returned. Otherwise, false will be returned to indicate that a deferred action
+// has been planned that needs to completed before others can.
+func (s *ScriptManager) DoCastSpellOnItem(pe *playerEntity, item *model.Item, slotID int, inventory, spellBook, spell *model.Interface) (bool, error) {
+	return s.doFunctionBool("on_cast_spell_on_item",
 		s.playerEntityType(pe, s.state),
 		s.itemType(item, s.state),
 		lua.LNumber(slotID),
@@ -149,18 +151,40 @@ func (s *ScriptManager) createState() (*lua.LState, error) {
 	return l, nil
 }
 
-// doFunction executes a function in the Lua state.
-func (s *ScriptManager) doFunction(function string, params ...lua.LValue) error {
+// doFunction executes a function in the Lua state that does not return any value.
+func (s *ScriptManager) doFunctionVoid(function string, params ...lua.LValue) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	_, err := s.callGlobalFunction(function, 0, params...)
+	return s.checkResult(function, err)
+}
+
+// doFunction executes a function in the Lua state that returns a boolean value.
+func (s *ScriptManager) doFunctionBool(function string, params ...lua.LValue) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	l, err := s.callGlobalFunction(function, 1, params...)
+	if err != nil {
+		return false, s.checkResult(function, err)
+	}
+
+	b := l.CheckBool(-1)
+	l.Pop(1)
+	return b, nil
+}
+
+// callGlobalFunction invokes a Lua global function by name and parameters, returning the state that executed it and an
+// error if applicable. This method does not acquire any locks.
+func (s *ScriptManager) callGlobalFunction(function string, numReturns int, params ...lua.LValue) (*lua.LState, error) {
 	err := s.state.CallByParam(lua.P{
 		Fn:      s.state.GetGlobal(function),
-		NRet:    0,
+		NRet:    numReturns,
 		Protect: true,
 	}, params...)
 
-	return s.checkResult(function, err)
+	return s.state, err
 }
 
 // checkResult inspects an error returned by the Lua VM and includes additional logging.
@@ -351,9 +375,15 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 			skillType := model.SkillType(state.CheckInt(2))
 			experience := state.CheckInt(3)
-			tickDelay := state.CheckInt(4)
 
-			s.handler.handleGrantExperience(pe, skillType, experience, tickDelay)
+			s.handler.handleGrantExperience(pe, skillType, experience)
+			return 0
+		},
+		"delay": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			tickDelay := state.CheckInt(2)
+
+			s.handler.handleDelayCurrentAction(pe, tickDelay)
 			return 0
 		},
 		"consume_items": func(state *lua.LState) int {
@@ -398,6 +428,14 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 
 			s.handler.handleAddInventoryItem(pe, itemID, amount)
 			return 0
+		},
+		"num_inventory_items": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			itemID := state.CheckInt(2)
+
+			count := s.handler.handleCountInventoryItems(pe, itemID)
+			state.Push(lua.LNumber(count))
+			return 1
 		},
 		"server_message": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)

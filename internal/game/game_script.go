@@ -27,6 +27,10 @@ type ScriptHandler interface {
 	// handleAddInventoryItem adds an item with an amount to the player's inventory. If the player's inventory is full,
 	// the item is dropped on the ground instead.
 	handleAddInventoryItem(pe *playerEntity, itemID, amount int)
+	// handleCountInventoryItems returns the number of items that existing in the player's inventory. If an item is
+	// stackable, the total number of stacked items of that kind will be returned. Otherwise, a count of each instance
+	// of a non-stackable item will be returned,
+	handleCountInventoryItems(pe *playerEntity, itemID int) int
 	// handleSendServerMessage sends a server message to a player.
 	handleSendServerMessage(pe *playerEntity, message string)
 	// handleTeleportPlayer teleports a player to another location.
@@ -37,8 +41,11 @@ type ScriptHandler interface {
 	// client-side tick delay can be provided to delay the start of the graphic being applied, and an expiration after a
 	// number of game ticks when the graphic will be removed.
 	handleSetPlayerGraphic(pe *playerEntity, graphicID, height, delay, tickDuration int)
-	// handleGrantExperience grants a player experience, delaying the current action for an amount of game ticks.
-	handleGrantExperience(pe *playerEntity, skillType model.SkillType, experience, tickDelay int)
+	// handleGrantExperience grants a player experience points in a skill.
+	handleGrantExperience(pe *playerEntity, skillType model.SkillType, experience int)
 	// handleSetSidebarTab sets the active tab on the client's sidebar.
 	handleSetSidebarTab(pe *playerEntity, tab model.ClientTab)
+	// handleDelayCurrentAction blocks the player from performing other actions until a set amount of game ticks have
+	// elapsed.
+	handleDelayCurrentAction(pe *playerEntity, tickDuration int)
 }

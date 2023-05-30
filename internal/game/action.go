@@ -34,6 +34,7 @@ const (
 	ActionTeleportPlayer
 	ActionCastSpellOnItem
 	ActionExperienceGrant
+	ActionDelayCurrent
 )
 
 // Action is an action that will be performed after a number of game ticks have elapsed.

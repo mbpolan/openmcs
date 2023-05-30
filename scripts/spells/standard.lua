@@ -2,7 +2,6 @@
 -- Standard spell book
 -------------------------------------
 
-
 function interface_1151_on_action(player, interface)
     spell_id = interface:id()
 
@@ -32,14 +31,18 @@ end
 -- @param inv_interface The inventory interface
 -- @param spell_book_interface The interface where the spell was chosen from
 -- @param spell_interface The interface for the spell
+-- @return true if the spell is complete and has no pending actions, false if not
 function on_cast_spell_on_item(player, item, slot_id, inv_interface, spell_book_interface, spell_interface)
     spell_id = spell_interface:id()
 
     if spell_id == 1162 then
-        spell_low_alchemy(player, item, slot_id)
+        return spell_low_alchemy(player, item, slot_id)
     elseif spell_id == 1178 then
-        spell_high_alchemy(player, item, slot_id)
-    else
-        print('unknown spell: ', spell_id)
+        return spell_high_alchemy(player, item, slot_id)
+    elseif spell_id == 1173 then
+        return spell_superheat_item(player, item, slot_id)
     end
+
+    print('unknown spell: ', spell_id)
+    return true
 end
