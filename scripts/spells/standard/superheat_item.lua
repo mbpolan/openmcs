@@ -18,106 +18,106 @@ function spell_superheat_item(player, item, slot_id)
     -- always consume one of the source item
     local consume_item_ids = {source_item_id, 1}
 
-    if source_item_id == 436 then
+    if source_item_id == ITEM_COPPER_ORE then
         -- copper: produce a bronze bar
-        local num_tin_ore = player:num_inventory_items(438)
+        local num_tin_ore = player:num_inventory_items(ITEM_TIN_ORE)
         if num_tin_ore < 1 then
             player:server_message("You need at least 1 tin ore to smelt a bronze bar.")
             return true
         end
 
-        output_item_id = 2349
+        output_item_id = ITEM_BRONZE_BAR
         min_smith_level = 1
         smith_exp = 6.2
 
         -- consume 1 tin ore
-        table.insert(consume_item_ids, 438)
+        table.insert(consume_item_ids, ITEM_TIN_ORE)
         table.insert(consume_item_ids, 1)
-    elseif source_item_id == 438 then
+    elseif source_item_id == ITEM_TIN_ORE then
         -- tin: produce a bronze bar
-        local num_copper_ore = player:num_inventory_items(436)
+        local num_copper_ore = player:num_inventory_items(ITEM_COPPER_ORE)
         if num_copper_ore < 1 then
             player:server_message("You need at least 1 tin ore to smelt a bronze bar.")
             return true
         end
 
-        output_item_id = 2349
+        output_item_id = ITEM_BRONZE_BAR
         min_smith_level = 1
         smith_exp = 6.2
 
         -- consume 1 copper ore
-        table.insert(consume_item_ids, 436)
+        table.insert(consume_item_ids, ITEM_COPPER_ORE)
         table.insert(consume_item_ids, 1)
-    elseif source_item_id == 440 then
+    elseif source_item_id == ITEM_IRON_ORE then
         -- iron: produce steel bar if there is at least 2 coal, otherwise produce iron bar
-        local num_coal = player:num_inventory_items_of(453)
+        local num_coal = player:num_inventory_items_of(ITEM_COAL)
         if num_coal >= 2 then
-            output_item_id = 2353
+            output_item_id = ITEM_STEEL_BAR
             min_smith_level = 30
             smith_exp = 17.5
 
             -- consume 2 coal
-            table.insert(consume_item_ids, 453)
+            table.insert(consume_item_ids, ITEM_COAL)
             table.insert(consume_item_ids, 2)
         else
-            output_item_id = 2351
+            output_item_id = ITEM_IRON_BAR
             min_smith_level = 15
             smith_exp = 12.5
         end
-    elseif source_item_id == 442 then
+    elseif source_item_id == ITEM_SILVER_ORE then
         -- silver: produce a silver bar
-        output_item_id = 2355
+        output_item_id = ITEM_SILVER_BAR
         min_smith_level = 20
         smith_exp = 13.7
-    elseif source_item_id == 444 then
+    elseif source_item_id == ITEM_GOLD_ORE then
         -- gold: produce a gold bar
-        output_item_id = 2357
+        output_item_id = ITEM_GOLD_BAR
         min_smith_level = 40
         smith_exp = 22.5
-    elseif source_item_id == 447 then
+    elseif source_item_id == ITEM_MITHRIL_ORE then
         -- mithril: produce a mithril bar
-        local num_coal = player:num_inventory_items_of(453)
+        local num_coal = player:num_inventory_items_of(ITEM_COAL)
         if num_coal < 4 then
             player:server_message("You need at least 4 coal to smelt a mithril bar.")
             return true
         end
 
-        output_item_id = 2359
+        output_item_id = ITEM_MITHRIL_BAR
         min_smith_level = 50
         smith_exp = 30
 
         -- consume 4 coal
-        table.insert(consume_item_ids, 453)
+        table.insert(consume_item_ids, ITEM_COAL)
         table.insert(consume_item_ids, 4)
-    elseif source_item_id == 449 then
+    elseif source_item_id == ITEM_ADAMANTITE_ORE then
         -- adamantite: produce an adamantite bar
-        local num_coal = player:num_inventory_items_of(453)
+        local num_coal = player:num_inventory_items_of(ITEM_COAL)
         if num_coal < 6 then
             player:server_message("You need at least 6 coal to smelt an adamantite bar.")
             return true
         end
 
-        output_item_id = 2361
+        output_item_id = ITEM_ADAMANTITE_BAR
         min_smith_level = 70
         smith_exp = 37.5
 
         -- consume 6 coal
-        table.insert(consume_item_ids, 453)
+        table.insert(consume_item_ids, ITEM_COAL)
         table.insert(consume_item_ids, 6)
-    elseif source_item_id == 451 then
+    elseif source_item_id == ITEM_RUNITE_ORE then
         -- runite: produce a runeite bar
-        local num_coal = player:num_inventory_items_of(453)
+        local num_coal = player:num_inventory_items_of(ITEM_COAL)
         if num_coal < 8 then
             player:server_message("You need at least 8 coal to smelt a runite bar.")
             return true
         end
 
-        output_item_id = 2363
+        output_item_id = ITEM_RUNITE_BAR
         min_smith_level = 85
         smith_exp = 50
 
         -- consume 8 coal
-        table.insert(consume_item_ids, 453)
+        table.insert(consume_item_ids, ITEM_COAL)
         table.insert(consume_item_ids, 8)
     else
         player:server_message("You cannot cast this spell on this item.")
@@ -131,7 +131,7 @@ function spell_superheat_item(player, item, slot_id)
     end
 
     -- require 4 fire runes and 1 nature rune
-    ok = player:consume_items(554, 4, 561, 1)
+    ok = player:consume_items(ITEM_FIRE_RUNE, 4, ITEM_NATURE_RUNE, 1)
     if not ok then
         player:server_message("You do not have enough runes to cast this spell.")
         return true

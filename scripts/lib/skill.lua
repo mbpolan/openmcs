@@ -9,7 +9,7 @@
 -- @param message The message to send the player if they don't meet the requirement
 -- @return true if the player meets the requirement, false if not
 function skill_level_minimum(player, skill, min_level, message)
-    level = player:skill_level(skill)
+    local level = player:skill_level(skill)
     if level < min_level then
         player:server_message(message)
         return false

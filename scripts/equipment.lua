@@ -1,11 +1,16 @@
 -------------------------------------
--- Handles a player equipping items
+-- Player equipment interactions
 -------------------------------------
+
+--- Handles a player equipping an item.
+-- @param player The player performing the action
+-- @param item The item being equipped
 function on_equip_item(player, item)
     -- choose the appropriate interface based on the item's weapon attack style
     if item:equipment_slot() == EQUIP_SLOT_WEAPON then
-        inf_id = 0
-        style = item:weapon_style()
+        local inf_id = 0
+
+        local style = item:weapon_style()
         if style == WEAPON_STYLE_2H_SWORD then
             inf_id = 4705
         elseif style == WEAPON_STYLE_AXE then
@@ -57,11 +62,10 @@ function on_equip_item(player, item)
     set_equip_stats(player)
 end
 
--------------------------------------
--- Updates the text for each combat statistic
--------------------------------------
+--- Updates the text for each combat statistic.
+-- @param player The player to format statistics for
 function set_equip_stats(player)
-    stats = player:combat_stats()
+    local stats = player:combat_stats()
 
     -- update combat stats text interfaces
     player:interface_text(1675, format_stat("Stab", stats[STAT_ATTACK_STAB]))
@@ -80,9 +84,10 @@ function set_equip_stats(player)
     player:interface_text(1687, format_stat("Prayer", stats[STAT_PRAYER]))
 end
 
--------------------------------------
--- Formats a combat statistic
--------------------------------------
+--- Formats a combat statistic for displaying on the equipment interface.
+-- @param name The name of the statistic
+-- @param value The statistic value
+-- @return a formatted string
 function format_stat(name, value)
     if value > 0 then
         return name .. ": +" .. value
@@ -91,9 +96,9 @@ function format_stat(name, value)
     return name .. ": " .. value
 end
 
--------------------------------------
--- Handles a player unequipping items
--------------------------------------
+--- Handles a player unequipping an item.
+-- @param player The player performing the action
+-- @param item The item being equipped
 function on_unequip_item(player, item)
     if item:equipment_slot() == EQUIP_SLOT_WEAPON then
         set_unarmed(player)
@@ -102,9 +107,8 @@ function on_unequip_item(player, item)
     set_equip_stats(player)
 end
 
--------------------------------------
--- Sets the equipped item interface to unarmed
--------------------------------------
+--- Sets the equipped item interface to unarmed.
+-- @param player The player
 function set_unarmed(player)
     player:sidebar_interface(CLIENT_TAB_EQUIPPED_ITEM, 5855)
     interface_5855_on_update(player)
@@ -113,8 +117,13 @@ end
 -------------------------------------
 -- Interface: unarmed
 -------------------------------------
+
+--- Handles an action performed on the unarmed weapon interface.
+-- @param player The player performing the action
+-- @param interface The subinterface that received the action
+-- @param op_code The op code from the interaction
 function interface_5855_on_action(player, interface, op_code)
-    style = interface:id()
+    local style = interface:id()
 
     -- change the player's current weapon attack style
     if style == 5860 then
@@ -126,13 +135,15 @@ function interface_5855_on_action(player, interface, op_code)
     end
 end
 
+--- Handles updating the unarmed weapon interface.
+-- @param player The player
 function interface_5855_on_update(player)
     -- 2425 is the weapon name
     player:interface_text(5857, "none")
 
-    style = player:attack_style()
+    local style = player:attack_style()
 
-    style_value = -1
+    local style_value = -1
     if style == ATTACK_STYLE_PUNCH then
         style_value = 0
     elseif style == ATTACK_STYLE_KICK then
@@ -149,8 +160,13 @@ end
 -------------------------------------
 -- Interface: slash/sword weapon
 -------------------------------------
+
+--- Handles an action performed on the slash/sword weapon interface.
+-- @param player The player performing the action
+-- @param interface The subinterface that received the action
+-- @param op_code The op code from the interaction
 function interface_2423_on_action(player, interface, op_code)
-    style = interface:id()
+    local style = interface:id()
 
     -- change the player's current weapon attack style
     if style == 2429 then
@@ -164,6 +180,8 @@ function interface_2423_on_action(player, interface, op_code)
     end
 end
 
+--- Handles updating the slash/sword weapon interface.
+-- @param player The player
 function interface_2423_on_update(player, item)
     -- 2424 is the weapon model
     player:interface_model(2424, item:id(), 169)
@@ -171,10 +189,10 @@ function interface_2423_on_update(player, item)
     -- 2425 is the weapon name
     player:interface_text(2426, " " .. item:name())
 
-    style = player:attack_style()
+    local style = player:attack_style()
 
     -- setting id 43 toggles the appropriate attack style button
-    style_value = -1
+    local style_value = -1
     if style == ATTACK_STYLE_CHOP then
         style_value = 0
     elseif style == ATTACK_STYLE_SLASH then

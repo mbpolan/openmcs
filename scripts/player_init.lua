@@ -1,6 +1,9 @@
 -------------------------------------
--- Initialize a player on log in
+-- Player initialization
 -------------------------------------
+
+--- Handles initializing a player's dynamic parameters when they log into the game.
+-- @param player The player to initialize
 function init_player_tabs(player)
     -- set initial sidebar interfaces
     player:sidebar_interface(CLIENT_TAB_EQUIPMENT, 1644)
@@ -12,7 +15,7 @@ function init_player_tabs(player)
     player:sidebar_interface(CLIENT_TAB_SPELLS, 1151)
 
     -- set the equipped item interface based on the currently equipped weapon
-    item = player:equipped_item(EQUIP_SLOT_WEAPON)
+    local item = player:equipped_item(EQUIP_SLOT_WEAPON)
     if item == nil then
         set_unarmed(player)
         set_equip_stats(player)
