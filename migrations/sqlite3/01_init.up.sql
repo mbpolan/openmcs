@@ -472,3 +472,57 @@ BEGIN
     WHERE
         ITEM_ID = NEW.ITEM_ID;
 END;
+
+-- ----------------------------------------------------------------------------
+-- Table: PLAYER_GAME_OPTION
+-- ----------------------------------------------------------------------------
+
+-- create table for storing player game option preferences
+CREATE TABLE PLAYER_GAME_OPTION (
+    -- primary key
+    ID INTEGER PRIMARY KEY AUTOINCREMENT,
+    -- owning player
+    PLAYER_ID INTEGER NOT NULL REFERENCES PLAYER(ID) ON DELETE CASCADE,
+    -- option id
+    OPTION_ID INT NOT NULL,
+    -- option value
+    OPTION_VALUE TEXT NOT NULL,
+    -- date time when the row was inserted
+    CREATED_DTTM TEXT NOT NULL DEFAULT CURRENT_DATE,
+    -- date time when the row was updated
+    UPDATED_DTTM TEXT NULL,
+    -- enforce uniqueness on the player_id and option_id
+    UNIQUE (PLAYER_ID, OPTION_ID)
+);
+
+-- create an index on player_game_option.player_id since it will be queried on
+CREATE INDEX IDX_PLAYER_GAME_OPTION_PLAYER_ID ON PLAYER_GAME_OPTION(PLAYER_ID);
+
+-- create a trigger on player_game_option to manage the CREATED_DTTM column
+CREATE TRIGGER
+    PLAYER_GAME_OPTION_CREATED_DTTM
+AFTER INSERT ON
+    PLAYER_GAME_OPTION
+BEGIN
+    UPDATE
+        PLAYER_GAME_OPTION
+    SET
+        CREATED_DTTM = DATETIME('NOW')
+    WHERE
+        ID = NEW.ID;
+END;
+
+-- create a trigger on player_game_option to manage the UPDATED_DTTM column
+CREATE TRIGGER
+    PLAYER_GAME_OPTION_UPDATED_DTTM
+AFTER UPDATE ON
+    PLAYER_GAME_OPTION
+BEGIN
+    UPDATE
+        PLAYER_GAME_OPTION
+    SET
+        UPDATED_DTTM = DATETIME('NOW')
+    WHERE
+        ID = NEW.ID;
+END;
+
