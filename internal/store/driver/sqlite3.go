@@ -236,6 +236,12 @@ func (s *SQLite3Driver) SavePlayer(p *model.Player) error {
 		return err
 	}
 
+	// save their game options
+	err = s.savePlayerGameOptions(p)
+	if err != nil {
+		return err
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		return err
@@ -285,6 +291,12 @@ func (s *SQLite3Driver) LoadPlayer(username string) (*model.Player, error) {
 
 	// load their inventory
 	err = s.loadPlayerInventory(p)
+	if err != nil {
+		return nil, err
+	}
+
+	// load their game options
+	err = s.loadPlayerGameOptions(p)
 	if err != nil {
 		return nil, err
 	}
@@ -586,6 +598,41 @@ func (s *SQLite3Driver) loadPlayerInventory(p *model.Player) error {
 
 		// set the item into the player's inventory at the specified slot
 		p.SetInventoryItem(item, amount, slotID)
+	}
+
+	return nil
+}
+
+// loadPlayerGameOptions loads a player's game option preferences.
+func (s *SQLite3Driver) loadPlayerGameOptions(p *model.Player) error {
+	stmt, err := s.db.Prepare(`
+		SELECT
+		    OPTION_ID,
+		    OPTION_VALUE
+		FROM
+		    PLAYER_GAME_OPTION
+		WHERE
+		    PLAYER_ID = ?
+	`)
+	if err != nil {
+		return err
+	}
+
+	rows, err := stmt.Query(p.ID)
+	if err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		var id int
+		var value string
+		err := rows.Scan(&id, &value)
+		if err != nil {
+			return err
+		}
+
+		// set the item into the player's inventory at the specified slot
+		p.SetGameOption(id, value)
 	}
 
 	return nil
@@ -947,6 +994,72 @@ func (s *SQLite3Driver) savePlayerInventory(p *model.Player) error {
 	}
 
 	// bail out if there are no inventory items
+	if len(bulk) == 0 {
+		return nil
+	}
+
+	// prepare the final insert query
+	insert := fmt.Sprintf(insertTemplate, strings.Join(bulk, ","))
+	stmt, err := s.db.Prepare(insert)
+	if err != nil {
+		return err
+	}
+
+	defer stmt.Close()
+
+	_, err = stmt.Exec(values...)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// savePlayerGameOptions saves a player's game option preferences.
+func (s *SQLite3Driver) savePlayerGameOptions(p *model.Player) error {
+	// prepare a delete to clear out the player's game options
+	delStmt, err := s.db.Prepare(`
+		DELETE FROM
+		    PLAYER_GAME_OPTION
+		WHERE
+		    PLAYER_ID = ?
+	`)
+	if err != nil {
+		return err
+	}
+
+	defer delStmt.Close()
+
+	// delete all entries from the player's inventory
+	_, err = delStmt.Exec(p.ID)
+	if err != nil {
+		return err
+	}
+
+	insertTemplate := `
+		INSERT INTO
+			PLAYER_GAME_OPTION (
+			    PLAYER_ID,
+			    OPTION_ID,
+				OPTION_VALUE
+			)
+		VALUES %s
+	`
+
+	valueTemplate := "(?, ?, ?)"
+
+	var bulk []string
+	var values []any
+
+	// collect the items in the player's game options into tuples
+	for k, v := range p.GameOptions {
+		bulk = append(bulk, valueTemplate)
+		values = append(values, p.ID)
+		values = append(values, k)
+		values = append(values, v)
+	}
+
+	// bail out if there are no game options
 	if len(bulk) == 0 {
 		return nil
 	}

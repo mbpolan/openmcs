@@ -67,6 +67,8 @@ type Player struct {
 	CombatStats EntityCombatStats
 	// AttackStyles if a map of the player's preferred attack styles for a given weapon style.
 	AttackStyles map[WeaponStyle]AttackStyle
+	// GameOptions is a map of client/game option IDs to their values.
+	GameOptions map[int]string
 	// UpdateDesign is true when the player should be shown the character design interface, false if not.
 	UpdateDesign bool
 }
@@ -111,6 +113,7 @@ func NewPlayer(username string) *Player {
 		Appearance:   appearance,
 		AttackStyles: InitAttackStyleMap(),
 		Skills:       EmptySkillMap(),
+		GameOptions:  map[int]string{},
 	}
 }
 
@@ -226,6 +229,21 @@ func (p *Player) NextFreeInventorySlot() int {
 	}
 
 	return -1
+}
+
+// GameOption returns the player's preference value for a game option, or a default if none is currently set.
+func (p *Player) GameOption(optionID int, defaultValue string) string {
+	value, ok := p.GameOptions[optionID]
+	if ok {
+		return value
+	}
+
+	return defaultValue
+}
+
+// SetGameOption sets a value for a game option, overwriting any previous value.
+func (p *Player) SetGameOption(optionID int, optionValue string) {
+	p.GameOptions[optionID] = optionValue
 }
 
 // HasFriend determines if the given player username is on this player's friends list.
