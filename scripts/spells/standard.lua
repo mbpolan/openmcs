@@ -44,6 +44,8 @@ function on_cast_spell_on_item(player, item, slot_id, inv_interface, spell_book_
         return spell_high_alchemy(player, item, slot_id)
     elseif spell_id == 1173 then
         return spell_superheat_item(player, item, slot_id)
+    elseif spell_id == 1155 then
+        return spell_level1_enchant(player, item, slot_id)
     end
 
     print('unknown spell: ', spell_id)
