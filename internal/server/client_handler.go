@@ -306,6 +306,11 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 		var req request.RegionLoadedRequest
 		err = req.Read(c.reader)
 
+	case request.RegionResetRequestHeader:
+		// the player's client loaded a certain number of map regions
+		var req request.RegionResetRequest
+		err = req.Read(c.reader)
+
 	case request.ReportRequestHeader:
 		// the player sent an abuse report
 		var req request.ReportRequest
