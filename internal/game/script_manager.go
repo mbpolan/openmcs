@@ -379,6 +379,20 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			s.handler.handleGrantExperience(pe, skillType, experience)
 			return 0
 		},
+		"game_option": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			optionID := state.CheckInt(2)
+
+			if state.GetTop() == 3 {
+				value := state.CheckString(3)
+				pe.player.SetGameOption(optionID, value)
+				return 0
+			}
+
+			value := pe.player.GameOption(optionID)
+			state.Push(lua.LString(value))
+			return 1
+		},
 		"delay": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 			tickDelay := state.CheckInt(2)

@@ -231,14 +231,15 @@ func (p *Player) NextFreeInventorySlot() int {
 	return -1
 }
 
-// GameOption returns the player's preference value for a game option, or a default if none is currently set.
-func (p *Player) GameOption(optionID int, defaultValue string) string {
+// GameOption returns the player's preference value for a game option. If no value is set for the option, an empty
+// string is returned instead.
+func (p *Player) GameOption(optionID int) string {
 	value, ok := p.GameOptions[optionID]
 	if ok {
 		return value
 	}
 
-	return defaultValue
+	return ""
 }
 
 // SetGameOption sets a value for a game option, overwriting any previous value.
