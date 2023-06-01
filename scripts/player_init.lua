@@ -27,6 +27,9 @@ function init_player_tabs(player)
         on_equip_item(player, item)
     end
 
+    -- update other interfaces
+    interface_904_on_update(player)
+
     -- TODO: not yet supported by game engine
     player:sidebar_clear(CLIENT_TAB_QUESTS)
     player:sidebar_clear(CLIENT_TAB_PRAYERS)

@@ -91,3 +91,79 @@ function interface_904_on_action(player, interface)
         player:game_option(GAME_OPTION_EFFECTS_VOLUME, "4")
     end
 end
+
+--- Handles updating the game options interface.
+-- @param player The player
+function interface_904_on_update(player)
+    -- screen brightness: op code 166
+    local brightness = player:game_option(GAME_OPTION_SCREEN_BRIGHTNESS)
+    if brightness == SCREEN_BRIGHTNESS_DARK then
+        player:interface_setting(166, 1)
+    elseif brightness == SCREEN_BRIGHTNESS_NORMAL then
+        player:interface_setting(166, 2)
+    elseif brightness == SCREEN_BRIGHTNESS_BRIGHT then
+        player:interface_setting(166, 3)
+    elseif brightness == SCREEN_BRIGHTNESS_VERY_BRIGHT then
+        player:interface_setting(166, 4)
+    end
+
+    -- chat effects: op code 171
+    local chat_effects = player:game_option(GAME_OPTION_CHAT_EFFECTS)
+    if chat_effects == CHAT_EFFECTS_ON then
+        player:interface_setting(171, 0)
+    elseif chat_effects == CHAT_EFFECTS_OFF then
+        player:interface_setting(171, 1)
+    end
+
+    -- split private chat: op code 287
+    local split_private = player:game_option(GAME_OPTION_SPLIT_PRIVATE_CHAT)
+    if split_private == SPLIT_PRIVATE_CHAT_ON then
+        player:interface_setting(287, 1)
+    elseif split_private == SPLIT_PRIVATE_CHAT_OFF then
+        player:interface_setting(287, 0)
+    end
+
+    -- mouse buttons: op code 170
+    local mouse_buttons = player:game_option(GAME_OPTION_MOUSE_BUTTONS)
+    if mouse_buttons == MOUSE_BUTTONS_ONE then
+        player:interface_setting(170, 1)
+    elseif mouse_buttons == MOUSE_BUTTONS_TWO then
+        player:interface_setting(170, 0)
+    end
+
+    -- accept aid: op code 427
+    local accept_aid = player:game_option(GAME_OPTION_ACCEPT_AID)
+    if accept_aid == ACCEPT_AID_YES then
+        player:interface_setting(427, 1)
+    elseif accept_aid == ACCEPT_AID_NO then
+        player:interface_setting(427, 0)
+    end
+
+    -- music volume: op code 168
+    local music_volume = player:game_option(GAME_OPTION_MUSIC_VOLUME)
+    if music_volume == "0" then
+        player:interface_setting(168, 4)
+    elseif music_volume == "1" then
+        player:interface_setting(168, 3)
+    elseif music_volume == "2" then
+        player:interface_setting(168, 2)
+    elseif music_volume == "3" then
+        player:interface_setting(168, 1)
+    elseif music_volume == "4" then
+        player:interface_setting(168, 0)
+    end
+
+    -- effects volume: op code 169
+    local effects_volume = player:game_option(GAME_OPTION_EFFECTS_VOLUME)
+    if effects_volume == "0" then
+        player:interface_setting(169, 4)
+    elseif effects_volume == "1" then
+        player:interface_setting(169, 3)
+    elseif effects_volume == "2" then
+        player:interface_setting(169, 2)
+    elseif effects_volume == "3" then
+        player:interface_setting(169, 1)
+    elseif effects_volume == "4" then
+        player:interface_setting(169, 0)
+    end
+end
