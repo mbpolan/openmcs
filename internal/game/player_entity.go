@@ -39,6 +39,7 @@ type playerEntity struct {
 	animationTicks      int
 	graphicTicks        int
 	graphicApplied      bool
+	isLowMemory         bool
 }
 
 type playerStatusBroadcast struct {

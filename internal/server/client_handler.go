@@ -238,7 +238,7 @@ func (c *ClientHandler) handleLogin() (clientState, error) {
 	}
 
 	// add the player to the game world
-	c.game.AddPlayer(player, c.writer)
+	c.game.AddPlayer(player, req.IsLowMemory, c.writer)
 
 	logger.Infof("connected new player: %s (%s)", c.player.Username, c.conn.RemoteAddr().String())
 	return active, nil

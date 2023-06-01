@@ -451,6 +451,11 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			state.Push(lua.LNumber(count))
 			return 1
 		},
+		"low_memory": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			state.Push(lua.LBool(pe.isLowMemory))
+			return 1
+		},
 		"server_message": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 			message := state.CheckString(2)

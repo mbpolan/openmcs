@@ -449,9 +449,11 @@ func (g *Game) ValidatePlayer(p *model.Player) ValidationResult {
 	return ValidationResultSuccess
 }
 
-// AddPlayer joins a player to the world and handles ongoing game events and network interactions.
-func (g *Game) AddPlayer(p *model.Player, writer *network.ProtocolWriter) {
+// AddPlayer joins a player to the world and handles ongoing game events and network interactions. The lowMemory flag
+// indicates if the player opted to play in low-memory mode on the client.
+func (g *Game) AddPlayer(p *model.Player, lowMemory bool, writer *network.ProtocolWriter) {
 	pe := newPlayerEntity(p, writer)
+	pe.isLowMemory = lowMemory
 
 	// update the player's inventory and equipment to ensure items match their expected models. if an item does not
 	// match, remove it from its respective location
