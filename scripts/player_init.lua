@@ -35,7 +35,7 @@ function init_player_tabs(player)
 end
 
 --- Initializes a player's game option preferences.
--- @player The player
+-- @param player The player
 function init_player_game_options(player)
     local brightness = player:game_option(GAME_OPTION_SCREEN_BRIGHTNESS)
     if brightness == "" then
