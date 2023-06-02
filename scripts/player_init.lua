@@ -18,6 +18,7 @@ function init_player_tabs(player)
     player:sidebar_interface(CLIENT_TAB_FRIENDS_LIST, 5065)
     player:sidebar_interface(CLIENT_TAB_IGNORE_LIST, 5715)
     player:sidebar_interface(CLIENT_TAB_SPELLS, 1151)
+    player:sidebar_interface(CLIENT_TAB_CONTROLS, 147)
 
     -- set conditional sidebar interfaces
     if low_memory then
@@ -40,7 +41,6 @@ function init_player_tabs(player)
     -- TODO: not yet supported by game engine
     player:sidebar_clear(CLIENT_TAB_QUESTS)
     player:sidebar_clear(CLIENT_TAB_PRAYERS)
-    player:sidebar_clear(CLIENT_TAB_CONTROLS)
     player:sidebar_clear(CLIENT_TAB_MUSIC)
 end
 
