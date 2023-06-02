@@ -35,6 +35,8 @@ CREATE TABLE PLAYER (
     PRIVATE_CHAT_MODE INTEGER NOT NULL,
     -- mode for player's interactions
     INTERACTION_MODE INTEGER NOT NULL,
+    -- flag if the player has enabled auto-retaliate
+    AUTO_RETALIATE INTEGER NOT NULL,
     -- access rights of the player (normal, mod, admin, etc.)
     TYPE INTEGER NOT NULL,
     -- membership status (0 for non-member, 1 for member)

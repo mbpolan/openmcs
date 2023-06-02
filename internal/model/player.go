@@ -47,6 +47,8 @@ type Player struct {
 	GlobalPos Vector3D
 	// Appearance is the player's model appearance.
 	Appearance EntityAppearance
+	// AutoRetaliate controls if the player automatically responds to combat.
+	AutoRetaliate bool
 	// Modes determine what level of chat and trade interaction the player has configured.
 	Modes PlayerModes
 	// Muted is true when the player is not able to chat, false if not.

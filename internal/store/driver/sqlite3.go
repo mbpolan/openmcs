@@ -327,6 +327,7 @@ func (s *SQLite3Driver) loadPlayerInfo(username string, p *model.Player) error {
 		    PUBLIC_CHAT_MODE,
 		    PRIVATE_CHAT_MODE,
 		    INTERACTION_MODE,
+		    AUTO_RETALIATE,
 		    TYPE,
 		    MEMBER,
 		    MEMBER_END_DTTM
@@ -361,6 +362,7 @@ func (s *SQLite3Driver) loadPlayerInfo(username string, p *model.Player) error {
 		&p.Modes.PublicChat,
 		&p.Modes.PrivateChat,
 		&p.Modes.Interaction,
+		&p.AutoRetaliate,
 		&p.Type,
 		&p.Member,
 		&memberEndDate)
@@ -654,6 +656,7 @@ func (s *SQLite3Driver) savePlayerInfo(p *model.Player) error {
 			PUBLIC_CHAT_MODE =  ?,
 			PRIVATE_CHAT_MODE = ?,
 			INTERACTION_MODE = ?,
+			AUTO_RETALIATE = ?,
 			LAST_LOGIN_DTTM = DATETIME('NOW')
 		WHERE
 		    ID = ?
@@ -675,6 +678,7 @@ func (s *SQLite3Driver) savePlayerInfo(p *model.Player) error {
 		p.Modes.PublicChat,
 		p.Modes.PrivateChat,
 		p.Modes.Interaction,
+		p.AutoRetaliate,
 		p.ID)
 	if err != nil {
 		return err
