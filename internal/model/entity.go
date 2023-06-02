@@ -60,6 +60,14 @@ const (
 	AnimationRun
 )
 
+// MovementSpeed enumerates the speeds at which an entity moves.
+type MovementSpeed int
+
+const (
+	MovementSpeedWalk MovementSpeed = iota
+	MovementSpeedRun
+)
+
 // EquipmentSlot is an item equipped in an entity's equipment.
 type EquipmentSlot struct {
 	SlotType EquipmentSlotType

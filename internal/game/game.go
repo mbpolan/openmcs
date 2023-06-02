@@ -2038,6 +2038,20 @@ func (g *Game) handleSetSidebarTab(pe *playerEntity, tab model.ClientTab) {
 	pe.Send(resp)
 }
 
+// handleChangePlayerMovementSpeed changes the movement speed of a player.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleChangePlayerMovementSpeed(pe *playerEntity, speed model.MovementSpeed) {
+	// TODO: check run energy and other preconditions
+	pe.movementSpeed = speed
+}
+
+// handleChangePlayerAutoRetaliate changes a player's auto-retaliate combat option.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleChangePlayerAutoRetaliate(pe *playerEntity, enabled bool) {
+	// TODO: if we're in combat this setting should take effect the next turn
+	pe.player.AutoRetaliate = enabled
+}
+
 // handleDelayCurrentAction blocks the player from performing other actions until a set amount of game ticks have
 // elapsed.
 func (g *Game) handleDelayCurrentAction(pe *playerEntity, tickDuration int) {

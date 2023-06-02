@@ -45,6 +45,10 @@ type ScriptHandler interface {
 	handleGrantExperience(pe *playerEntity, skillType model.SkillType, experience float64)
 	// handleSetSidebarTab sets the active tab on the client's sidebar.
 	handleSetSidebarTab(pe *playerEntity, tab model.ClientTab)
+	// handleChangePlayerMovementSpeed changes the movement speed of a player.
+	handleChangePlayerMovementSpeed(pe *playerEntity, speed model.MovementSpeed)
+	// handleChangePlayerAutoRetaliate changes a player's auto-retaliate combat option.
+	handleChangePlayerAutoRetaliate(pe *playerEntity, enabled bool)
 	// handleDelayCurrentAction blocks the player from performing other actions until a set amount of game ticks have
 	// elapsed.
 	handleDelayCurrentAction(pe *playerEntity, tickDuration int)

@@ -7,15 +7,19 @@ function interface_147_on_action(player, interface)
     -- movement speed
     if id == 152 then
         -- walk
+        player:movement_speed(MOVE_SPEED_WALK)
     elseif id == 153 then
         -- run
+        player:movement_speed(MOVE_SPEED_RUN)
     end
 
     -- auto retaliate mode
     if id == 150 then
         -- on
+        player:auto_retaliate(true)
     elseif id == 151 then
         -- off
+        player:auto_retaliate(false)
     end
 
     -- emotes
@@ -118,5 +122,19 @@ end
 --- Handles updating the player options interface.
 -- @param player The player
 function interface_147_on_update(player)
-    -- TODO
+    -- movement speed: op code 173
+    local speed = player:movement_speed()
+    if speed == MOVE_SPEED_WALK then
+        player:interface_setting(173, 0)
+    elseif speed == MOVE_SPEED_RUN then
+        player:interface_setting(173, 1)
+    end
+
+    -- auto retaliate: op code 172
+    local auto_retaliate = player:auto_retaliate()
+    if auto_retaliate then
+        player:interface_setting(172, 0)
+    else
+        player:interface_setting(172, 1)
+    end
 end

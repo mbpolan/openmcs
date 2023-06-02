@@ -470,6 +470,18 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			s.handler.handleSetSidebarTab(pe, model.ClientTab(tab))
 			return 0
 		},
+		"movement_speed": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+
+			if state.GetTop() == 2 {
+				speed := model.MovementSpeed(state.CheckInt(2))
+				s.handler.handleChangePlayerMovementSpeed(pe, speed)
+				return 0
+			}
+
+			state.Push(lua.LNumber(pe.movementSpeed))
+			return 1
+		},
 		"animate": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 			animationID := state.CheckInt(2)
@@ -481,6 +493,18 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 
 			s.handler.handleAnimatePlayer(pe, animationID, tickDuration)
 			return 0
+		},
+		"auto_retaliate": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+
+			if state.GetTop() == 2 {
+				enabled := state.CheckBool(2)
+				s.handler.handleChangePlayerAutoRetaliate(pe, enabled)
+				return 0
+			}
+
+			state.Push(lua.LBool(pe.player.AutoRetaliate))
+			return 1
 		},
 		"graphic": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)

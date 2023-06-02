@@ -145,3 +145,7 @@ SPLIT_PRIVATE_CHAT_OFF = "OFF"
 -- accept aid options
 ACCEPT_AID_YES = "YES"
 ACCEPT_AID_NO = "NO"
+
+-- movement speeds
+MOVE_SPEED_WALK = 0
+MOVE_SPEED_RUN = 1
