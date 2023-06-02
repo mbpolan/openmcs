@@ -8,6 +8,8 @@ function init_player_tabs(player)
     -- initialize game options
     init_player_game_options(player)
 
+    local low_memory = player:low_memory()
+
     -- set initial sidebar interfaces
     player:sidebar_interface(CLIENT_TAB_EQUIPMENT, 1644)
     player:sidebar_interface(CLIENT_TAB_INVENTORY, 3213)
@@ -16,7 +18,15 @@ function init_player_tabs(player)
     player:sidebar_interface(CLIENT_TAB_FRIENDS_LIST, 5065)
     player:sidebar_interface(CLIENT_TAB_IGNORE_LIST, 5715)
     player:sidebar_interface(CLIENT_TAB_SPELLS, 1151)
-    player:sidebar_interface(CLIENT_TAB_SETTINGS, 904)
+
+    -- set conditional sidebar interfaces
+    if low_memory then
+        player:sidebar_interface(CLIENT_TAB_SETTINGS, 4445)
+        interface_4445_on_update(player)
+    else
+        player:sidebar_interface(CLIENT_TAB_SETTINGS, 904)
+        interface_904_on_update(player)
+    end
 
     -- set the equipped item interface based on the currently equipped weapon
     local item = player:equipped_item(EQUIP_SLOT_WEAPON)
@@ -26,9 +36,6 @@ function init_player_tabs(player)
     else
         on_equip_item(player, item)
     end
-
-    -- update other interfaces
-    interface_904_on_update(player)
 
     -- TODO: not yet supported by game engine
     player:sidebar_clear(CLIENT_TAB_QUESTS)

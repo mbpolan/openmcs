@@ -1,4 +1,4 @@
---- Handles an action performed on the game options interface.
+--- Handles an action performed on the game options interface (high-memory mode).
 -- @param player The player performing the action
 -- @param interface The interface that received the action
 function interface_904_on_action(player, interface)
@@ -92,7 +92,7 @@ function interface_904_on_action(player, interface)
     end
 end
 
---- Handles updating the game options interface.
+--- Handles updating the game options interface (high-memory mode).
 -- @param player The player
 function interface_904_on_update(player)
     -- screen brightness: op code 166
