@@ -34,6 +34,7 @@ const (
 	ActionTeleportPlayer
 	ActionCastSpellOnItem
 	ActionExperienceGrant
+	ActionSendRunEnergy
 	ActionDelayCurrent
 )
 

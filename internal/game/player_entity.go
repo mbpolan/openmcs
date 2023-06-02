@@ -426,6 +426,14 @@ func (pe *playerEntity) DeferExperienceGrant(skillType model.SkillType, experien
 	}, ActionPriorityHigh)
 }
 
+// DeferSendRunEnergy plans an action send a player their current run energy.
+func (pe *playerEntity) DeferSendRunEnergy() {
+	pe.planAction(&Action{
+		ActionType: ActionSendRunEnergy,
+		TickDelay:  1,
+	}, ActionPriorityHigh)
+}
+
 // DeferActionCompletion plans an artificial delay to indicate the player is occupied with an ongoing action.
 func (pe *playerEntity) DeferActionCompletion(tickDuration int) {
 	pe.planAction(&Action{

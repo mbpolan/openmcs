@@ -71,6 +71,8 @@ type Player struct {
 	AttackStyles map[WeaponStyle]AttackStyle
 	// GameOptions is a map of client/game option IDs to their values.
 	GameOptions map[int]string
+	// RunEnergy is the player's run energy.
+	RunEnergy float64
 	// UpdateDesign is true when the player should be shown the character design interface, false if not.
 	UpdateDesign bool
 }
@@ -116,6 +118,7 @@ func NewPlayer(username string) *Player {
 		AttackStyles: InitAttackStyleMap(),
 		Skills:       EmptySkillMap(),
 		GameOptions:  map[int]string{},
+		RunEnergy:    100.0,
 	}
 }
 

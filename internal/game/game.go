@@ -554,6 +554,9 @@ func (g *Game) AddPlayer(p *model.Player, lowMemory bool, writer *network.Protoc
 	// plan an update to the player's ignored list
 	pe.DeferSendIgnoreList()
 
+	// plan an update to the player's run energy
+	pe.DeferSendRunEnergy()
+
 	// plan a welcome message
 	pe.DeferSendServerMessage(g.welcomeMessage)
 }
@@ -1902,6 +1905,11 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 			skillData := response.NewSkillDataResponse(pe.player.Skills[action.SkillType])
 			pe.Send(skillData)
 
+			pe.RemoveDeferredAction(deferred)
+
+		case ActionSendRunEnergy:
+			energy := &response.PlayerRunEnergyResponse{RunEnergy: int(pe.player.RunEnergy)}
+			pe.Send(energy)
 			pe.RemoveDeferredAction(deferred)
 
 		default:
