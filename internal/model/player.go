@@ -73,6 +73,8 @@ type Player struct {
 	GameOptions map[int]string
 	// RunEnergy is the player's run energy.
 	RunEnergy float64
+	// QuestStatus is a map of quest IDs to their status.
+	QuestStatuses map[int]QuestStatus
 	// UpdateDesign is true when the player should be shown the character design interface, false if not.
 	UpdateDesign bool
 }
@@ -113,12 +115,13 @@ func NewPlayer(username string) *Player {
 	}
 
 	return &Player{
-		Username:     username,
-		Appearance:   appearance,
-		AttackStyles: InitAttackStyleMap(),
-		Skills:       EmptySkillMap(),
-		GameOptions:  map[int]string{},
-		RunEnergy:    100.0,
+		Username:      username,
+		Appearance:    appearance,
+		AttackStyles:  InitAttackStyleMap(),
+		Skills:        EmptySkillMap(),
+		GameOptions:   map[int]string{},
+		RunEnergy:     100.0,
+		QuestStatuses: map[int]QuestStatus{},
 	}
 }
 
@@ -275,6 +278,16 @@ func (p *Player) GameOption(optionID int) string {
 // SetGameOption sets a value for a game option, overwriting any previous value.
 func (p *Player) SetGameOption(optionID int, optionValue string) {
 	p.GameOptions[optionID] = optionValue
+}
+
+// QuestStatus returns the status of a quest.
+func (p *Player) QuestStatus(questID int) QuestStatus {
+	return p.QuestStatuses[questID]
+}
+
+// SetQuestStatus sets the status of a quest, overwriting any previous status.
+func (p *Player) SetQuestStatus(questID int, status QuestStatus) {
+	p.QuestStatuses[questID] = status
 }
 
 // HasFriend determines if the given player username is on this player's friends list.

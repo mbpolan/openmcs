@@ -540,8 +540,6 @@ CREATE TABLE PLAYER_QUEST (
     PLAYER_ID INTEGER NOT NULL REFERENCES PLAYER(ID) ON DELETE CASCADE,
     -- quest id
     QUEST_ID INTEGER NOT NULL,
-    -- flag if quest is a members-only quest
-    MEMBERS INTEGER NOT NULL,
     -- flag if the quest has been started, in progress or completed
     STATUS INTEGER NOT NULL CHECK (STATUS >= 0 AND STATUS <= 2),
     -- date time when the row was inserted

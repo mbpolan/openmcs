@@ -242,6 +242,12 @@ func (s *SQLite3Driver) SavePlayer(p *model.Player) error {
 		return err
 	}
 
+	// save their quest statuses
+	err = s.savePlayerQuestStatuses(p)
+	if err != nil {
+		return err
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		return err
@@ -297,6 +303,12 @@ func (s *SQLite3Driver) LoadPlayer(username string) (*model.Player, error) {
 
 	// load their game options
 	err = s.loadPlayerGameOptions(p)
+	if err != nil {
+		return nil, err
+	}
+
+	// load their quest statuses
+	err = s.loadPlayerQuestStatuses(p)
 	if err != nil {
 		return nil, err
 	}
@@ -635,6 +647,39 @@ func (s *SQLite3Driver) loadPlayerGameOptions(p *model.Player) error {
 
 		// set the item into the player's inventory at the specified slot
 		p.SetGameOption(id, value)
+	}
+
+	return nil
+}
+
+// loadPlayerQuestStatuses loads a player's quest statuses.
+func (s *SQLite3Driver) loadPlayerQuestStatuses(p *model.Player) error {
+	stmt, err := s.db.Prepare(`
+		SELECT
+		    QUEST_ID,
+		    STATUS
+		FROM
+		    PLAYER_QUEST
+		WHERE
+		    PLAYER_ID = ?
+	`)
+	if err != nil {
+		return err
+	}
+
+	rows, err := stmt.Query(p.ID)
+	if err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		var id, status int
+		err := rows.Scan(&id, &status)
+		if err != nil {
+			return err
+		}
+
+		p.SetQuestStatus(id, model.QuestStatus(status))
 	}
 
 	return nil
@@ -1064,6 +1109,72 @@ func (s *SQLite3Driver) savePlayerGameOptions(p *model.Player) error {
 	}
 
 	// bail out if there are no game options
+	if len(bulk) == 0 {
+		return nil
+	}
+
+	// prepare the final insert query
+	insert := fmt.Sprintf(insertTemplate, strings.Join(bulk, ","))
+	stmt, err := s.db.Prepare(insert)
+	if err != nil {
+		return err
+	}
+
+	defer stmt.Close()
+
+	_, err = stmt.Exec(values...)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// savePlayerQuestStatuses saves a player's quest statuses.
+func (s *SQLite3Driver) savePlayerQuestStatuses(p *model.Player) error {
+	// prepare a delete to clear out the player's quest statuses
+	delStmt, err := s.db.Prepare(`
+		DELETE FROM
+		    PLAYER_QUEST
+		WHERE
+		    PLAYER_ID = ?
+	`)
+	if err != nil {
+		return err
+	}
+
+	defer delStmt.Close()
+
+	// delete all entries from the player's quest statuses
+	_, err = delStmt.Exec(p.ID)
+	if err != nil {
+		return err
+	}
+
+	insertTemplate := `
+		INSERT INTO
+			PLAYER_QUEST (
+			    PLAYER_ID,
+			    QUEST_ID,
+				STATUS
+			)
+		VALUES %s
+	`
+
+	valueTemplate := "(?, ?, ?)"
+
+	var bulk []string
+	var values []any
+
+	// collect the items in the player's quest statuses into tuples
+	for k, v := range p.QuestStatuses {
+		bulk = append(bulk, valueTemplate)
+		values = append(values, p.ID)
+		values = append(values, k)
+		values = append(values, v)
+	}
+
+	// bail out if there are no quest statuses
 	if len(bulk) == 0 {
 		return nil
 	}
