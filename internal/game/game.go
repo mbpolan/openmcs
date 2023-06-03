@@ -2106,6 +2106,12 @@ func (g *Game) handleSetPlayerQuestStatus(pe *playerEntity, questID int, status 
 	pe.player.SetQuestStatus(questID, status)
 }
 
+// handleShowInterface shows an interface for a player.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleShowInterface(pe *playerEntity, interfaceID int) {
+	pe.DeferShowInterface(interfaceID)
+}
+
 // handleDelayCurrentAction blocks the player from performing other actions until a set amount of game ticks have
 // elapsed.
 func (g *Game) handleDelayCurrentAction(pe *playerEntity, tickDuration int) {

@@ -322,6 +322,13 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			s.handler.handleSetSidebarInterface(pe, interfaceID, sidebarID)
 			return 0
 		},
+		"show_interface": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			interfaceID := state.CheckInt(2)
+
+			s.handler.handleShowInterface(pe, interfaceID)
+			return 0
+		},
 		"skill_level": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 			skillType := model.SkillType(state.CheckInt(2))

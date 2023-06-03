@@ -53,6 +53,8 @@ type ScriptHandler interface {
 	handleChangePlayerAutoRetaliate(pe *playerEntity, enabled bool)
 	// handleSetPlayerQuestStatus updates the status of a quest for a player.
 	handleSetPlayerQuestStatus(pe *playerEntity, questID int, status model.QuestStatus)
+	// handleShowInterface shows an interface for a player.
+	handleShowInterface(pe *playerEntity, interfaceID int)
 	// handleDelayCurrentAction blocks the player from performing other actions until a set amount of game ticks have
 	// elapsed.
 	handleDelayCurrentAction(pe *playerEntity, tickDuration int)
