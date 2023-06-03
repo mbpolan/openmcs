@@ -35,6 +35,7 @@ const (
 	ActionCastSpellOnItem
 	ActionExperienceGrant
 	ActionSendRunEnergy
+	ActionSendWeight
 	ActionDelayCurrent
 )
 

@@ -557,6 +557,9 @@ func (g *Game) AddPlayer(p *model.Player, lowMemory bool, writer *network.Protoc
 	// plan an update to the player's run energy
 	pe.DeferSendRunEnergy()
 
+	// plan an update to the player's weight
+	pe.DeferSendWeight()
+
 	// plan a welcome message
 	pe.DeferSendServerMessage(g.welcomeMessage)
 }
@@ -1281,7 +1284,7 @@ func (g *Game) removeFromList(p *model.Player, username string, friend bool) {
 }
 
 // addPlayerInventoryItem adds an item to the player's inventory, if there is room, and plans an update to the player's
-// client. The item may or may not be stackable.
+// client. The item may or may not be stackable. The player's weight will be updated after the fact.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) addPlayerInventoryItem(pe *playerEntity, item *model.Item, amount int) {
 	slotID := -1
@@ -1320,10 +1323,13 @@ func (g *Game) addPlayerInventoryItem(pe *playerEntity, item *model.Item, amount
 	inventory := response.NewSetInventoryItemResponse(g.interaction.InventoryTab.SlotsID)
 	inventory.AddSlot(slotID, item.ID, totalAmount)
 	pe.Send(inventory)
+
+	// update the player's weight
+	g.sendPlayerWeight(pe)
 }
 
 // dropPlayerInventoryItem removes the first occurrence of an item from the player's inventory, and adds it to the
-// world map.
+// world map. The player's weight will be updated after the fact.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) dropPlayerInventoryItem(pe *playerEntity, item *model.Item) *model.InventorySlot {
 	slot := pe.player.InventorySlotWithItem(item.ID)
@@ -1339,12 +1345,15 @@ func (g *Game) dropPlayerInventoryItem(pe *playerEntity, item *model.Item) *mode
 	inventory.ClearSlot(slot.ID)
 	pe.Send(inventory)
 
+	// update the player's weight
+	g.sendPlayerWeight(pe)
+
 	return slot
 }
 
 // consumeItemInSlot consumes an item in an inventory slot. If an item is stackable, its stack amount will be decreased.
 // If th item is not stackable, it will be removed entirely. Response r will be modified to reflect the new state of
-// the inventory slot.
+// the inventory slot. The player's weight will be updated after the fact.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) consumePlayerInventorySlot(pe *playerEntity, item *model.Item, slot *model.InventorySlot, amount int,
 	r *response.SetInventoryItemsResponse) {
@@ -1364,10 +1373,13 @@ func (g *Game) consumePlayerInventorySlot(pe *playerEntity, item *model.Item, sl
 		pe.player.ClearInventoryItem(slot.ID)
 		r.ClearSlot(slot.ID)
 	}
+
+	g.sendPlayerWeight(pe)
 }
 
 // equipPlayerInventoryItem removes the first occurrence of an item in the player's inventory and adds it to their
 // currently equipped item set. If an item of the same slot type is already equipped, the two will be swapped.
+// The player's weight will be updated after the fact.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) equipPlayerInventoryItem(pe *playerEntity, item *model.Item) {
 	if !item.CanEquip() {
@@ -1427,6 +1439,9 @@ func (g *Game) equipPlayerInventoryItem(pe *playerEntity, item *model.Item) {
 	equipment.AddSlot(int(item.Attributes.EquipSlotType), invSlot.Item.ID, invSlot.Amount)
 	pe.Send(equipment)
 
+	// update the player's weight
+	g.sendPlayerWeight(pe)
+
 	// update the player's equipment interface and their equipped weapon interface tabs
 	g.checkScript(g.scripts.DoOnEquipItem(pe, item))
 
@@ -1437,7 +1452,7 @@ func (g *Game) equipPlayerInventoryItem(pe *playerEntity, item *model.Item) {
 }
 
 // unequipPlayerInventoryItem removes an equipped item and places it in the player's inventory. The player should have
-// room in their inventory prior to calling this method.
+// room in their inventory prior to calling this method. The player's weight will be updated after the fact.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) unequipPlayerInventoryItem(pe *playerEntity, item *model.Item, slotType model.EquipmentSlotType) {
 	// validate the player still has this item equipped
@@ -1457,6 +1472,9 @@ func (g *Game) unequipPlayerInventoryItem(pe *playerEntity, item *model.Item, sl
 	equipment.ClearSlot(int(item.Attributes.EquipSlotType))
 	pe.Send(equipment)
 
+	// update the player's weight
+	g.sendPlayerWeight(pe)
+
 	// update the player's equipment interface and their equipped weapon interface tabs
 	g.checkScript(g.scripts.DoOnUnequipItem(pe, item))
 
@@ -1464,6 +1482,12 @@ func (g *Game) unequipPlayerInventoryItem(pe *playerEntity, item *model.Item, sl
 	if slotType.Visible() {
 		pe.appearanceChanged = true
 	}
+}
+
+// sendPlayerWeight sends the player their current weight.
+func (g *Game) sendPlayerWeight(pe *playerEntity) {
+	weight := &response.PlayerWeightResponse{Weight: int(pe.player.Weight())}
+	pe.Send(weight)
 }
 
 // handleGameUpdate performs a game state update.
@@ -1774,6 +1798,7 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 			if item != nil {
 				// add the item to the player's inventory
 				g.addPlayerInventoryItem(pe, action.Item, item.Amount)
+
 			}
 
 			pe.RemoveDeferredAction(deferred)
@@ -1910,6 +1935,10 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 		case ActionSendRunEnergy:
 			energy := &response.PlayerRunEnergyResponse{RunEnergy: int(pe.player.RunEnergy)}
 			pe.Send(energy)
+			pe.RemoveDeferredAction(deferred)
+
+		case ActionSendWeight:
+			g.sendPlayerWeight(pe)
 			pe.RemoveDeferredAction(deferred)
 
 		default:

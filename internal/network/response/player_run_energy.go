@@ -2,23 +2,23 @@ package response
 
 import "github.com/mbpolan/openmcs/internal/network"
 
-const PlayerWeightResponseHeader byte = 0xF0
+const PlayerRunEnergyResponseHeader byte = 0x6E
 
-// PlayerWeightResponse is sent by the server to report a player's current weight.
-type PlayerWeightResponse struct {
-	Weight int
+// PlayerRunEnergyResponse is sent by the server to report a player's current run energy.
+type PlayerRunEnergyResponse struct {
+	RunEnergy int
 }
 
 // Write writes the contents of the message to a stream.
-func (p *PlayerWeightResponse) Write(w *network.ProtocolWriter) error {
+func (p *PlayerRunEnergyResponse) Write(w *network.ProtocolWriter) error {
 	// write packet header
-	err := w.WriteUint8(PlayerWeightResponseHeader)
+	err := w.WriteUint8(PlayerRunEnergyResponseHeader)
 	if err != nil {
 		return err
 	}
 
-	// write 2 bytes for the weight
-	err = w.WriteUint16(uint16(p.Weight))
+	// write 1 byte for the run energy
+	err = w.WriteUint8(uint8(p.RunEnergy))
 	if err != nil {
 		return err
 	}

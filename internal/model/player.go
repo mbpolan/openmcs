@@ -132,6 +132,31 @@ func (p *Player) SetAttackStyle(weaponStyle WeaponStyle, attackStyle AttackStyle
 	p.AttackStyles[weaponStyle] = attackStyle
 }
 
+// Weight returns the total weight of all player inventory and equipment.
+func (p *Player) Weight() float64 {
+	weight := 0.0
+
+	// factor in any inventory items that have a weight value
+	for _, slot := range p.Inventory {
+		if slot == nil || slot.Item.Attributes == nil {
+			continue
+		}
+
+		weight += slot.Item.Attributes.Weight * float64(slot.Amount)
+	}
+
+	// and equipped items with weights
+	for _, slot := range p.Appearance.Equipment {
+		if slot == nil || slot.Item.Attributes == nil {
+			continue
+		}
+
+		weight += slot.Item.Attributes.Weight * float64(slot.Amount)
+	}
+
+	return weight
+}
+
 // SetSkillExperience sets the experience points for a player skill. The skill level and combat levels will be
 // recomputed after the fact.
 func (p *Player) SetSkillExperience(skillType SkillType, experience float64) {

@@ -431,7 +431,15 @@ func (pe *playerEntity) DeferSendRunEnergy() {
 	pe.planAction(&Action{
 		ActionType: ActionSendRunEnergy,
 		TickDelay:  1,
-	}, ActionPriorityHigh)
+	})
+}
+
+// DeferSendWeight plans an action send a player their current weight.
+func (pe *playerEntity) DeferSendWeight() {
+	pe.planAction(&Action{
+		ActionType: ActionSendWeight,
+		TickDelay:  1,
+	})
 }
 
 // DeferActionCompletion plans an artificial delay to indicate the player is occupied with an ongoing action.
