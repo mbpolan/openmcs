@@ -328,6 +328,28 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			state.Push(lua.LNumber(pe.player.Skills[skillType].Level))
 			return 1
 		},
+		"interface_color": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			interfaceID := state.CheckInt(2)
+			red := state.CheckInt(3)
+			green := state.CheckInt(4)
+			blue := state.CheckInt(5)
+
+			color := model.Color{
+				Red:   red,
+				Green: green,
+				Blue:  blue,
+			}
+
+			err := color.Validate()
+			if err != nil {
+				state.ArgError(3, err.Error())
+				return 0
+			}
+
+			s.handler.handleSetInterfaceColor(pe, interfaceID, color)
+			return 0
+		},
 		"interface_model": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 			interfaceID := state.CheckInt(2)

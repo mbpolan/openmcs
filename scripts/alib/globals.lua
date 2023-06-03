@@ -149,3 +149,8 @@ ACCEPT_AID_NO = "NO"
 -- movement speeds
 MOVE_SPEED_WALK = 0
 MOVE_SPEED_RUN = 1
+
+-- identifiers for quest statuses
+QUEST_STATUS_NOT_STARTED = 0
+QUEST_STATUS_IN_PROGRESS = 1
+QUEST_STATUS_COMPLETED = 2
