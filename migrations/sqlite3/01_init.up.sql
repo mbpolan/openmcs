@@ -528,3 +528,57 @@ BEGIN
         ID = NEW.ID;
 END;
 
+-- ----------------------------------------------------------------------------
+-- Table: PLAYER_QUEST
+-- ----------------------------------------------------------------------------
+
+-- create table for storing player quest completion
+CREATE TABLE PLAYER_QUEST (
+    -- primary key
+    ID INTEGER PRIMARY KEY AUTOINCREMENT,
+    -- owning player
+    PLAYER_ID INTEGER NOT NULL REFERENCES PLAYER(ID) ON DELETE CASCADE,
+    -- quest id
+    QUEST_ID INTEGER NOT NULL,
+    -- flag if quest is a members-only quest
+    MEMBERS INTEGER NOT NULL,
+    -- flag if the quest has been started, in progress or completed
+    STATUS INTEGER NOT NULL CHECK (STATUS >= 0 AND STATUS <= 2),
+    -- date time when the row was inserted
+    CREATED_DTTM TEXT NOT NULL DEFAULT CURRENT_DATE,
+    -- date time when the row was updated
+    UPDATED_DTTM TEXT NULL,
+    -- enforce uniqueness on the player_id and quest_id
+    UNIQUE (PLAYER_ID, QUEST_ID)
+);
+
+-- create an index on player_quest.player_id since it will be queried on
+CREATE INDEX IDX_PLAYER_GAME_OPTION_PLAYER_ID ON PLAYER_QUEST(PLAYER_ID);
+
+-- create a trigger on player_quest to manage the CREATED_DTTM column
+CREATE TRIGGER
+    PLAYER_QUEST_CREATED_DTTM
+AFTER INSERT ON
+    PLAYER_QUEST
+BEGIN
+    UPDATE
+        PLAYER_QUEST
+    SET
+        CREATED_DTTM = DATETIME('NOW')
+    WHERE
+        ID = NEW.ID;
+END;
+
+-- create a trigger on player_quest to manage the UPDATED_DTTM column
+CREATE TRIGGER
+    PLAYER_QUEST_UPDATED_DTTM
+AFTER UPDATE ON
+    PLAYER_QUEST
+BEGIN
+    UPDATE
+        PLAYER_QUEST
+    SET
+        UPDATED_DTTM = DATETIME('NOW')
+    WHERE
+        ID = NEW.ID;
+END;
