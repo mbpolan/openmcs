@@ -2089,6 +2089,12 @@ func (g *Game) handleChangePlayerAutoRetaliate(pe *playerEntity, enabled bool) {
 	pe.player.AutoRetaliate = enabled
 }
 
+// handleSetPlayerQuestStatus updates the status of a quest for a player.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleSetPlayerQuestStatus(pe *playerEntity, questID int, status model.QuestStatus) {
+	pe.player.SetQuestStatus(questID, status)
+}
+
 // handleDelayCurrentAction blocks the player from performing other actions until a set amount of game ticks have
 // elapsed.
 func (g *Game) handleDelayCurrentAction(pe *playerEntity, tickDuration int) {

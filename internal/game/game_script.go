@@ -49,6 +49,8 @@ type ScriptHandler interface {
 	handleChangePlayerMovementSpeed(pe *playerEntity, speed model.MovementSpeed)
 	// handleChangePlayerAutoRetaliate changes a player's auto-retaliate combat option.
 	handleChangePlayerAutoRetaliate(pe *playerEntity, enabled bool)
+	// handleSetPlayerQuestStatus updates the status of a quest for a player.
+	handleSetPlayerQuestStatus(pe *playerEntity, questID int, status model.QuestStatus)
 	// handleDelayCurrentAction blocks the player from performing other actions until a set amount of game ticks have
 	// elapsed.
 	handleDelayCurrentAction(pe *playerEntity, tickDuration int)

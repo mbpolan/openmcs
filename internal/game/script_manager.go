@@ -520,6 +520,19 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			s.handler.handleSetPlayerGraphic(pe, graphicID, height, delay, tickDuration)
 			return 0
 		},
+		"quest_status": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			questID := state.CheckInt(2)
+
+			if state.GetTop() == 3 {
+				status := model.QuestStatus(state.CheckInt(3))
+				s.handler.handleSetPlayerQuestStatus(pe, questID, status)
+				return 0
+			}
+
+			state.Push(lua.LNumber(pe.player.QuestStatus(questID)))
+			return 1
+		},
 		"teleport": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 			x := state.CheckInt(2)
