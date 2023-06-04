@@ -562,6 +562,20 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			state.Push(lua.LNumber(pe.player.QuestStatus(questID)))
 			return 1
 		},
+		"quest_flag": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			questID := state.CheckInt(2)
+			flagID := state.CheckInt(3)
+
+			if state.GetTop() == 4 {
+				value := state.CheckInt(4)
+				s.handler.handleSetPlayerQuestFlag(pe, questID, flagID, value)
+				return 0
+			}
+
+			state.Push(lua.LNumber(pe.player.QuestFlag(questID, flagID)))
+			return 1
+		},
 		"teleport": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 			x := state.CheckInt(2)

@@ -2106,6 +2106,12 @@ func (g *Game) handleSetPlayerQuestStatus(pe *playerEntity, questID int, status 
 	pe.player.SetQuestStatus(questID, status)
 }
 
+// handleSetPlayerQuestFlag sets a quest flag with a value for a player.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleSetPlayerQuestFlag(pe *playerEntity, questID, flagID, value int) {
+	pe.player.SetQuestFlag(questID, flagID, value)
+}
+
 // handleShowInterface shows an interface for a player.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) handleShowInterface(pe *playerEntity, interfaceID int) {
