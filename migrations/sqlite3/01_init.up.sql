@@ -580,3 +580,58 @@ BEGIN
     WHERE
         ID = NEW.ID;
 END;
+
+-- ----------------------------------------------------------------------------
+-- Table: PLAYER_QUEST_FLAG
+-- ----------------------------------------------------------------------------
+
+-- create table for storing player quest step progress
+CREATE TABLE PLAYER_QUEST_FLAG (
+    -- primary key
+    ID INTEGER PRIMARY KEY AUTOINCREMENT,
+    -- owning player
+    PLAYER_ID INTEGER NOT NULL REFERENCES PLAYER(ID) ON DELETE CASCADE,
+    -- quest id
+    QUEST_ID INTEGER NOT NULL REFERENCES PLAYER_QUEST(QUEST_ID) ON DELETE CASCADE,
+    -- flag id
+    FLAG_ID INTEGER NOT NULL,
+    -- flag value
+    VALUE INTEGER NOT NULL,
+    -- date time when the row was inserted
+    CREATED_DTTM TEXT NOT NULL DEFAULT CURRENT_DATE,
+    -- date time when the row was updated
+    UPDATED_DTTM TEXT NULL,
+    -- enforce uniqueness on the player_id, quest_id and flag_id
+    UNIQUE (PLAYER_ID, QUEST_ID, FLAG_ID)
+);
+
+-- create an index on player_quest_flag.player_id since it will be queried on
+CREATE INDEX IDX_PLAYER_QUEST_FLAG_PLAYER_ID ON PLAYER_QUEST_FLAG(PLAYER_ID);
+
+-- create a trigger on player_quest_flag to manage the CREATED_DTTM column
+CREATE TRIGGER
+    PLAYER_QUEST_FLAG_CREATED_DTTM
+AFTER INSERT ON
+    PLAYER_QUEST_FLAG
+BEGIN
+    UPDATE
+        PLAYER_QUEST_FLAG
+    SET
+        CREATED_DTTM = DATETIME('NOW')
+    WHERE
+        ID = NEW.ID;
+END;
+
+-- create a trigger on player_quest_flag to manage the UPDATED_DTTM column
+CREATE TRIGGER
+    PLAYER_QUEST_FLAG_UPDATED_DTTM
+AFTER UPDATE ON
+    PLAYER_QUEST_FLAG
+BEGIN
+    UPDATE
+        PLAYER_QUEST_FLAG
+    SET
+        UPDATED_DTTM = DATETIME('NOW')
+    WHERE
+        ID = NEW.ID;
+END;
