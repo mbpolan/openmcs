@@ -75,6 +75,8 @@ type Player struct {
 	RunEnergy float64
 	// QuestStatus is a map of quest IDs to their status.
 	QuestStatuses map[int]QuestStatus
+	// QuestFlags is a map of quest IDs to maps of their flag IDs to values.
+	QuestFlags map[int]map[int]int
 	// UpdateDesign is true when the player should be shown the character design interface, false if not.
 	UpdateDesign bool
 }
@@ -122,6 +124,7 @@ func NewPlayer(username string) *Player {
 		GameOptions:   map[int]string{},
 		RunEnergy:     100.0,
 		QuestStatuses: map[int]QuestStatus{},
+		QuestFlags:    map[int]map[int]int{},
 	}
 }
 
@@ -288,6 +291,31 @@ func (p *Player) QuestStatus(questID int) QuestStatus {
 // SetQuestStatus sets the status of a quest, overwriting any previous status.
 func (p *Player) SetQuestStatus(questID int, status QuestStatus) {
 	p.QuestStatuses[questID] = status
+}
+
+// QuestFlag returns the value of a quest flag. If a flag does not have a value, -1 will be returned.
+func (p *Player) QuestFlag(questID, flagID int) int {
+	flags, ok := p.QuestFlags[questID]
+	if !ok {
+		return -1
+	}
+
+	flag, ok := flags[flagID]
+	if !ok {
+		return -1
+	}
+
+	return flag
+}
+
+// SetQuestFlag sets the value of a flag for a quest, overwriting any previously set value.
+func (p *Player) SetQuestFlag(questID, flagID, value int) {
+	_, ok := p.QuestFlags[questID]
+	if !ok {
+		p.QuestFlags[questID] = map[int]int{}
+	}
+
+	p.QuestFlags[questID][flagID] = value
 }
 
 // HasFriend determines if the given player username is on this player's friends list.

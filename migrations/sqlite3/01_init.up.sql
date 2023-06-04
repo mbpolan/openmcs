@@ -551,7 +551,7 @@ CREATE TABLE PLAYER_QUEST (
 );
 
 -- create an index on player_quest.player_id since it will be queried on
-CREATE INDEX IDX_PLAYER_GAME_OPTION_PLAYER_ID ON PLAYER_QUEST(PLAYER_ID);
+CREATE INDEX IDX_PLAYER_QUEST_PLAYER_ID ON PLAYER_QUEST(PLAYER_ID);
 
 -- create a trigger on player_quest to manage the CREATED_DTTM column
 CREATE TRIGGER

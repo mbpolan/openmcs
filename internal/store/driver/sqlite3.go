@@ -248,6 +248,12 @@ func (s *SQLite3Driver) SavePlayer(p *model.Player) error {
 		return err
 	}
 
+	// save their quest flags
+	err = s.savePlayerQuestFlags(p)
+	if err != nil {
+		return err
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		return err
@@ -309,6 +315,12 @@ func (s *SQLite3Driver) LoadPlayer(username string) (*model.Player, error) {
 
 	// load their quest statuses
 	err = s.loadPlayerQuestStatuses(p)
+	if err != nil {
+		return nil, err
+	}
+
+	// load their quest flags
+	err = s.loadPlayerQuestFlags(p)
 	if err != nil {
 		return nil, err
 	}
@@ -680,6 +692,40 @@ func (s *SQLite3Driver) loadPlayerQuestStatuses(p *model.Player) error {
 		}
 
 		p.SetQuestStatus(id, model.QuestStatus(status))
+	}
+
+	return nil
+}
+
+// loadPlayerQuestFlags loads a player's quest flags.
+func (s *SQLite3Driver) loadPlayerQuestFlags(p *model.Player) error {
+	stmt, err := s.db.Prepare(`
+		SELECT
+		    QUEST_ID,
+		    FLAG_ID,
+		    VALUE
+		FROM
+		    PLAYER_QUEST_FLAG
+		WHERE
+		    PLAYER_ID = ?
+	`)
+	if err != nil {
+		return err
+	}
+
+	rows, err := stmt.Query(p.ID)
+	if err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		var id, flagID, value int
+		err := rows.Scan(&id, &flagID, &value)
+		if err != nil {
+			return err
+		}
+
+		p.SetQuestFlag(id, flagID, value)
 	}
 
 	return nil
@@ -1175,6 +1221,76 @@ func (s *SQLite3Driver) savePlayerQuestStatuses(p *model.Player) error {
 	}
 
 	// bail out if there are no quest statuses
+	if len(bulk) == 0 {
+		return nil
+	}
+
+	// prepare the final insert query
+	insert := fmt.Sprintf(insertTemplate, strings.Join(bulk, ","))
+	stmt, err := s.db.Prepare(insert)
+	if err != nil {
+		return err
+	}
+
+	defer stmt.Close()
+
+	_, err = stmt.Exec(values...)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// savePlayerQuestFlags saves a player's quest flags.
+func (s *SQLite3Driver) savePlayerQuestFlags(p *model.Player) error {
+	// prepare a delete to clear out the player's quest flags
+	delStmt, err := s.db.Prepare(`
+		DELETE FROM
+		    PLAYER_QUEST_FLAG
+		WHERE
+		    PLAYER_ID = ?
+	`)
+	if err != nil {
+		return err
+	}
+
+	defer delStmt.Close()
+
+	// delete all entries from the player's quest flags
+	_, err = delStmt.Exec(p.ID)
+	if err != nil {
+		return err
+	}
+
+	insertTemplate := `
+		INSERT INTO
+			PLAYER_QUEST_FLAG (
+			    PLAYER_ID,
+			    QUEST_ID,
+				FLAG_ID,
+			    VALUE
+			)
+		VALUES %s
+	`
+
+	valueTemplate := "(?, ?, ?, ?)"
+
+	var bulk []string
+	var values []any
+
+	// collect the flag values for all quests
+	for questID, flags := range p.QuestFlags {
+		for flagID, flagValue := range flags {
+			bulk = append(bulk, valueTemplate)
+			values = append(values, p.ID)
+			values = append(values, questID)
+			values = append(values, flagID)
+			values = append(values, flagValue)
+		}
+	}
+
+	// bail out if there are no quest flags
 	if len(bulk) == 0 {
 		return nil
 	}
