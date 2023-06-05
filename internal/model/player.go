@@ -77,6 +77,8 @@ type Player struct {
 	QuestStatuses map[int]QuestStatus
 	// QuestFlags is a map of quest IDs to maps of their flag IDs to values.
 	QuestFlags map[int]map[int]int
+	// MusicTracks is a map of song IDs to flags indicating if the player has unlocked them.
+	MusicTracks map[int]bool
 	// UpdateDesign is true when the player should be shown the character design interface, false if not.
 	UpdateDesign bool
 }
@@ -125,6 +127,7 @@ func NewPlayer(username string) *Player {
 		RunEnergy:     100.0,
 		QuestStatuses: map[int]QuestStatus{},
 		QuestFlags:    map[int]map[int]int{},
+		MusicTracks:   map[int]bool{},
 	}
 }
 
@@ -316,6 +319,16 @@ func (p *Player) SetQuestFlag(questID, flagID, value int) {
 	}
 
 	p.QuestFlags[questID][flagID] = value
+}
+
+// MusicTrackUnlocked returns true if a music track has been unlocked by the player.
+func (p *Player) MusicTrackUnlocked(songID int) bool {
+	return p.MusicTracks[songID]
+}
+
+// SetMusicTrackUnlocked sets that a music track is available for the player to play.
+func (p *Player) SetMusicTrackUnlocked(songID int, enabled bool) {
+	p.MusicTracks[songID] = enabled
 }
 
 // HasFriend determines if the given player username is on this player's friends list.
