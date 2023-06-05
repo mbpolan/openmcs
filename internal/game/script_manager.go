@@ -576,6 +576,19 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			state.Push(lua.LNumber(pe.player.QuestFlag(questID, flagID)))
 			return 1
 		},
+		"music_track": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			songID := state.CheckInt(2)
+
+			if state.GetTop() == 3 {
+				enabled := state.CheckBool(3)
+				s.handler.handleSetPlayerMusicTrackUnlocked(pe, songID, enabled)
+				return 0
+			}
+
+			state.Push(lua.LNumber(pe.player.MusicTrackUnlocked(songID)))
+			return 1
+		},
 		"teleport": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 			x := state.CheckInt(2)

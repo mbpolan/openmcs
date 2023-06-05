@@ -2112,6 +2112,12 @@ func (g *Game) handleSetPlayerQuestFlag(pe *playerEntity, questID, flagID, value
 	pe.player.SetQuestFlag(questID, flagID, value)
 }
 
+// handleSetPlayerMusicTrackUnlocked sets a music track as (un)locked for a player.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleSetPlayerMusicTrackUnlocked(pe *playerEntity, songID int, enabled bool) {
+	pe.player.SetMusicTrackUnlocked(songID, enabled)
+}
+
 // handleShowInterface shows an interface for a player.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) handleShowInterface(pe *playerEntity, interfaceID int) {

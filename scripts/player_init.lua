@@ -24,10 +24,13 @@ function init_player_tabs(player)
     -- set conditional sidebar interfaces
     if low_memory then
         player:sidebar_interface(CLIENT_TAB_SETTINGS, 4445)
+        player:sidebar_interface(CLIENT_TAB_MUSIC, 6299)
         interface_4445_on_update(player)
     else
         player:sidebar_interface(CLIENT_TAB_SETTINGS, 904)
+        player:sidebar_interface(CLIENT_TAB_MUSIC, 962)
         interface_904_on_update(player)
+        interface_962_on_update(player)
     end
 
     -- set the equipped item interface based on the currently equipped weapon
@@ -44,7 +47,6 @@ function init_player_tabs(player)
 
     -- TODO: not yet supported by game engine
     player:sidebar_clear(CLIENT_TAB_PRAYERS)
-    player:sidebar_clear(CLIENT_TAB_MUSIC)
 end
 
 --- Initializes a player's game option preferences.
