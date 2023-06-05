@@ -635,3 +635,56 @@ BEGIN
     WHERE
         ID = NEW.ID;
 END;
+
+-- ----------------------------------------------------------------------------
+-- Table: PLAYER_MUSIC_TRACK
+-- ----------------------------------------------------------------------------
+
+-- create table for storing music tracks unlocked by a player
+CREATE TABLE PLAYER_MUSIC_TRACK (
+    -- primary key
+    ID INTEGER PRIMARY KEY AUTOINCREMENT,
+    -- owning player
+    PLAYER_ID INTEGER NOT NULL REFERENCES PLAYER(ID) ON DELETE CASCADE,
+    -- music id
+    MUSIC_ID INTEGER NOT NULL,
+    -- enabled or disabled
+    UNLOCKED INTEGER NOT NULL,
+    -- date time when the row was inserted
+    CREATED_DTTM TEXT NOT NULL DEFAULT CURRENT_DATE,
+    -- date time when the row was updated
+    UPDATED_DTTM TEXT NULL,
+    -- enforce uniqueness on the player_id, quest_id and flag_id
+    UNIQUE (PLAYER_ID, MUSIC_ID, UNLOCKED)
+);
+
+-- create an index on player_music_track.player_id since it will be queried on
+CREATE INDEX IDX_PLAYER_MUSIC_TRACK_PLAYER_ID ON PLAYER_MUSIC_TRACK(PLAYER_ID);
+
+-- create a trigger on player_music_track to manage the CREATED_DTTM column
+CREATE TRIGGER
+    PLAYER_MUSIC_TRACK_CREATED_DTTM
+AFTER INSERT ON
+    PLAYER_MUSIC_TRACK
+BEGIN
+    UPDATE
+        PLAYER_MUSIC_TRACK
+    SET
+        CREATED_DTTM = DATETIME('NOW')
+    WHERE
+        ID = NEW.ID;
+END;
+
+-- create a trigger on player_music_track to manage the UPDATED_DTTM column
+CREATE TRIGGER
+    PLAYER_MUSIC_TRACK_UPDATED_DTTM
+AFTER UPDATE ON
+    PLAYER_MUSIC_TRACK
+BEGIN
+    UPDATE
+        PLAYER_MUSIC_TRACK
+    SET
+        UPDATED_DTTM = DATETIME('NOW')
+    WHERE
+        ID = NEW.ID;
+END;
