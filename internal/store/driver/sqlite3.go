@@ -747,7 +747,7 @@ func (s *SQLite3Driver) loadPlayerQuestFlags(p *model.Player) error {
 func (s *SQLite3Driver) loadPlayerMusicTracks(p *model.Player) error {
 	stmt, err := s.db.Prepare(`
 		SELECT
-		    SONG_ID,
+		    MUSIC_ID,
 		    UNLOCKED
 		FROM
 		    PLAYER_MUSIC_TRACK
@@ -1383,7 +1383,7 @@ func (s *SQLite3Driver) savePlayerMusicTracks(p *model.Player) error {
 		INSERT INTO
 			PLAYER_MUSIC_TRACK (
 			    PLAYER_ID,
-			    SONG_ID,
+			    MUSIC_ID,
 				UNLOCKED
 			)
 		VALUES %s
