@@ -442,6 +442,17 @@ func (pe *playerEntity) DeferSendWeight() {
 	})
 }
 
+// DeferPlayMusic plans an action send a player's client a music track to play.
+func (pe *playerEntity) DeferPlayMusic(musicID int) {
+	pe.planAction(&Action{
+		ActionType: ActionPlayMusic,
+		TickDelay:  1,
+		PlayMusicAction: &PlayMusicAction{
+			MusicID: musicID,
+		},
+	})
+}
+
 // DeferActionCompletion plans an artificial delay to indicate the player is occupied with an ongoing action.
 func (pe *playerEntity) DeferActionCompletion(tickDuration int) {
 	pe.planAction(&Action{

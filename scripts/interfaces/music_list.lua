@@ -1,12 +1,12 @@
--- map of song identifiers for interface text
-SONG_IDS_TO_INTERFACES = {
+-- map of music identifiers for interface text
+MUSIC_IDS_TO_INTERFACES = {
     [151] = 13972
 }
 
--- map of song text interfaces to song identifiers
-SONG_INTERFACES_TO_IDS = {}
-for k, v in pairs(SONG_IDS_TO_INTERFACES) do
-    SONG_INTERFACES_TO_IDS[v] = k
+-- map of music text interfaces to music identifiers
+MUSIC_INTERFACES_TO_IDS = {}
+for k, v in pairs(MUSIC_IDS_TO_INTERFACES) do
+    MUSIC_INTERFACES_TO_IDS[v] = k
 end
 
 --- Handles an action performed on the music list interface.
@@ -24,13 +24,15 @@ function interface_962_on_action(player, interface)
     end
 
     -- play a selected song
-    local song_id = SONG_INTERFACES_TO_IDS[id]
+    local song_id = MUSIC_INTERFACES_TO_IDS[id]
     if song_id == nil then
-        player:server_message("This song is not yet available!")
+        player:server_message("This music track is not yet available!")
         return
     end
 
-    -- TODO: play the song
+    -- play the song
+    -- TODO: check if the player has this track unlocked, if it's not a default track
+    player:play_music(song_id)
 end
 
 --- Handles updating the music list interface.

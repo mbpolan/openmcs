@@ -56,7 +56,9 @@ type ScriptHandler interface {
 	// handleSetPlayerQuestFlag sets a quest flag with a value for a player.
 	handleSetPlayerQuestFlag(pe *playerEntity, questID, flagID, value int)
 	// handleSetPlayerMusicTrackUnlocked sets a music track as (un)locked for a player.
-	handleSetPlayerMusicTrackUnlocked(pe *playerEntity, songID int, enabled bool)
+	handleSetPlayerMusicTrackUnlocked(pe *playerEntity, musicID int, enabled bool)
+	// handlePlayMusic sends the player's client a music track to play.
+	handlePlayMusic(pe *playerEntity, musicID int)
 	// handleShowInterface shows an interface for a player.
 	handleShowInterface(pe *playerEntity, interfaceID int)
 	// handleDelayCurrentAction blocks the player from performing other actions until a set amount of game ticks have

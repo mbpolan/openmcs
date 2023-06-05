@@ -560,6 +560,9 @@ func (g *Game) AddPlayer(p *model.Player, lowMemory bool, writer *network.Protoc
 	// plan an update to the player's weight
 	pe.DeferSendWeight()
 
+	// reset the music track after log in
+	pe.DeferPlayMusic(response.PlayMusicNoneID)
+
 	// plan a welcome message
 	pe.DeferSendServerMessage(g.welcomeMessage)
 }
@@ -1952,6 +1955,13 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 			g.sendPlayerWeight(pe)
 			pe.RemoveDeferredAction(deferred)
 
+		case ActionPlayMusic:
+			action := deferred.PlayMusicAction
+
+			music := &response.PlayMusicResponse{MusicID: action.MusicID}
+			pe.Send(music)
+			pe.RemoveDeferredAction(deferred)
+
 		default:
 		}
 	}
@@ -2114,8 +2124,14 @@ func (g *Game) handleSetPlayerQuestFlag(pe *playerEntity, questID, flagID, value
 
 // handleSetPlayerMusicTrackUnlocked sets a music track as (un)locked for a player.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) handleSetPlayerMusicTrackUnlocked(pe *playerEntity, songID int, enabled bool) {
-	pe.player.SetMusicTrackUnlocked(songID, enabled)
+func (g *Game) handleSetPlayerMusicTrackUnlocked(pe *playerEntity, musicID int, enabled bool) {
+	pe.player.SetMusicTrackUnlocked(musicID, enabled)
+}
+
+// handlePlayMusic sends the player's client a music track to play.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handlePlayMusic(pe *playerEntity, musicID int) {
+	pe.DeferPlayMusic(musicID)
 }
 
 // handleShowInterface shows an interface for a player.

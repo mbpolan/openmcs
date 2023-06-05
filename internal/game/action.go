@@ -36,6 +36,7 @@ const (
 	ActionExperienceGrant
 	ActionSendRunEnergy
 	ActionSendWeight
+	ActionPlayMusic
 	ActionDelayCurrent
 )
 
@@ -54,6 +55,7 @@ type Action struct {
 	TeleportPlayerAction    *TeleportPlayerAction
 	CastSpellOnItemAction   *CastSpellOnItemAction
 	ExperienceGrantAction   *ExperienceGrantAction
+	PlayMusicAction         *PlayMusicAction
 }
 
 // ActionResult is a bitmask describing the mutations resulting from an action.
@@ -132,4 +134,9 @@ type CastSpellOnItemAction struct {
 type ExperienceGrantAction struct {
 	SkillType  model.SkillType
 	Experience float64
+}
+
+// PlayMusicAction is an action to instruct the player's client to play a song.
+type PlayMusicAction struct {
+	MusicID int
 }
