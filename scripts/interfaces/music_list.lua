@@ -21,12 +21,16 @@ end
 function interface_962_on_action(player, interface)
     local id = interface:id()
 
+    -- music player controls; these are not persisted so we don't need to take action
     if id == 6269 then
         -- auto mode
+        return
     elseif id == 6270 then
         -- manual mode
+        return
     elseif id == 9925 then
         -- loop mode
+        return
     end
 
     -- find the music track id that was clicked
