@@ -8,6 +8,8 @@ server:
   worldId: 69
   # directory where game assets are located
   assetDir: data
+  # directory where game scripts are located
+  scriptsDir: ./scripts
   # message sent to players when they log in
   welcomeMessage: Welcome to OpenMCS!
   # verbosity for logging (debug, info, error)

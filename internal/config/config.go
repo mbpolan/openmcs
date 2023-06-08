@@ -16,6 +16,7 @@ type ServerConfig struct {
 	Port           int    `mapstructure:"port"`
 	WorldID        int    `mapstructure:"worldId"`
 	AssetDir       string `mapstructure:"assetDir"`
+	ScriptsDir     string `mapstructure:"scriptsDir"`
 	LogLevel       string `mapstructure:"logLevel"`
 	WelcomeMessage string `mapstructure:"welcomeMessage"`
 }

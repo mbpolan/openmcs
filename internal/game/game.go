@@ -100,7 +100,7 @@ func NewGame(opts Options) (*Game, error) {
 	start := time.Now()
 
 	// load scripts
-	g.scripts = NewScriptManager("scripts", g)
+	g.scripts = NewScriptManager(opts.Config.Server.ScriptsDir, g)
 	numScripts, err := g.scripts.Load()
 	if err != nil {
 		return nil, err
