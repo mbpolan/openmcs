@@ -20,6 +20,7 @@ function init_player_tabs(player)
     player:sidebar_interface(CLIENT_TAB_SPELLS, 1151)
     player:sidebar_interface(CLIENT_TAB_CONTROLS, 147)
     player:sidebar_interface(CLIENT_TAB_QUESTS, 638)
+    player:sidebar_interface(CLIENT_TAB_PRAYERS, 5608)
 
     -- set conditional sidebar interfaces
     if low_memory then
@@ -44,9 +45,6 @@ function init_player_tabs(player)
 
     -- update other interfaces
     interface_638_on_update(player)
-
-    -- TODO: not yet supported by game engine
-    player:sidebar_clear(CLIENT_TAB_PRAYERS)
 end
 
 --- Initializes a player's game option preferences.
