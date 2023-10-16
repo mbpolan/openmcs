@@ -1,10 +1,13 @@
 package logger
 
 import (
-	"go.uber.org/zap"
+	"fmt"
+	"log/slog"
+	"os"
+	"strings"
 )
 
-var log *zap.SugaredLogger
+var logger *slog.Logger
 
 type Options struct {
 	LogLevel string
@@ -12,45 +15,64 @@ type Options struct {
 
 // Setup prepares the logging infrastructure for the server.
 func Setup(opts Options) error {
-	level, err := zap.ParseAtomicLevel(opts.LogLevel)
-	if err != nil {
-		return err
+	var level slog.Level
+	switch strings.ToLower(opts.LogLevel) {
+	case "debug":
+		level = slog.LevelDebug
+	case "info":
+		level = slog.LevelInfo
+	case "warn":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		return fmt.Errorf("invalid log level: %s", opts.LogLevel)
 	}
 
-	cfg := zap.NewProductionConfig()
-	cfg.Level = level
-	cfg.Encoding = "console"
+	handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: level,
+	})
 
-	logger, err := cfg.Build()
-	if err != nil {
-		return err
-	}
-
-	log = logger.Sugar()
+	logger = slog.New(handler)
 	return nil
 }
 
 // Debugf logs a debug message.
-func Debugf(fmt string, args ...any) {
-	log.Debugf(fmt, args)
+func Debugf(msg string, args ...any) {
+	if logger == nil {
+		fmt.Printf("ERROR: logger is not initialized")
+		return
+	}
+
+	logger.Debug(fmt.Sprintf(msg, args...))
 }
 
 // Infof logs an informational message.
-func Infof(fmt string, args ...any) {
-	log.Infof(fmt, args)
+func Infof(msg string, args ...any) {
+	if logger == nil {
+		fmt.Printf("ERROR: logger is not initialized")
+		return
+	}
+
+	logger.Info(fmt.Sprintf(msg, args...))
 }
 
 // Warnf logs a warning message.
-func Warnf(fmt string, args ...any) {
-	log.Warnf(fmt, args)
+func Warnf(msg string, args ...any) {
+	if logger == nil {
+		fmt.Printf("ERROR: logger is not initialized")
+		return
+	}
+
+	logger.Warn(fmt.Sprintf(msg, args...))
 }
 
 // Errorf logs an error message.
-func Errorf(fmt string, args ...any) {
-	log.Errorf(fmt, args)
-}
+func Errorf(msg string, args ...any) {
+	if logger == nil {
+		fmt.Printf("ERROR: logger is not initialized")
+		return
+	}
 
-// Fatalf logs a fatal error message and exits the program.
-func Fatalf(fmt string, args ...any) {
-	log.Fatalf(fmt, args)
+	logger.Error(fmt.Sprintf(msg, args...))
 }

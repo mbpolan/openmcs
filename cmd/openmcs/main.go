@@ -40,7 +40,8 @@ func main() {
 	// prepare the telemetry provider
 	tel, err := telemetry.Setup(cfg)
 	if err != nil {
-		logger.Fatalf("failed to set up telemetry provider: %s", err)
+		logger.Errorf("failed to set up telemetry provider: %s", err)
+		os.Exit(1)
 	}
 
 	// start the telemetry provider if enabled
@@ -54,7 +55,8 @@ func main() {
 		Telemetry: tel,
 	})
 	if err != nil {
-		logger.Fatalf("failed to prepare server: %s", err)
+		logger.Errorf("failed to prepare server: %s", err)
+		os.Exit(1)
 	}
 
 	// prepare signal handlers
@@ -71,6 +73,7 @@ func main() {
 	// start the server
 	err = srv.Run()
 	if err != nil {
-		logger.Fatalf("failed to start server: %s", err)
+		logger.Errorf("failed to start server: %s", err)
+		os.Exit(1)
 	}
 }

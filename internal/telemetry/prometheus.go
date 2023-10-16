@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -78,7 +79,8 @@ func (p *prometheusTelemetry) Start() {
 
 		err := p.server.ListenAndServe()
 		if err != nil {
-			logger.Fatalf("failed to start Prometheus metrics server: %s", err)
+			logger.Errorf("failed to start Prometheus metrics server: %s", err)
+			os.Exit(1)
 		}
 	}()
 }
