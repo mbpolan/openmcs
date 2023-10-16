@@ -1607,20 +1607,42 @@ func (g *Game) handleGameUpdate() error {
 			pe.appearanceChanged = false
 		}
 
-		// check if the player is walking
-		if pe.Walking() {
-			next := pe.path[pe.nextPathIdx]
+		// check if the player is moving
+		if pe.Moving() {
+			// determine how many segments are left to traverse in the path
+			remaining := len(pe.path) - pe.nextPathIdx
 
-			// add the change in direction to the local player's movement
-			dir := model.DirectionFromDelta(next.Sub(pe.player.GlobalPos.To2D()))
-			update.SetLocalPlayerWalk(dir)
+			// move the player one segment if they are walking, or if there's only one segment left while running
+			if pe.movementSpeed == model.MovementSpeedWalk || remaining == 1 {
+				next := pe.path[pe.nextPathIdx]
 
-			// update the player's position
-			pe.player.GlobalPos.X = next.X
-			pe.player.GlobalPos.Y = next.Y
+				// add the change in direction to the local player's movement
+				dir := model.DirectionFromDelta(next.Sub(pe.player.GlobalPos.To2D()))
+				update.SetLocalPlayerWalk(dir)
 
-			// move past this path segment
-			pe.nextPathIdx++
+				// update the player's position
+				pe.player.GlobalPos.X = next.X
+				pe.player.GlobalPos.Y = next.Y
+
+				// move past this path segment
+				pe.nextPathIdx++
+			} else {
+				// find the first direction to move in
+				first := pe.path[pe.nextPathIdx]
+				pe.nextPathIdx++
+
+				// find the next direction after that
+				second := pe.path[pe.nextPathIdx]
+				pe.nextPathIdx++
+
+				firstDir := model.DirectionFromDelta(first.Sub(pe.player.GlobalPos.To2D()))
+				secondDir := model.DirectionFromDelta(second.Sub(first))
+				update.SetLocalPlayerRun(firstDir, secondDir)
+
+				// update the player's position to the second position in the path
+				pe.player.GlobalPos.X = second.X
+				pe.player.GlobalPos.Y = second.Y
+			}
 
 			// check if the player has moved into a new map region, and schedule a map region load is that's the case
 			origin := g.findEffectiveRegion(pe)

@@ -100,6 +100,7 @@ type playerMovement struct {
 	position       model.Vector3D
 	clearWaypoints bool
 	walkDirection  model.Direction
+	runDirections  [2]model.Direction
 }
 
 // PlayerUpdateResponse contains a game state update.
@@ -171,6 +172,18 @@ func (p *PlayerUpdateResponse) SetLocalPlayerWalk(dir model.Direction) {
 	}
 }
 
+// SetLocalPlayerRun reports that the local player is running in a particular direction.
+func (p *PlayerUpdateResponse) SetLocalPlayerRun(first, second model.Direction) {
+	p.local.moveType = playerMoveRun
+	p.local.runDirections[0] = first
+	p.local.runDirections[1] = second
+
+	// start tracking the local player
+	if p.list[localPlayerID] == nil {
+		p.list[localPlayerID] = &trackedPlayer{}
+	}
+}
+
 // SetLocalPlayerPosition reports the local player's position in region local coordinates. The clearWaypoints flag
 // indicates if the player's current path should be cancelled, such as in the case of the player being teleported to
 // a location.
@@ -185,16 +198,6 @@ func (p *PlayerUpdateResponse) SetLocalPlayerPosition(pos model.Vector3D, clearW
 func (p *PlayerUpdateResponse) AddOtherPlayerNoUpdate(playerID int) {
 	p.ensurePlayer(playerID).movement = &playerMovement{
 		moveType: playerMoveNoUpdate,
-	}
-}
-
-// AddOtherPlayerWalk reports that another player is walking in a particular direction.
-func (p *PlayerUpdateResponse) AddOtherPlayerWalk(playerID int, dir model.Direction) {
-	p.ensurePlayer(playerID).movement = &playerMovement{
-		moveType:       playerMoveWalk,
-		position:       model.Vector3D{},
-		clearWaypoints: true,
-		walkDirection:  dir,
 	}
 }
 
@@ -433,8 +436,17 @@ func (p *PlayerUpdateResponse) writeLocalPlayer(bs *network.BitSet) bool {
 		bs.SetOrClear(needsUpdate)
 
 	case playerMoveRun:
-		// TODO
-		panic("not implemented")
+		// write 3 bits for the first direction to move in
+		code := directionCodes[p.local.runDirections[0]]
+		bs.SetBits(uint32(code), 3)
+
+		// write 3 bits for the second direction to move in
+		code = directionCodes[p.local.runDirections[1]]
+		bs.SetBits(uint32(code), 3)
+
+		// write 1 bit if a further update is required
+		needsUpdate := p.list[localPlayerID].update != nil
+		bs.SetOrClear(needsUpdate)
 
 	case playerMovePosition:
 		// write 2 bits for the z coordinate
@@ -505,8 +517,17 @@ func (p *PlayerUpdateResponse) writeOtherMovements(bs *network.BitSet) {
 			//bs.Clear()
 
 		case playerMoveRun:
-			// TODO
-			panic("not implemented")
+			// write 3 bits for the first direction
+			code := directionCodes[other.movement.runDirections[0]]
+			bs.SetBits(uint32(code), 3)
+
+			// write 3 bits for the second direction
+			code = directionCodes[other.movement.runDirections[1]]
+			bs.SetBits(uint32(code), 3)
+
+			// write 1 bit if a further update is required
+			needsUpdate := p.list[playerID].update != nil
+			bs.SetOrClear(needsUpdate)
 		}
 	}
 }

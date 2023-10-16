@@ -169,18 +169,8 @@ func (pe *playerEntity) MarkStatusBroadcastTarget(target string) {
 	pe.nextStatusBroadcast.targets = append(pe.nextStatusBroadcast.targets, target)
 }
 
-// MoveDirection returns the direction the player is currently moving in. If the player is not moving, then
-// model.DirectionNone will be returned.
-func (pe *playerEntity) MoveDirection() model.Direction {
-	if !pe.Walking() {
-		return model.DirectionNone
-	}
-
-	return model.DirectionFromDelta(pe.path[pe.nextPathIdx].Sub(pe.player.GlobalPos.To2D()))
-}
-
-// Walking determines if the player is walking to a destination.
-func (pe *playerEntity) Walking() bool {
+// Moving determines if the player is walking or running to a destination.
+func (pe *playerEntity) Moving() bool {
 	return pe.nextPathIdx < len(pe.path)
 }
 
