@@ -12,6 +12,8 @@ server:
   scriptsDir: ./scripts
   # message sent to players when they log in
   welcomeMessage: Welcome to OpenMCS!
+  # maximum time a player can idle before being disconnected
+  playerMaxIdleTimeSeconds: 180
   # verbosity for logging (debug, info, error)
   logLevel: info
 

@@ -18,10 +18,6 @@ import (
 	"time"
 )
 
-// playerMaxIdleInterval is the maximum time a player can be idle before being forcefully logged out.
-// TODO: this should be configurable
-const playerMaxIdleInterval = 3 * time.Minute
-
 // tickInterval defines how long a single tick is.
 const tickInterval = 600 * time.Millisecond
 
@@ -55,41 +51,43 @@ type Options struct {
 
 // Game is the game engine and representation of the game world.
 type Game struct {
-	doneChan         chan bool
-	interaction      *interaction.Manager
-	interfaces       map[int]*model.Interface
-	items            map[int]*model.Item
-	lastPlayerUpdate time.Time
-	ticker           *time.Ticker
-	mapManager       *MapManager
-	mu               sync.RWMutex
-	players          []*playerEntity
-	playerIndices    [maxPlayers]int
-	objects          []*model.WorldObject
-	playersOnline    sync.Map
-	removePlayers    map[int]*playerEntity
-	regions          map[model.Vector2D]*RegionManager
-	scripts          *ScriptManager
-	telemetry        telemetry.Telemetry
-	tick             uint64
-	welcomeMessage   string
-	worldID          int
-	worldMap         *model.Map
+	doneChan              chan bool
+	interaction           *interaction.Manager
+	interfaces            map[int]*model.Interface
+	items                 map[int]*model.Item
+	lastPlayerUpdate      time.Time
+	ticker                *time.Ticker
+	mapManager            *MapManager
+	mu                    sync.RWMutex
+	players               []*playerEntity
+	playerIndices         [maxPlayers]int
+	playerMaxIdleInterval time.Duration
+	objects               []*model.WorldObject
+	playersOnline         sync.Map
+	removePlayers         map[int]*playerEntity
+	regions               map[model.Vector2D]*RegionManager
+	scripts               *ScriptManager
+	telemetry             telemetry.Telemetry
+	tick                  uint64
+	welcomeMessage        string
+	worldID               int
+	worldMap              *model.Map
 }
 
 // NewGame creates a new game engine using the given configuration.
 func NewGame(opts Options) (*Game, error) {
 	g := &Game{
-		doneChan:       make(chan bool, 1),
-		interaction:    interaction.New(opts.Config.Interfaces),
-		interfaces:     map[int]*model.Interface{},
-		items:          map[int]*model.Item{},
-		playerIndices:  [maxPlayers]int{},
-		removePlayers:  map[int]*playerEntity{},
-		telemetry:      opts.Telemetry,
-		tick:           0,
-		welcomeMessage: opts.Config.Server.WelcomeMessage,
-		worldID:        opts.Config.Server.WorldID,
+		doneChan:              make(chan bool, 1),
+		interaction:           interaction.New(opts.Config.Interfaces),
+		interfaces:            map[int]*model.Interface{},
+		items:                 map[int]*model.Item{},
+		playerIndices:         [maxPlayers]int{},
+		playerMaxIdleInterval: time.Duration(int64(opts.Config.Server.PlayerMaxIdleTimeSeconds) * int64(time.Second)),
+		removePlayers:         map[int]*playerEntity{},
+		telemetry:             opts.Telemetry,
+		tick:                  0,
+		welcomeMessage:        opts.Config.Server.WelcomeMessage,
+		worldID:               opts.Config.Server.WorldID,
 	}
 
 	// initialize player index tracker
@@ -1514,7 +1512,7 @@ func (g *Game) handleGameUpdate() error {
 		pe.mu.Lock()
 
 		// add this player to the removal list if they have idled for too long
-		if time.Now().Sub(pe.lastInteraction) >= playerMaxIdleInterval {
+		if time.Now().Sub(pe.lastInteraction) >= g.playerMaxIdleInterval {
 			g.removePlayers[pe.player.ID] = pe
 		}
 	}

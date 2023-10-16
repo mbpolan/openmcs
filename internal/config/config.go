@@ -12,13 +12,14 @@ type Config struct {
 
 // ServerConfig contains parameters for the game server.
 type ServerConfig struct {
-	Host           string `mapstructure:"host"`
-	Port           int    `mapstructure:"port"`
-	WorldID        int    `mapstructure:"worldId"`
-	AssetDir       string `mapstructure:"assetDir"`
-	ScriptsDir     string `mapstructure:"scriptsDir"`
-	LogLevel       string `mapstructure:"logLevel"`
-	WelcomeMessage string `mapstructure:"welcomeMessage"`
+	Host                     string `mapstructure:"host"`
+	Port                     int    `mapstructure:"port"`
+	WorldID                  int    `mapstructure:"worldId"`
+	AssetDir                 string `mapstructure:"assetDir"`
+	ScriptsDir               string `mapstructure:"scriptsDir"`
+	LogLevel                 string `mapstructure:"logLevel"`
+	WelcomeMessage           string `mapstructure:"welcomeMessage"`
+	PlayerMaxIdleTimeSeconds int    `mapstructure:"playerMaxIdleTimeSeconds"`
 }
 
 // StoreConfig contains parameters for the backend database.
