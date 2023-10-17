@@ -44,6 +44,7 @@ function init_player_tabs(player)
     end
 
     -- update other interfaces
+    interface_147_on_update(player)
     interface_638_on_update(player)
 end
 
