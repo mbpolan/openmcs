@@ -1613,7 +1613,7 @@ func (g *Game) handleGameUpdate() error {
 			remaining := len(pe.path) - pe.nextPathIdx
 
 			// move the player one segment if they are walking, or if there's only one segment left while running
-			if pe.movementSpeed == model.MovementSpeedWalk || remaining == 1 {
+			if pe.player.MovementSpeed == model.MovementSpeedWalk || remaining == 1 {
 				next := pe.path[pe.nextPathIdx]
 
 				// add the change in direction to the local player's movement
@@ -2120,7 +2120,7 @@ func (g *Game) handleSetSidebarTab(pe *playerEntity, tab model.ClientTab) {
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) handleChangePlayerMovementSpeed(pe *playerEntity, speed model.MovementSpeed) {
 	// TODO: check run energy and other preconditions
-	pe.movementSpeed = speed
+	pe.player.MovementSpeed = speed
 }
 
 // handleChangePlayerAutoRetaliate changes a player's auto-retaliate combat option.

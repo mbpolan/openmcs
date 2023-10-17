@@ -29,6 +29,8 @@ CREATE TABLE PLAYER (
     FLAGGED INTEGER NOT NULL,
     -- flag if the player is muted
     MUTED INTEGER NOT NULL,
+    -- whether the player is walking or running
+    MOVEMENT_SPEED INTEGER NOT NULL,
     -- mode for player's public chat
     PUBLIC_CHAT_MODE INTEGER NOT NULL,
     -- mode for player's private chat

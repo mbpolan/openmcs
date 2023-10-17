@@ -40,7 +40,6 @@ type playerEntity struct {
 	graphicTicks        int
 	graphicApplied      bool
 	isLowMemory         bool
-	movementSpeed       model.MovementSpeed
 }
 
 type playerStatusBroadcast struct {
@@ -57,7 +56,6 @@ func newPlayerEntity(p *model.Player, w *network.ProtocolWriter) *playerEntity {
 		player:           p,
 		tracking:         map[int]*playerEntity{},
 		changeChan:       changeChan,
-		movementSpeed:    model.MovementSpeedWalk,
 		doneChan:         make(chan bool, 1),
 		outChan:          make(chan response.Response, maxQueueSize),
 		privateMessageID: 1,

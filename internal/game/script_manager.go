@@ -508,7 +508,7 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 				return 0
 			}
 
-			state.Push(lua.LNumber(pe.movementSpeed))
+			state.Push(lua.LNumber(pe.player.MovementSpeed))
 			return 1
 		},
 		"animate": func(state *lua.LState) int {

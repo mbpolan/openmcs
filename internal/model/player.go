@@ -81,6 +81,8 @@ type Player struct {
 	MusicTracks map[int]bool
 	// UpdateDesign is true when the player should be shown the character design interface, false if not.
 	UpdateDesign bool
+	// MovementSpeed determines if the player is moving by walking or running
+	MovementSpeed MovementSpeed
 }
 
 // PlayerModes indicates what types of chat and interactions a player wishes to receive.
@@ -128,6 +130,7 @@ func NewPlayer(username string) *Player {
 		QuestStatuses: map[int]QuestStatus{},
 		QuestFlags:    map[int]map[int]int{},
 		MusicTracks:   map[int]bool{},
+		MovementSpeed: MovementSpeedWalk,
 	}
 }
 
