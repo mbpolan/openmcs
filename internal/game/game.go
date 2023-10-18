@@ -1642,6 +1642,20 @@ func (g *Game) handleGameUpdate() error {
 				// update the player's position to the second position in the path
 				pe.player.GlobalPos.X = second.X
 				pe.player.GlobalPos.Y = second.Y
+
+				// deduct the player's run energy
+				runDelta := float32((math.Min(float64(pe.player.Weight()), 64.0) / 100.0) + 0.64)
+				pe.player.RunEnergy -= runDelta
+
+				// disable run if the player is out of energy
+				if pe.player.RunEnergy <= 0.0 {
+					pe.player.MovementSpeed = model.MovementSpeedWalk
+					pe.player.RunEnergy = 0.0
+
+				}
+
+				// send the player their current run energy
+				pe.DeferSendRunEnergy()
 			}
 
 			// check if the player has moved into a new map region, and schedule a map region load is that's the case

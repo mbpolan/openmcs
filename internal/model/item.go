@@ -61,7 +61,7 @@ type ItemAttributes struct {
 	// Speed is the amount of milliseconds between item actions.
 	Speed int
 	// Weight is the weight of the item.
-	Weight float64
+	Weight float32
 	// Value is the value of the item, in coins.
 	Value int
 	// AttackBonuses are the offensive combat attributes.

@@ -71,8 +71,8 @@ type Player struct {
 	AttackStyles map[WeaponStyle]AttackStyle
 	// GameOptions is a map of client/game option IDs to their values.
 	GameOptions map[int]string
-	// RunEnergy is the player's run energy.
-	RunEnergy float64
+	// RunEnergy is the player's run energy, as a percentage of 100.
+	RunEnergy float32
 	// QuestStatus is a map of quest IDs to their status.
 	QuestStatuses map[int]QuestStatus
 	// QuestFlags is a map of quest IDs to maps of their flag IDs to values.
@@ -145,8 +145,8 @@ func (p *Player) SetAttackStyle(weaponStyle WeaponStyle, attackStyle AttackStyle
 }
 
 // Weight returns the total weight of all player inventory and equipment.
-func (p *Player) Weight() float64 {
-	weight := 0.0
+func (p *Player) Weight() float32 {
+	weight := float32(0.0)
 
 	// factor in any inventory items that have a weight value
 	for _, slot := range p.Inventory {
@@ -154,7 +154,7 @@ func (p *Player) Weight() float64 {
 			continue
 		}
 
-		weight += slot.Item.Attributes.Weight * float64(slot.Amount)
+		weight += slot.Item.Attributes.Weight * float32(slot.Amount)
 	}
 
 	// and equipped items with weights
@@ -163,7 +163,7 @@ func (p *Player) Weight() float64 {
 			continue
 		}
 
-		weight += slot.Item.Attributes.Weight * float64(slot.Amount)
+		weight += slot.Item.Attributes.Weight * float32(slot.Amount)
 	}
 
 	return weight

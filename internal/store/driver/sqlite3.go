@@ -163,7 +163,7 @@ func (s *SQLite3Driver) LoadItemAttributes() ([]*model.ItemAttributes, error) {
 			EquipSlotType: equipSlotID,
 			WeaponStyle:   weaponStyle,
 			Speed:         itemSpeed,
-			Weight:        weight,
+			Weight:        float32(weight),
 			Value:         value,
 			Attack: model.ItemCombatAttributes{
 				Stab:  safeNullInt32(atkStab, 0),
