@@ -35,6 +35,7 @@ const (
 	ActionCastSpellOnItem
 	ActionExperienceGrant
 	ActionSendRunEnergy
+	ActionSendChangeEvent
 	ActionSendWeight
 	ActionPlayMusic
 	ActionDelayCurrent
@@ -56,6 +57,7 @@ type Action struct {
 	CastSpellOnItemAction   *CastSpellOnItemAction
 	ExperienceGrantAction   *ExperienceGrantAction
 	PlayMusicAction         *PlayMusicAction
+	PlayerChangeEventAction *PlayerChangeEventAction
 }
 
 // ActionResult is a bitmask describing the mutations resulting from an action.
@@ -139,4 +141,9 @@ type ExperienceGrantAction struct {
 // PlayMusicAction is an action to instruct the player's client to play a song.
 type PlayMusicAction struct {
 	MusicID int
+}
+
+// PlayerChangeEventAction is an action to handle a change to a player's attributes.
+type PlayerChangeEventAction struct {
+	Event model.PlayerChangeEvent
 }
