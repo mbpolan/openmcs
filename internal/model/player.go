@@ -8,8 +8,18 @@ import (
 // MaxInventorySlots is the maximum number of inventory slots.
 const MaxInventorySlots = 28
 
+// MaxRunEnergyUnits is the maximum run energy a player may have, in units.
+const MaxRunEnergyUnits = 10000
+
 // MaxStackableSize is the maximum size of a single stack of an item.
 var MaxStackableSize = int64(math.Pow(2, 31) - 1)
+
+// PlayerChangeEvent is an event that occurs on a player's attributes.
+type PlayerChangeEvent int
+
+const (
+	PlayerChangeRunEnergy PlayerChangeEvent = iota
+)
 
 // PlayerType enumerates the possible player access levels.
 type PlayerType int
@@ -71,8 +81,8 @@ type Player struct {
 	AttackStyles map[WeaponStyle]AttackStyle
 	// GameOptions is a map of client/game option IDs to their values.
 	GameOptions map[int]string
-	// RunEnergy is the player's run energy, as a percentage of 100.
-	RunEnergy float32
+	// RunEnergy is the player's run energy.
+	RunEnergy int
 	// QuestStatus is a map of quest IDs to their status.
 	QuestStatuses map[int]QuestStatus
 	// QuestFlags is a map of quest IDs to maps of their flag IDs to values.
@@ -126,7 +136,7 @@ func NewPlayer(username string) *Player {
 		AttackStyles:  InitAttackStyleMap(),
 		Skills:        EmptySkillMap(),
 		GameOptions:   map[int]string{},
-		RunEnergy:     100.0,
+		RunEnergy:     MaxRunEnergyUnits,
 		QuestStatuses: map[int]QuestStatus{},
 		QuestFlags:    map[int]map[int]int{},
 		MusicTracks:   map[int]bool{},
@@ -142,6 +152,11 @@ func (p *Player) AttackStyle(weaponStyle WeaponStyle) AttackStyle {
 // SetAttackStyle sets the active attack style for a weapon style, overwriting any previously applied style.
 func (p *Player) SetAttackStyle(weaponStyle WeaponStyle, attackStyle AttackStyle) {
 	p.AttackStyles[weaponStyle] = attackStyle
+}
+
+// RunEnergyPercentage returns the player's current run energy as a percentage of the maximum run energy.
+func (p *Player) RunEnergyPercentage() float32 {
+	return (float32(p.RunEnergy) / 10000.0) * 100.0
 }
 
 // Weight returns the total weight of all player inventory and equipment.

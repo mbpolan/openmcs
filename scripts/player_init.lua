@@ -86,3 +86,15 @@ function init_player_game_options(player)
         player:game_option(GAME_OPTION_EFFECTS_VOLUME, "4")
     end
 end
+
+--- Handles an event that informs the script that a player's attribute or property has changed.
+-- @param event The type of event
+-- @param player The player
+function handle_player_change_event(event, player)
+    -- player's run energy has changed
+    if event == CHANGE_RUN_ENERGY then
+        interface_147_on_update(player)
+    else
+        print("Unknown change event: ", event)
+    end
+end

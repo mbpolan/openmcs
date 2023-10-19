@@ -83,6 +83,11 @@ func (s *ScriptManager) DoPlayerInit(pe *playerEntity) error {
 	return s.doFunctionVoid("init_player_tabs", s.playerEntityType(pe, s.state))
 }
 
+// DoPlayerChangeEvent executes a script to handle a change on a player's attributes.
+func (s *ScriptManager) DoPlayerChangeEvent(event model.PlayerChangeEvent, pe *playerEntity) error {
+	return s.doFunctionVoid("handle_player_change_event", lua.LNumber(event), s.playerEntityType(pe, s.state))
+}
+
 // DoInterface executes an interface script for an action performed by the player.
 func (s *ScriptManager) DoInterface(pe *playerEntity, parent, actor *model.Interface, opCode int) error {
 	function := fmt.Sprintf("interface_%d_on_action", parent.ID)

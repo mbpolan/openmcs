@@ -414,6 +414,17 @@ func (pe *playerEntity) DeferExperienceGrant(skillType model.SkillType, experien
 	}, ActionPriorityHigh)
 }
 
+// DeferSendChangeEvent plans an action to communicate that an attribute on the player has changed.
+func (pe *playerEntity) DeferSendChangeEvent(event model.PlayerChangeEvent) {
+	pe.planAction(&Action{
+		ActionType: ActionSendChangeEvent,
+		TickDelay:  1,
+		PlayerChangeEventAction: &PlayerChangeEventAction{
+			Event: event,
+		},
+	})
+}
+
 // DeferSendRunEnergy plans an action send a player their current run energy.
 func (pe *playerEntity) DeferSendRunEnergy() {
 	pe.planAction(&Action{

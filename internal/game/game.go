@@ -1644,14 +1644,16 @@ func (g *Game) handleGameUpdate() error {
 				pe.player.GlobalPos.Y = second.Y
 
 				// deduct the player's run energy
-				runDelta := float32((math.Min(float64(pe.player.Weight()), 64.0) / 100.0) + 0.64)
-				pe.player.RunEnergy -= runDelta
+				runDelta := math.Floor((67*math.Min(0, float64(util.Clamp(pe.player.Weight(), 0, 64))))/64) + 67
+				pe.player.RunEnergy -= int(runDelta)
 
 				// disable run if the player is out of energy
-				if pe.player.RunEnergy <= 0.0 {
+				if pe.player.RunEnergy <= 0 {
 					pe.player.MovementSpeed = model.MovementSpeedWalk
-					pe.player.RunEnergy = 0.0
+					pe.player.RunEnergy = 0
 
+					// update the player's run energy on the client
+					pe.DeferSendChangeEvent(model.PlayerChangeRunEnergy)
 				}
 
 				// send the player their current run energy
@@ -1980,8 +1982,16 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 
 			pe.RemoveDeferredAction(deferred)
 
+		case ActionSendChangeEvent:
+			action := deferred.PlayerChangeEventAction
+
+			err := g.scripts.DoPlayerChangeEvent(action.Event, pe)
+			if err != nil {
+				logger.Warnf("failed to execute player change event script: %s", err)
+			}
+
 		case ActionSendRunEnergy:
-			energy := &response.PlayerRunEnergyResponse{RunEnergy: int(pe.player.RunEnergy)}
+			energy := &response.PlayerRunEnergyResponse{RunEnergy: int(pe.player.RunEnergyPercentage())}
 			pe.Send(energy)
 			pe.RemoveDeferredAction(deferred)
 
