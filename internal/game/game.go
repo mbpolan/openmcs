@@ -1608,6 +1608,7 @@ func (g *Game) handleGameUpdate() error {
 		}
 
 		// check if the player is moving
+		blockRunEnergyRecovery := false
 		if pe.Moving() {
 			// determine how many segments are left to traverse in the path
 			remaining := len(pe.path) - pe.nextPathIdx
@@ -1627,6 +1628,9 @@ func (g *Game) handleGameUpdate() error {
 				// move past this path segment
 				pe.nextPathIdx++
 			} else {
+				// prevent the player from recovering run energy
+				blockRunEnergyRecovery = true
+
 				// find the first direction to move in
 				first := pe.path[pe.nextPathIdx]
 				pe.nextPathIdx++
@@ -1693,6 +1697,15 @@ func (g *Game) handleGameUpdate() error {
 				pe.regionOrigin = origin
 				changedRegions[pe.player.ID] = true
 			}
+		}
+
+		// recover run energy if applicable
+		if pe.player.RunEnergy < model.MaxRunEnergyUnits && !blockRunEnergyRecovery {
+			agility := pe.player.Skills[model.SkillTypeAgility]
+			runDelta := int(math.Ceil(float64(agility.Level)/6.0) + 8)
+
+			pe.player.RunEnergy = util.Min(pe.player.RunEnergy+runDelta, model.MaxRunEnergyUnits)
+			pe.DeferSendRunEnergy()
 		}
 
 		// broadcast this player's status to friends and other target players if required
