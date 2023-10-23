@@ -11,6 +11,9 @@ const MaxInventorySlots = 28
 // MaxRunEnergyUnits is the maximum run energy a player may have, in units.
 const MaxRunEnergyUnits = 10000
 
+// DefaultPrayerResistance is the default prayer resistance for a player.
+const DefaultPrayerResistance = 60
+
 // MaxStackableSize is the maximum size of a single stack of an item.
 var MaxStackableSize = int64(math.Pow(2, 31) - 1)
 
@@ -93,6 +96,12 @@ type Player struct {
 	UpdateDesign bool
 	// MovementSpeed determines if the player is moving by walking or running
 	MovementSpeed MovementSpeed
+	// PrayerPointCounter is the player's current usage of activated prayer drain points.
+	PrayerPointCounter int
+	// ActivePrayerDrain is the total prayer drain counter applied to the player.
+	ActivePrayerDrain int
+	// ActivePrayers is a slice of prayer IDs for prayers that are currently active on the player.
+	ActivePrayers []int
 }
 
 // PlayerModes indicates what types of chat and interactions a player wishes to receive.
@@ -131,16 +140,17 @@ func NewPlayer(username string) *Player {
 	}
 
 	return &Player{
-		Username:      username,
-		Appearance:    appearance,
-		AttackStyles:  InitAttackStyleMap(),
-		Skills:        EmptySkillMap(),
-		GameOptions:   map[int]string{},
-		RunEnergy:     MaxRunEnergyUnits,
-		QuestStatuses: map[int]QuestStatus{},
-		QuestFlags:    map[int]map[int]int{},
-		MusicTracks:   map[int]bool{},
-		MovementSpeed: MovementSpeedWalk,
+		Username:           username,
+		Appearance:         appearance,
+		AttackStyles:       InitAttackStyleMap(),
+		Skills:             EmptySkillMap(),
+		GameOptions:        map[int]string{},
+		RunEnergy:          MaxRunEnergyUnits,
+		QuestStatuses:      map[int]QuestStatus{},
+		QuestFlags:         map[int]map[int]int{},
+		MusicTracks:        map[int]bool{},
+		MovementSpeed:      MovementSpeedWalk,
+		PrayerPointCounter: 0,
 	}
 }
 
@@ -152,6 +162,11 @@ func (p *Player) AttackStyle(weaponStyle WeaponStyle) AttackStyle {
 // SetAttackStyle sets the active attack style for a weapon style, overwriting any previously applied style.
 func (p *Player) SetAttackStyle(weaponStyle WeaponStyle, attackStyle AttackStyle) {
 	p.AttackStyles[weaponStyle] = attackStyle
+}
+
+// PrayerDrainResistance returns the player's resistance threshold to losing prayer points.
+func (p *Player) PrayerDrainResistance() int {
+	return DefaultPrayerResistance
 }
 
 // RunEnergyPercentage returns the player's current run energy as a percentage of the maximum run energy.

@@ -13,6 +13,7 @@ import (
 	"github.com/mbpolan/openmcs/internal/util"
 	"github.com/pkg/errors"
 	"math"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -2201,6 +2202,18 @@ func (g *Game) handleShowInterface(pe *playerEntity, interfaceID int) {
 // elapsed.
 func (g *Game) handleDelayCurrentAction(pe *playerEntity, tickDuration int) {
 	pe.DeferActionCompletion(tickDuration)
+}
+
+// handleTogglePrayer enables or disables a prayer.
+func (g *Game) handleTogglePrayer(pe *playerEntity, prayerID, drain int) {
+	idx := slices.Index(pe.player.ActivePrayers, prayerID)
+	if idx == -1 {
+		pe.player.ActivePrayers = append(pe.player.ActivePrayers, prayerID)
+		pe.player.PrayerPointCounter += drain
+	} else {
+		pe.player.ActivePrayers = slices.Delete(pe.player.ActivePrayers, idx, idx)
+		pe.player.PrayerPointCounter -= drain
+	}
 }
 
 // handlePlayerSwapInventoryItem handles moving an item from one slot to another in a player's inventory.

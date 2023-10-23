@@ -23,7 +23,12 @@ function interface_5608_on_action(player, interface)
     end
 
     -- TODO: check if player meets level requirements
-    -- TODO: activate prayer
+
+    if prayer_id == PRAYER_THICK_SKIN then
+        prayer_thick_skin(player)
+    else
+        player:server_message("This prayer is not yet available!")
+    end
 end
 
 --- Handles updating the prayer interface.

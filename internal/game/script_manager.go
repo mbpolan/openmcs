@@ -624,6 +624,14 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			s.handler.handleTeleportPlayer(pe, model.Vector3D{X: x, Y: y, Z: z})
 			return 0
 		},
+		"toggle_prayer": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			prayerID := state.CheckInt(2)
+			drain := state.CheckInt(3)
+
+			s.handler.handleTogglePrayer(pe, prayerID, drain)
+			return 0
+		},
 	}))
 }
 
