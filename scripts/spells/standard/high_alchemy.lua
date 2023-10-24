@@ -4,7 +4,7 @@
 -- @param slot_id The ID of the inventory slot containing the item
 -- @return true if the spell is complete and has no pending actions, false if not
 function spell_high_alchemy(player, item, slot_id)
-    local ok = skill_level_minimum(player, SKILL_MAGIC, 55, "You need magic level 55 to cast this spell.")
+    local ok = stat_level_minimum(player, SKILL_MAGIC, 55, "You need magic level 55 to cast this spell.")
     if not ok then
         return true
     end

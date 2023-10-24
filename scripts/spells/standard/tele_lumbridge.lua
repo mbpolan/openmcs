@@ -1,7 +1,7 @@
 --- Casts the Teleport to Lumbridge spell
 -- @param player The player casting the spell
 function spell_teleport_lumbridge(player)
-    local ok = skill_level_minimum(player, SKILL_MAGIC, 31, "You need magic level 31 to cast this spell.")
+    local ok = stat_level_minimum(player, SKILL_MAGIC, 31, "You need magic level 31 to cast this spell.")
     if not ok then
         return
     end

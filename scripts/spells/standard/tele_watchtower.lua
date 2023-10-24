@@ -1,7 +1,7 @@
 --- Casts the Teleport to Watchtower spell
 -- @param player The player casting the spell
 function spell_teleport_watchtower(player)
-    local ok = skill_level_minimum(player, SKILL_MAGIC, 58, "You need magic level 58 to cast this spell.")
+    local ok = stat_level_minimum(player, SKILL_MAGIC, 58, "You need magic level 58 to cast this spell.")
     if not ok then
         return
     end

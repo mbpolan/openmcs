@@ -1,7 +1,7 @@
 -- Casts the Teleport to Varrock spell
 -- @param player The player casting the spell
 function spell_teleport_varrock(player)
-    local ok = skill_level_minimum(player, SKILL_MAGIC, 25, "You need magic level 25 to cast this spell.")
+    local ok = stat_level_minimum(player, SKILL_MAGIC, 25, "You need magic level 25 to cast this spell.")
     if not ok then
         return
     end

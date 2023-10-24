@@ -1,7 +1,7 @@
 --- Casts the Teleport to Ape Atoll spell
 -- @param player The player casting the spell
 function spell_teleport_ape_atoll(player)
-    local ok = skill_level_minimum(player, SKILL_MAGIC, 64, "You need magic level 64 to cast this spell.")
+    local ok = stat_level_minimum(player, SKILL_MAGIC, 64, "You need magic level 64 to cast this spell.")
     if not ok then
         return
     end

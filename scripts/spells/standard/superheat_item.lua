@@ -4,7 +4,7 @@
 -- @param slot_id The ID of the inventory slot containing the item
 -- @return true if the spell is complete and has no pending actions, false if not
 function spell_superheat_item(player, item, slot_id)
-    local ok = skill_level_minimum(player, SKILL_MAGIC, 43, "You need magic level 43 to cast this spell.")
+    local ok = stat_level_minimum(player, SKILL_MAGIC, 43, "You need magic level 43 to cast this spell.")
     if not ok then
         return true
     end
@@ -125,7 +125,7 @@ function spell_superheat_item(player, item, slot_id)
     end
 
     -- validate the player has the minimum required smithing level
-    ok = skill_level_minimum(player, SKILL_SMITH, min_smith_level, "You need smithing level " .. min_smith_level .. " to smelt this bar.")
+    ok = stat_level_minimum(player, SKILL_SMITH, min_smith_level, "You need smithing level " .. min_smith_level .. " to smelt this bar.")
     if not ok then
         return true
     end

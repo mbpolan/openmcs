@@ -1,7 +1,7 @@
 --- Casts the Teleport to Falador spell
 -- @param player The player casting the spell
 function spell_teleport_falador(player)
-    local ok = skill_level_minimum(player, SKILL_MAGIC, 37, "You need magic level 37 to cast this spell.")
+    local ok = stat_level_minimum(player, SKILL_MAGIC, 37, "You need magic level 37 to cast this spell.")
     if not ok then
         return
     end
