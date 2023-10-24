@@ -630,12 +630,27 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			s.handler.handleTeleportPlayer(pe, model.Vector3D{X: x, Y: y, Z: z})
 			return 0
 		},
-		"toggle_prayer": func(state *lua.LState) int {
+		"has_prayer_active": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			prayerID := state.CheckInt(2)
+
+			_, ok := pe.player.ActivePrayers[prayerID]
+			state.Push(lua.LBool(ok))
+			return 1
+		},
+		"activate_prayer": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 			prayerID := state.CheckInt(2)
 			drain := state.CheckInt(3)
 
-			s.handler.handleTogglePrayer(pe, prayerID, drain)
+			s.handler.handleActivatePrayer(pe, prayerID, drain)
+			return 0
+		},
+		"deactivate_prayer": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			prayerID := state.CheckInt(2)
+
+			s.handler.handleDeactivatePrayer(pe, prayerID)
 			return 0
 		},
 	}))

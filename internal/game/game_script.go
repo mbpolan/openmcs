@@ -64,6 +64,8 @@ type ScriptHandler interface {
 	// handleDelayCurrentAction blocks the player from performing other actions until a set amount of game ticks have
 	// elapsed.
 	handleDelayCurrentAction(pe *playerEntity, tickDuration int)
-	// handleTogglePrayer enables or disables a prayer.
-	handleTogglePrayer(pe *playerEntity, prayerID, drain int)
+	// handleActivatePrayer enables a prayer.
+	handleActivatePrayer(pe *playerEntity, prayerID, drain int)
+	// handleDeactivatePrayer disables a prayer.
+	handleDeactivatePrayer(pe *playerEntity, prayerID int)
 }

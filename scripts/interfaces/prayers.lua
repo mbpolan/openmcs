@@ -22,10 +22,17 @@ function interface_5608_on_action(player, interface)
         return
     end
 
-    -- TODO: check if player meets level requirements
+    -- determine if this prayer is to be activated or deactivated
+    local activate = player:has_prayer_active(prayer_id) == false
+
+    -- ensure the player has at least one prayer point before activating a prayer
+    if activate and player:stat_level(SKILL_PRAYER) == 0 then
+        player:server_message("You need to recharge your Prayer at an altar.")
+        return
+    end
 
     if prayer_id == PRAYER_THICK_SKIN then
-        prayer_thick_skin(player)
+        prayer_thick_skin(player, activate)
     else
         player:server_message("This prayer is not yet available!")
     end

@@ -1618,9 +1618,9 @@ func (g *Game) handleGameUpdate() error {
 				if pe.player.PrayerDrainCounter > pe.player.PrayerDrainResistance() {
 					pe.player.PrayerDrainCounter -= pe.player.PrayerDrainResistance()
 
+					// deduct from the player's prayer points (stat level) and send the client an update
 					prayerStatLevel := max(pe.player.Skills[model.SkillTypePrayer].StatLevel-1, 0)
 					pe.player.Skills[model.SkillTypePrayer].StatLevel = prayerStatLevel
-
 					pe.DeferSendSkills([]model.SkillType{model.SkillTypePrayer})
 
 					// if the player has no more prayer points, deactivate all prayers
@@ -1628,6 +1628,8 @@ func (g *Game) handleGameUpdate() error {
 						clear(pe.player.ActivePrayers)
 						pe.player.PrayerDrainCounter = 0
 						pe.DeferSendServerMessage("You have run out of prayer points, you can recharge at an altar.")
+
+						// TODO: this should call out to scripts to handle deactivation
 					}
 				}
 			}
@@ -2232,14 +2234,16 @@ func (g *Game) handleDelayCurrentAction(pe *playerEntity, tickDuration int) {
 	pe.DeferActionCompletion(tickDuration)
 }
 
-// handleTogglePrayer enables or disables a prayer.
-func (g *Game) handleTogglePrayer(pe *playerEntity, prayerID, drain int) {
-	_, ok := pe.player.ActivePrayers[prayerID]
-	if ok {
-		delete(pe.player.ActivePrayers, prayerID)
-	} else {
-		pe.player.ActivePrayers[prayerID] = drain
-	}
+// handleActivatePrayer enables a prayer.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleActivatePrayer(pe *playerEntity, prayerID, drain int) {
+	pe.player.ActivePrayers[prayerID] = drain
+}
+
+// handleDeactivatePrayer disables a prayer.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleDeactivatePrayer(pe *playerEntity, prayerID int) {
+	delete(pe.player.ActivePrayers, prayerID)
 }
 
 // handlePlayerSwapInventoryItem handles moving an item from one slot to another in a player's inventory.
