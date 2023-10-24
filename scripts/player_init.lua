@@ -46,6 +46,7 @@ function init_player_tabs(player)
     -- update other interfaces
     interface_147_on_update(player)
     interface_638_on_update(player)
+    interface_5608_on_update(player)
 end
 
 --- Initializes a player's game option preferences.

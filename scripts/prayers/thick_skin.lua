@@ -9,7 +9,9 @@ function prayer_thick_skin(player, activate)
         end
 
         player:activate_prayer(PRAYER_THICK_SKIN, 3)
+        player:interface_setting(83, 1)
     else
         player:deactivate_prayer(PRAYER_THICK_SKIN)
+        player:interface_setting(83, 0)
     end
 end

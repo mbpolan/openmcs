@@ -41,5 +41,6 @@ end
 --- Handles updating the prayer interface.
 -- @param player The player
 function interface_5608_on_update(player)
-    -- TODO
+    -- synchronize all prayers with the player's set of active prayers
+    prayer_thick_skin(player, player:has_prayer_active(PRAYER_THICK_SKIN))
 end
