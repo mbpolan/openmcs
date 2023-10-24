@@ -18,7 +18,7 @@ type SkillDataResponse struct {
 func NewSkillDataResponse(skill *model.Skill) *SkillDataResponse {
 	return &SkillDataResponse{
 		id:         int(skill.Type),
-		level:      skill.Level,
+		level:      skill.StatLevel,
 		experience: int(skill.Experience),
 	}
 }

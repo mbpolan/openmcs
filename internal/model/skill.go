@@ -34,8 +34,13 @@ const (
 
 // Skill represents progress in a single skill.
 type Skill struct {
-	Type       SkillType
-	Level      int
+	// Type is the unique identifier for the skill.
+	Type SkillType
+	// StatLevel is the current, effective level for the skill modified by (de)buffs.
+	StatLevel int
+	// BaseLevel is the skill's level based on experience points.
+	BaseLevel int
+	// Experience is the number of experience points gained in the skill.
 	Experience float64
 }
 
@@ -43,7 +48,8 @@ type Skill struct {
 func NewSkill(skillType SkillType) *Skill {
 	return &Skill{
 		Type:       skillType,
-		Level:      1,
+		StatLevel:  1,
+		BaseLevel:  1,
 		Experience: 0,
 	}
 }

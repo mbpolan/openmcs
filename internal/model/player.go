@@ -202,7 +202,7 @@ func (p *Player) Weight() float32 {
 // recomputed after the fact.
 func (p *Player) SetSkillExperience(skillType SkillType, experience float64) {
 	p.Skills[skillType].Experience = experience
-	p.Skills[skillType].Level = p.recomputeSkillLevel(experience)
+	p.Skills[skillType].BaseLevel = p.recomputeSkillLevel(experience)
 	p.recomputeCombatSkills()
 }
 
@@ -404,16 +404,16 @@ func (p *Player) recomputeCombatSkills() {
 
 	// compute the total skill level
 	for _, skill := range p.Skills {
-		totalLevel += skill.Level
+		totalLevel += skill.BaseLevel
 	}
 
 	p.Appearance.TotalLevel = totalLevel
 
 	// compute each component of the combat level
-	base := 0.25 * (float64(p.Skills[SkillTypeDefense].Level+p.Skills[SkillTypeHitpoints].Level) + math.Floor(float64(p.Skills[SkillTypePrayer].Level)*0.5))
-	melee := 0.325 * (float64(p.Skills[SkillTypeAttack].Level + p.Skills[SkillTypeStrength].Level))
-	ranged := 0.325 * math.Floor(float64(p.Skills[SkillTypeRanged].Level)*1.5)
-	magic := 0.325 * math.Floor(float64(p.Skills[SkillTypeMagic].Level)*1.5)
+	base := 0.25 * (float64(p.Skills[SkillTypeDefense].BaseLevel+p.Skills[SkillTypeHitpoints].BaseLevel) + math.Floor(float64(p.Skills[SkillTypePrayer].BaseLevel)*0.5))
+	melee := 0.325 * (float64(p.Skills[SkillTypeAttack].BaseLevel + p.Skills[SkillTypeStrength].BaseLevel))
+	ranged := 0.325 * math.Floor(float64(p.Skills[SkillTypeRanged].BaseLevel)*1.5)
+	magic := 0.325 * math.Floor(float64(p.Skills[SkillTypeMagic].BaseLevel)*1.5)
 
 	// compute the final combat level
 	p.Appearance.CombatLevel = int(math.Floor(base + math.Max(math.Max(melee, ranged), magic)))

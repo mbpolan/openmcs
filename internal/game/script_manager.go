@@ -334,10 +334,16 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			s.handler.handleShowInterface(pe, interfaceID)
 			return 0
 		},
+		"stat_level": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			skillType := model.SkillType(state.CheckInt(2))
+			state.Push(lua.LNumber(pe.player.Skills[skillType].StatLevel))
+			return 1
+		},
 		"skill_level": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 			skillType := model.SkillType(state.CheckInt(2))
-			state.Push(lua.LNumber(pe.player.Skills[skillType].Level))
+			state.Push(lua.LNumber(pe.player.Skills[skillType].BaseLevel))
 			return 1
 		},
 		"interface_color": func(state *lua.LState) int {

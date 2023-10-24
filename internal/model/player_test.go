@@ -58,6 +58,6 @@ func Test_Player_SetSkillExperience_level(t *testing.T) {
 	// level 10
 	p.SetSkillExperience(SkillTypePrayer, 1160)
 
-	assert.Equal(t, 2, p.Skills[SkillTypeFletching].Level)
-	assert.Equal(t, 10, p.Skills[SkillTypePrayer].Level)
+	assert.Equal(t, 2, p.Skills[SkillTypeFletching].BaseLevel)
+	assert.Equal(t, 10, p.Skills[SkillTypePrayer].BaseLevel)
 }

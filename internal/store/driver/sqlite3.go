@@ -1067,7 +1067,7 @@ func (s *SQLite3Driver) savePlayerSkills(p *model.Player) error {
 		bulk = append(bulk, valueTemplate)
 		values = append(values, p.ID)
 		values = append(values, int(v.Type))
-		values = append(values, v.Level)
+		values = append(values, v.BaseLevel)
 		values = append(values, v.Experience)
 	}
 

@@ -1617,12 +1617,14 @@ func (g *Game) handleGameUpdate() error {
 				// point from their stats
 				if pe.player.PrayerDrainCounter > pe.player.PrayerDrainResistance() {
 					pe.player.PrayerDrainCounter -= pe.player.PrayerDrainResistance()
-					pe.player.CombatStats.Prayer = util.Max(pe.player.CombatStats.Prayer-1, 0)
+
+					prayerStatLevel := max(pe.player.Skills[model.SkillTypePrayer].StatLevel-1, 0)
+					pe.player.Skills[model.SkillTypePrayer].StatLevel = prayerStatLevel
 
 					pe.DeferSendSkills([]model.SkillType{model.SkillTypePrayer})
 
 					// if the player has no more prayer points, deactivate all prayers
-					if pe.player.CombatStats.Prayer == 0 {
+					if prayerStatLevel == 0 {
 						clear(pe.player.ActivePrayers)
 						pe.player.PrayerDrainCounter = 0
 						pe.DeferSendServerMessage("You have run out of prayer points, you can recharge at an altar.")
@@ -1726,7 +1728,7 @@ func (g *Game) handleGameUpdate() error {
 		// recover run energy if applicable
 		if pe.player.RunEnergy < model.MaxRunEnergyUnits && !blockRunEnergyRecovery {
 			agility := pe.player.Skills[model.SkillTypeAgility]
-			runDelta := int(math.Ceil(float64(agility.Level)/6.0) + 8)
+			runDelta := int(math.Ceil(float64(agility.BaseLevel)/6.0) + 8)
 
 			pe.player.RunEnergy = util.Min(pe.player.RunEnergy+runDelta, model.MaxRunEnergyUnits)
 			pe.DeferSendRunEnergy()
