@@ -92,9 +92,13 @@ end
 -- @param event The type of event
 -- @param player The player
 function handle_player_change_event(event, player)
-    -- player's run energy has changed
     if event == CHANGE_RUN_ENERGY then
+        -- player's run energy has changed
         interface_147_on_update(player)
+    elseif event == CHANGE_PRAYER_EXHAUSTED then
+        -- player's prayer points have been used up
+        player:server_message("You have run out of prayer points, you can recharge at an altar.")
+        interface_5608_on_update(player)
     else
         print("Unknown change event: ", event)
     end

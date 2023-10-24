@@ -22,6 +22,7 @@ type PlayerChangeEvent int
 
 const (
 	PlayerChangeRunEnergy PlayerChangeEvent = iota
+	PlayerPrayerExhausted
 )
 
 // PlayerType enumerates the possible player access levels.

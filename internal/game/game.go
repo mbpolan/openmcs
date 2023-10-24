@@ -1627,9 +1627,9 @@ func (g *Game) handleGameUpdate() error {
 					if prayerStatLevel == 0 {
 						clear(pe.player.ActivePrayers)
 						pe.player.PrayerDrainCounter = 0
-						pe.DeferSendServerMessage("You have run out of prayer points, you can recharge at an altar.")
 
-						// TODO: this should call out to scripts to handle deactivation
+						// deactivate prayers by invoking their scripts
+						pe.DeferSendChangeEvent(model.PlayerPrayerExhausted)
 					}
 				}
 			}
@@ -2032,6 +2032,8 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 			if err != nil {
 				logger.Warnf("failed to execute player change event script: %s", err)
 			}
+
+			pe.RemoveDeferredAction(deferred)
 
 		case ActionSendRunEnergy:
 			energy := &response.PlayerRunEnergyResponse{RunEnergy: int(pe.player.RunEnergyPercentage())}
