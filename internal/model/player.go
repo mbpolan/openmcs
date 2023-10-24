@@ -96,12 +96,10 @@ type Player struct {
 	UpdateDesign bool
 	// MovementSpeed determines if the player is moving by walking or running
 	MovementSpeed MovementSpeed
-	// PrayerPointCounter is the player's current usage of activated prayer drain points.
-	PrayerPointCounter int
-	// ActivePrayerDrain is the total prayer drain counter applied to the player.
-	ActivePrayerDrain int
-	// ActivePrayers is a slice of prayer IDs for prayers that are currently active on the player.
-	ActivePrayers []int
+	// PrayerDrainCounter is the player's current usage of activated prayer drain points.
+	PrayerDrainCounter int
+	// ActivePrayers is a map of prayer IDs and drain effects for prayers that are currently active on the player.
+	ActivePrayers map[int]int
 }
 
 // PlayerModes indicates what types of chat and interactions a player wishes to receive.
@@ -150,7 +148,8 @@ func NewPlayer(username string) *Player {
 		QuestFlags:         map[int]map[int]int{},
 		MusicTracks:        map[int]bool{},
 		MovementSpeed:      MovementSpeedWalk,
-		PrayerPointCounter: 0,
+		ActivePrayers:      map[int]int{},
+		PrayerDrainCounter: 0,
 	}
 }
 

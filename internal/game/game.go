@@ -13,7 +13,6 @@ import (
 	"github.com/mbpolan/openmcs/internal/util"
 	"github.com/pkg/errors"
 	"math"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -545,7 +544,7 @@ func (g *Game) AddPlayer(p *model.Player, lowMemory bool, writer *network.Protoc
 	pe.DeferSendModes()
 
 	// plan an update to the player's skills
-	pe.DeferSendSkills()
+	pe.DeferSendSkills(nil)
 
 	// plan an update to the player's friends list
 	pe.DeferSendFriendList()
@@ -1608,6 +1607,30 @@ func (g *Game) handleGameUpdate() error {
 			pe.appearanceChanged = false
 		}
 
+		// check the player for prayer drain effects
+		if len(pe.player.ActivePrayers) > 0 {
+			// iterate over each active prayer and apply the drain effect
+			for _, v := range pe.player.ActivePrayers {
+				pe.player.PrayerDrainCounter += v
+
+				// if the player has crossed their prayer drain resistance, subtract the resistance and deduct a prayer
+				// point from their stats
+				if pe.player.PrayerDrainCounter > pe.player.PrayerDrainResistance() {
+					pe.player.PrayerDrainCounter -= pe.player.PrayerDrainResistance()
+					pe.player.CombatStats.Prayer = util.Max(pe.player.CombatStats.Prayer-1, 0)
+
+					pe.DeferSendSkills([]model.SkillType{model.SkillTypePrayer})
+
+					// if the player has no more prayer points, deactivate all prayers
+					if pe.player.CombatStats.Prayer == 0 {
+						clear(pe.player.ActivePrayers)
+						pe.player.PrayerDrainCounter = 0
+						pe.DeferSendServerMessage("You have run out of prayer points, you can recharge at an altar.")
+					}
+				}
+			}
+		}
+
 		// check if the player is moving
 		blockRunEnergyRecovery := false
 		if pe.Moving() {
@@ -1817,7 +1840,9 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 			pe.RemoveDeferredAction(deferred)
 
 		case ActionSendSkills:
-			g.handleSendPlayerSkills(pe)
+			action := deferred.SendSkillsAction
+
+			g.handleSendPlayerSkills(pe, action.SkillTypes)
 			pe.RemoveDeferredAction(deferred)
 
 		case ActionSendModes:
@@ -2027,9 +2052,10 @@ func (g *Game) handleDeferredActions(pe *playerEntity) ActionResult {
 	return result
 }
 
-// handleSendPlayerSkills handles sending a player their current skill levels and experience.
+// handleSendPlayerSkills handles sending a player their current skill levels and experience. The skillTypes slice may
+// contain one or more skills to send, or nil to send all skills.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
-func (g *Game) handleSendPlayerSkills(pe *playerEntity) {
+func (g *Game) handleSendPlayerSkills(pe *playerEntity, skillTypes []model.SkillType) {
 	var responses []response.Response
 
 	for _, skill := range pe.player.Skills {
@@ -2206,13 +2232,11 @@ func (g *Game) handleDelayCurrentAction(pe *playerEntity, tickDuration int) {
 
 // handleTogglePrayer enables or disables a prayer.
 func (g *Game) handleTogglePrayer(pe *playerEntity, prayerID, drain int) {
-	idx := slices.Index(pe.player.ActivePrayers, prayerID)
-	if idx == -1 {
-		pe.player.ActivePrayers = append(pe.player.ActivePrayers, prayerID)
-		pe.player.PrayerPointCounter += drain
+	_, ok := pe.player.ActivePrayers[prayerID]
+	if ok {
+		delete(pe.player.ActivePrayers, prayerID)
 	} else {
-		pe.player.ActivePrayers = slices.Delete(pe.player.ActivePrayers, idx, idx)
-		pe.player.PrayerPointCounter -= drain
+		pe.player.ActivePrayers[prayerID] = drain
 	}
 }
 

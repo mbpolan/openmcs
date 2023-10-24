@@ -58,6 +58,7 @@ type Action struct {
 	ExperienceGrantAction   *ExperienceGrantAction
 	PlayMusicAction         *PlayMusicAction
 	PlayerChangeEventAction *PlayerChangeEventAction
+	SendSkillsAction        *SendSkillsAction
 }
 
 // ActionResult is a bitmask describing the mutations resulting from an action.
@@ -146,4 +147,9 @@ type PlayMusicAction struct {
 // PlayerChangeEventAction is an action to handle a change to a player's attributes.
 type PlayerChangeEventAction struct {
 	Event model.PlayerChangeEvent
+}
+
+// SendSkillsAction is an action that sends skill information to the player's client.
+type SendSkillsAction struct {
+	SkillTypes []model.SkillType
 }

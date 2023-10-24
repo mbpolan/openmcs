@@ -250,10 +250,13 @@ func (pe *playerEntity) DeferSendServerMessage(message string) {
 }
 
 // DeferSendSkills plans an action to send a player their current skill stats.
-func (pe *playerEntity) DeferSendSkills() {
+func (pe *playerEntity) DeferSendSkills(skillTypes []model.SkillType) {
 	pe.deferredActions = append(pe.deferredActions, &Action{
 		ActionType: ActionSendSkills,
 		TickDelay:  1,
+		SendSkillsAction: &SendSkillsAction{
+			SkillTypes: skillTypes,
+		},
 	})
 }
 
