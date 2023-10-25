@@ -5,6 +5,12 @@ function prayer_redemption(player, activate)
     local setting_id = 99
     
     if activate then
+        if not player:has_membership() then
+            player:server_message("You need to be a member to use this prayer.")
+            player:interface_setting(setting_id, 0)
+            return
+        end
+
         local ok = skill_level_minimum(player, SKILL_PRAYER, 49, "You need prayer level 49 to use this prayer.")
         if not ok then
             player:interface_setting(setting_id, 0)

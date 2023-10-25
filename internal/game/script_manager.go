@@ -630,6 +630,12 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			s.handler.handleTeleportPlayer(pe, model.Vector3D{X: x, Y: y, Z: z})
 			return 0
 		},
+		"has_membership": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+
+			state.Push(lua.LBool(pe.player.Member))
+			return 1
+		},
 		"has_prayer_active": func(state *lua.LState) int {
 			pe := state.CheckUserData(1).Value.(*playerEntity)
 			prayerID := state.CheckInt(2)
