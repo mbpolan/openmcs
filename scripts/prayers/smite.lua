@@ -17,6 +17,13 @@ function prayer_smite(player, activate)
             return
         end
 
+        -- disable conflicting prayers
+        prayer_protect_from_magic(player, false)
+        prayer_protect_from_missiles(player, false)
+        prayer_protect_from_melee(player, false)
+        prayer_redemption(player, false)
+        prayer_retribution(player, false)
+
         -- TODO: add buffs, effects, etc.
         player:overhead_icon(OVERHEAD_SMITE)
 

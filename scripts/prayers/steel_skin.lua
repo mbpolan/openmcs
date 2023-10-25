@@ -11,6 +11,10 @@ function prayer_steel_skin(player, activate)
             return
         end
 
+        -- disable conflicting prayers
+        prayer_thick_skin(player, false)
+        prayer_rock_skin(player, false)
+
         -- TODO: add buffs, effects, etc.
 
         player:activate_prayer(PRAYER_STEEL_SKIN, 12)

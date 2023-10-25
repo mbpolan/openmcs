@@ -11,6 +11,10 @@ function prayer_incredible_reflexes(player, activate)
            return
         end
 
+        -- disable conflicting prayers
+        prayer_clarity_of_thought(player, false)
+        prayer_improved_reflexes(player, false)
+
         -- TODO: add buffs, effects, etc.
 
         player:activate_prayer(PRAYER_INCREDIBLE_REFLEXES, 12)

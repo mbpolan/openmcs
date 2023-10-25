@@ -9,6 +9,10 @@ function prayer_burst_of_strength(player, activate)
             return
         end
 
+        -- disable conflicting prayers
+        prayer_superhuman_strength(player, false)
+        prayer_ultimate_strength(player, false)
+
         -- TODO: add buffs, effects, etc.
 
         player:activate_prayer(PRAYER_BURST_OF_STRENGTH, 3)

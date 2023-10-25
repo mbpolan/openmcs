@@ -17,6 +17,13 @@ function prayer_retribution(player, activate)
             return
         end
 
+        -- disable conflicting prayers
+        prayer_protect_from_magic(player, false)
+        prayer_protect_from_missiles(player, false)
+        prayer_protect_from_melee(player, false)
+        prayer_redemption(player, false)
+        prayer_smite(player, false)
+
         -- TODO: add buffs, effects, etc.
         player:overhead_icon(OVERHEAD_RETRIBUTION)
 
