@@ -361,6 +361,7 @@ func (s *SQLite3Driver) loadPlayerInfo(username string, p *model.Player) error {
 		    FLAGGED,
 		    MUTED,
 		    MOVEMENT_SPEED,
+		    RUN_ENERGY,
 		    PUBLIC_CHAT_MODE,
 		    PRIVATE_CHAT_MODE,
 		    INTERACTION_MODE,
@@ -397,6 +398,7 @@ func (s *SQLite3Driver) loadPlayerInfo(username string, p *model.Player) error {
 		&p.Flagged,
 		&p.Muted,
 		&p.MovementSpeed,
+		&p.RunEnergy,
 		&p.Modes.PublicChat,
 		&p.Modes.PrivateChat,
 		&p.Modes.Interaction,
@@ -570,6 +572,7 @@ func (s *SQLite3Driver) loadPlayerSkills(p *model.Player) error {
 	stmt, err := s.db.Prepare(`
 		SELECT
 		    SKILL_ID,
+		    STAT_LEVEL,
 		    EXPERIENCE
 		FROM
 		    PLAYER_SKILL
@@ -586,9 +589,9 @@ func (s *SQLite3Driver) loadPlayerSkills(p *model.Player) error {
 	}
 
 	for rows.Next() {
-		var skillID int
+		var skillID, statLevel int
 		var experience float64
-		err := rows.Scan(&skillID, &experience)
+		err := rows.Scan(&skillID, &statLevel, &experience)
 		if err != nil {
 			return err
 		}
@@ -597,6 +600,7 @@ func (s *SQLite3Driver) loadPlayerSkills(p *model.Player) error {
 		skillType := model.SkillType(skillID)
 
 		// set the skill experience points and let the model recompute the level
+		p.Skills[skillType].StatLevel = statLevel
 		p.SetSkillExperience(skillType, experience)
 	}
 
@@ -793,6 +797,7 @@ func (s *SQLite3Driver) savePlayerInfo(p *model.Player) error {
 			FLAGGED = ?,
 			MUTED = ?,
 			MOVEMENT_SPEED = ?,
+			RUN_ENERGY = ?,
 			PUBLIC_CHAT_MODE =  ?,
 			PRIVATE_CHAT_MODE = ?,
 			INTERACTION_MODE = ?,
@@ -816,6 +821,7 @@ func (s *SQLite3Driver) savePlayerInfo(p *model.Player) error {
 		p.Flagged,
 		p.Muted,
 		p.MovementSpeed,
+		p.RunEnergy,
 		p.Modes.PublicChat,
 		p.Modes.PrivateChat,
 		p.Modes.Interaction,
@@ -1051,13 +1057,14 @@ func (s *SQLite3Driver) savePlayerSkills(p *model.Player) error {
 			PLAYER_SKILL (
 			    PLAYER_ID,
 			    SKILL_ID,
+			    STAT_LEVEL,
 				LEVEL,
 				EXPERIENCE
 			)
 		VALUES %s
 	`
 
-	valueTemplate := "(?, ?, ?, ?)"
+	valueTemplate := "(?, ?, ?, ?, ?)"
 
 	var bulk []string
 	var values []any
@@ -1067,6 +1074,7 @@ func (s *SQLite3Driver) savePlayerSkills(p *model.Player) error {
 		bulk = append(bulk, valueTemplate)
 		values = append(values, p.ID)
 		values = append(values, int(v.Type))
+		values = append(values, v.StatLevel)
 		values = append(values, v.BaseLevel)
 		values = append(values, v.Experience)
 	}

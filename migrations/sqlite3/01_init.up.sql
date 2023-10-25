@@ -31,6 +31,8 @@ CREATE TABLE PLAYER (
     MUTED INTEGER NOT NULL,
     -- whether the player is walking or running
     MOVEMENT_SPEED INTEGER NOT NULL,
+    -- run energy in units
+    RUN_ENERGY INTEGER NOT NULL,
     -- mode for player's public chat
     PUBLIC_CHAT_MODE INTEGER NOT NULL,
     -- mode for player's private chat
@@ -299,7 +301,9 @@ CREATE TABLE PLAYER_SKILL (
     -- owning player
     PLAYER_ID INTEGER NOT NULL REFERENCES PLAYER(ID) ON DELETE CASCADE,
     -- skill id
-    SKILL_ID INT NOT NULL REFERENCES SKILL_LOOKUP(ID) ON DELETE CASCADE ,
+    SKILL_ID INT NOT NULL REFERENCES SKILL_LOOKUP(ID) ON DELETE CASCADE,
+    -- stat level
+    STAT_LEVEL INT NOT NULL,
     -- skill level
     LEVEL INT NOT NULL,
     -- skill experience
