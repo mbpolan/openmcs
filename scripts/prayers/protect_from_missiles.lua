@@ -12,11 +12,13 @@ function prayer_protect_from_missiles(player, activate)
         end
 
         -- TODO: add buffs, effects, etc.
+        player:overhead_icon(OVERHEAD_PROTECT_FROM_MISSILES)
 
         player:activate_prayer(PRAYER_PROTECT_FROM_MISSILES, 12)
         player:interface_setting(setting_id, 1)
     else
         -- TODO: remove buffs, effects, etc.
+        player:overhead_icon(OVERHEAD_NONE)
 
         player:deactivate_prayer(PRAYER_PROTECT_FROM_MISSILES)
         player:interface_setting(setting_id, 0)

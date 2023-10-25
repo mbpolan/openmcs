@@ -2248,6 +2248,13 @@ func (g *Game) handleDeactivatePrayer(pe *playerEntity, prayerID int) {
 	delete(pe.player.ActivePrayers, prayerID)
 }
 
+// handleSetPlayerOverheadIcon sets the overhead icon displayed above the player.
+// Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
+func (g *Game) handleSetPlayerOverheadIcon(pe *playerEntity, iconID int) {
+	pe.player.Appearance.OverheadIconID = iconID
+	pe.appearanceChanged = true
+}
+
 // handlePlayerSwapInventoryItem handles moving an item from one slot to another in a player's inventory.
 // Concurrency requirements: (a) game state may be locked and (b) this player should be locked.
 func (g *Game) handlePlayerSwapInventoryItem(pe *playerEntity, action *MoveInventoryItemAction) {

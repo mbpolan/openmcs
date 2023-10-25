@@ -68,4 +68,6 @@ type ScriptHandler interface {
 	handleActivatePrayer(pe *playerEntity, prayerID, drain int)
 	// handleDeactivatePrayer disables a prayer.
 	handleDeactivatePrayer(pe *playerEntity, prayerID int)
+	// handleSetPlayerOverheadIcon sets the overhead icon displayed above the player.
+	handleSetPlayerOverheadIcon(pe *playerEntity, iconID int)
 }

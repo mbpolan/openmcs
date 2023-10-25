@@ -12,11 +12,13 @@ function prayer_protect_from_melee(player, activate)
         end
 
         -- TODO: add buffs, effects, etc.
+        player:overhead_icon(OVERHEAD_PROTECT_FROM_MELEE)
 
         player:activate_prayer(PRAYER_PROTECT_FROM_MELEE, 12)
         player:interface_setting(setting_id, 1)
     else
         -- TODO: remove buffs, effects, etc.
+        player:overhead_icon(OVERHEAD_NONE)
 
         player:deactivate_prayer(PRAYER_PROTECT_FROM_MELEE)
         player:interface_setting(setting_id, 0)

@@ -18,11 +18,13 @@ function prayer_retribution(player, activate)
         end
 
         -- TODO: add buffs, effects, etc.
+        player:overhead_icon(OVERHEAD_RETRIBUTION)
 
         player:activate_prayer(PRAYER_RETRIBUTION, 3)
         player:interface_setting(setting_id, 1)
     else
         -- TODO: remove buffs, effects, etc.
+        player:overhead_icon(OVERHEAD_NONE)
 
         player:deactivate_prayer(PRAYER_RETRIBUTION)
         player:interface_setting(setting_id, 0)

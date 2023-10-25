@@ -18,11 +18,13 @@ function prayer_smite(player, activate)
         end
 
         -- TODO: add buffs, effects, etc.
+        player:overhead_icon(OVERHEAD_SMITE)
 
         player:activate_prayer(PRAYER_SMITE, 18)
         player:interface_setting(setting_id, 1)
     else
         -- TODO: remove buffs, effects, etc.
+        player:overhead_icon(OVERHEAD_NONE)
 
         player:deactivate_prayer(PRAYER_SMITE)
         player:interface_setting(setting_id, 0)

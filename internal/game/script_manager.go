@@ -659,6 +659,13 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			s.handler.handleDeactivatePrayer(pe, prayerID)
 			return 0
 		},
+		"overhead_icon": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			iconID := state.CheckInt(2)
+
+			s.handler.handleSetPlayerOverheadIcon(pe, iconID)
+			return 0
+		},
 	}))
 }
 
