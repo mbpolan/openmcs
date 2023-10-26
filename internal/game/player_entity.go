@@ -34,6 +34,7 @@ type playerEntity struct {
 	lastAnimations      map[model.AnimationID]int
 	nextStatusBroadcast *playerStatusBroadcast
 	nextUpdate          *response.PlayerUpdateResponse
+	statRegenTicks      map[model.SkillType]int
 	deferredActions     []*Action
 	mu                  sync.Mutex
 	animationTicks      int
@@ -59,6 +60,7 @@ func newPlayerEntity(p *model.Player, w *network.ProtocolWriter) *playerEntity {
 		doneChan:         make(chan bool, 1),
 		outChan:          make(chan response.Response, maxQueueSize),
 		privateMessageID: 1,
+		statRegenTicks:   map[model.SkillType]int{},
 		tabInterfaces:    map[model.ClientTab]int{},
 		writer:           w,
 	}

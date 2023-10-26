@@ -101,6 +101,8 @@ type Player struct {
 	PrayerDrainCounter int
 	// ActivePrayers is a map of prayer IDs and drain effects for prayers that are currently active on the player.
 	ActivePrayers map[int]int
+	// HitpointsRegenRate is the amount of hitpoints recovered after each interval.
+	HitpointsRegenRate int
 }
 
 // PlayerModes indicates what types of chat and interactions a player wishes to receive.
@@ -151,6 +153,7 @@ func NewPlayer(username string) *Player {
 		MovementSpeed:      MovementSpeedWalk,
 		ActivePrayers:      map[int]int{},
 		PrayerDrainCounter: 0,
+		HitpointsRegenRate: 1,
 	}
 }
 

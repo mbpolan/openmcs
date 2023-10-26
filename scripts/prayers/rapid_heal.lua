@@ -11,12 +11,13 @@ function prayer_rapid_heal(player, activate)
             return
         end
 
-        -- TODO: add buffs, effects, etc.
+        -- regenerate twice as many hitpoints per interval
+        player:hitpoints_regen_rate(2.0)
 
         player:activate_prayer(PRAYER_RAPID_HEAL, 2)
         player:interface_setting(setting_id, 1)
     else
-        -- TODO: remove buffs, effects, etc.
+        player:hitpoints_regen_rate(0.5)
 
         player:deactivate_prayer(PRAYER_RAPID_HEAL)
         player:interface_setting(setting_id, 0)

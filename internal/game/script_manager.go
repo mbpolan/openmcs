@@ -666,6 +666,13 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			s.handler.handleSetPlayerOverheadIcon(pe, iconID)
 			return 0
 		},
+		"hitpoints_regen_rate": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			rate := state.CheckNumber(2)
+
+			s.handler.handleSetPlayerHitpointsRegenRate(pe, float32(rate))
+			return 0
+		},
 	}))
 }
 

@@ -70,4 +70,7 @@ type ScriptHandler interface {
 	handleDeactivatePrayer(pe *playerEntity, prayerID int)
 	// handleSetPlayerOverheadIcon sets the overhead icon displayed above the player.
 	handleSetPlayerOverheadIcon(pe *playerEntity, iconID int)
+	// handleSetPlayerHitpointsRegenRate sets the rate at which hitpoints are recovered at each interval. The rate can
+	// be more than 1 to additively increase it, or a fraction to decrease it.
+	handleSetPlayerHitpointsRegenRate(pe *playerEntity, num float32)
 }

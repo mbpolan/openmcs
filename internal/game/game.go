@@ -21,6 +21,9 @@ import (
 // tickInterval defines how long a single tick is.
 const tickInterval = 600 * time.Millisecond
 
+// statRegenTickDelay is the amount of ticks to wait before a player's stat is regenerated.
+const statRegenTickDelay = 100
+
 // itemDespawnInterval defines how long an Item remains on the map before despawning.
 const itemDespawnInterval = 3 * time.Minute
 
@@ -563,6 +566,11 @@ func (g *Game) AddPlayer(p *model.Player, lowMemory bool, writer *network.Protoc
 
 	// plan a welcome message
 	pe.DeferSendServerMessage(g.welcomeMessage)
+
+	// start stat recovery if the player's stats are not at their base levels
+	if pe.player.Skills[model.SkillTypeHitpoints].StatLevel < pe.player.Skills[model.SkillTypeHitpoints].BaseLevel {
+		pe.statRegenTicks[model.SkillTypeHitpoints] = statRegenTickDelay
+	}
 }
 
 // RemovePlayer removes a previously joined player from the world.
@@ -1635,6 +1643,40 @@ func (g *Game) handleGameUpdate() error {
 			}
 		}
 
+		// check the player if their stats are recovering to their base levels
+		var regenSkillUpdates []model.SkillType
+		for skillType, ticks := range pe.statRegenTicks {
+			skill := pe.player.Skills[skillType]
+
+			if skill.StatLevel < skill.BaseLevel {
+				if ticks-1 == 0 {
+					// hitpoints regenerate at a different rate than the remaining skills
+					var regenRate int
+					if skillType == model.SkillTypeHitpoints {
+						regenRate = pe.player.HitpointsRegenRate
+					} else {
+						regenRate = 1
+					}
+
+					// recover stat levels in accordance with the regen rate for that skill
+					skill.StatLevel = min(skill.StatLevel+regenRate, skill.BaseLevel)
+					regenSkillUpdates = append(regenSkillUpdates, skillType)
+
+					// if there is still more stat levels to recover, schedule another recovery interval
+					if skill.StatLevel < skill.BaseLevel {
+						pe.statRegenTicks[skillType] = statRegenTickDelay
+					}
+				} else {
+					pe.statRegenTicks[skillType] = ticks - 1
+				}
+			}
+		}
+
+		// send skill updates for any skills that had recovered stats
+		if len(regenSkillUpdates) > 0 {
+			pe.DeferSendSkills(regenSkillUpdates)
+		}
+
 		// check if the player is moving
 		blockRunEnergyRecovery := false
 		if pe.Moving() {
@@ -2253,6 +2295,17 @@ func (g *Game) handleDeactivatePrayer(pe *playerEntity, prayerID int) {
 func (g *Game) handleSetPlayerOverheadIcon(pe *playerEntity, iconID int) {
 	pe.player.Appearance.OverheadIconID = iconID
 	pe.appearanceChanged = true
+}
+
+// handleSetPlayerHitpointsRegenRate sets the rate at which hitpoints are recovered at each interval. The rate can
+// be greater than 1 to additively increase it, or a fraction to decrease it.
+func (g *Game) handleSetPlayerHitpointsRegenRate(pe *playerEntity, rate float32) {
+	pe.player.HitpointsRegenRate = int(float32(pe.player.HitpointsRegenRate) * rate)
+
+	// prevent the regen rate from being less than one
+	if pe.player.HitpointsRegenRate <= 0 {
+		pe.player.HitpointsRegenRate = 1
+	}
 }
 
 // handlePlayerSwapInventoryItem handles moving an item from one slot to another in a player's inventory.
