@@ -673,6 +673,13 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			s.handler.handleSetPlayerHitpointsRegenRate(pe, float32(rate))
 			return 0
 		},
+		"stat_regen_rate": func(state *lua.LState) int {
+			pe := state.CheckUserData(1).Value.(*playerEntity)
+			rate := state.CheckNumber(2)
+
+			s.handler.handleSetPlayerStatRegenRate(pe, float32(rate))
+			return 0
+		},
 	}))
 }
 

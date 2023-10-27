@@ -72,5 +72,8 @@ type ScriptHandler interface {
 	handleSetPlayerOverheadIcon(pe *playerEntity, iconID int)
 	// handleSetPlayerHitpointsRegenRate sets the rate at which hitpoints are recovered at each interval. The rate can
 	// be more than 1 to additively increase it, or a fraction to decrease it.
-	handleSetPlayerHitpointsRegenRate(pe *playerEntity, num float32)
+	handleSetPlayerHitpointsRegenRate(pe *playerEntity, rate float32)
+	// handleSetPlayerHitpointsRegenRate sets the rate at which non-hitpoints stats are recovered at each interval.
+	// The rate can be more than 1 to additively increase it, or a fraction to decrease it.
+	handleSetPlayerStatRegenRate(pe *playerEntity, rate float32)
 }

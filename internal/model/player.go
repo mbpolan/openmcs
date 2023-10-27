@@ -103,6 +103,8 @@ type Player struct {
 	ActivePrayers map[int]int
 	// HitpointsRegenRate is the amount of hitpoints recovered after each interval.
 	HitpointsRegenRate int
+	// StatRegenRate is the amount of stat levels for non-hitpoints skills recovered after each interval.
+	StatRegenRate int
 }
 
 // PlayerModes indicates what types of chat and interactions a player wishes to receive.
@@ -154,6 +156,7 @@ func NewPlayer(username string) *Player {
 		ActivePrayers:      map[int]int{},
 		PrayerDrainCounter: 0,
 		HitpointsRegenRate: 1,
+		StatRegenRate:      1,
 	}
 }
 

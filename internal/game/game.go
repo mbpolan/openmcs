@@ -568,8 +568,10 @@ func (g *Game) AddPlayer(p *model.Player, lowMemory bool, writer *network.Protoc
 	pe.DeferSendServerMessage(g.welcomeMessage)
 
 	// start stat recovery if the player's stats are not at their base levels
-	if pe.player.Skills[model.SkillTypeHitpoints].StatLevel < pe.player.Skills[model.SkillTypeHitpoints].BaseLevel {
-		pe.statRegenTicks[model.SkillTypeHitpoints] = statRegenTickDelay
+	for skillType, skill := range pe.player.Skills {
+		if skillType != model.SkillTypePrayer && skill.StatLevel < skill.BaseLevel {
+			pe.statRegenTicks[skillType] = statRegenTickDelay
+		}
 	}
 }
 
@@ -1655,7 +1657,7 @@ func (g *Game) handleGameUpdate() error {
 					if skillType == model.SkillTypeHitpoints {
 						regenRate = pe.player.HitpointsRegenRate
 					} else {
-						regenRate = 1
+						regenRate = pe.player.StatRegenRate
 					}
 
 					// recover stat levels in accordance with the regen rate for that skill
@@ -2305,6 +2307,17 @@ func (g *Game) handleSetPlayerHitpointsRegenRate(pe *playerEntity, rate float32)
 	// prevent the regen rate from being less than one
 	if pe.player.HitpointsRegenRate <= 0 {
 		pe.player.HitpointsRegenRate = 1
+	}
+}
+
+// handleSetPlayerHitpointsRegenRate sets the rate at which non-hitpoints stats are recovered at each interval.
+// The rate can be more than 1 to additively increase it, or a fraction to decrease it.
+func (g *Game) handleSetPlayerStatRegenRate(pe *playerEntity, rate float32) {
+	pe.player.StatRegenRate = int(float32(pe.player.StatRegenRate) * rate)
+
+	// prevent the regen rate from being less than one
+	if pe.player.StatRegenRate <= 0 {
+		pe.player.StatRegenRate = 1
 	}
 }
 
