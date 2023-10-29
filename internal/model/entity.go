@@ -1,5 +1,13 @@
 package model
 
+// Entity is a character in the game world, controlled by either a human or the game engine itself.
+type Entity struct {
+	// ID is the globally unique identifier for the entity.
+	ID int
+	// GlobalPos is the position of the entity in global coordinates.
+	GlobalPos Vector3D
+}
+
 // EquipmentSlotType enumerates the different slots items may be equipped to.
 type EquipmentSlotType int
 

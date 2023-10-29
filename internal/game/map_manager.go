@@ -107,12 +107,30 @@ func (m *MapManager) AddPlayer(pe *playerEntity, regionGlobal model.Vector3D) {
 	}
 }
 
-// RemovePlayer removes a player to the world map from the region specified by regionGlobal.
+// RemovePlayer removes a player from the world map from the region specified by regionGlobal.
 func (m *MapManager) RemovePlayer(pe *playerEntity, regionGlobal model.Vector3D) {
 	regions := m.findOverlappingRegions(regionGlobal)
 	for _, origin := range regions {
 		region := m.regions[origin]
 		region.RemovePlayer(pe)
+	}
+}
+
+// AddNPC adds an NPC to the world map at the region whose coordinates correspond to regionGlobal.
+func (m *MapManager) AddNPC(ne *npcEntity, regionGlobal model.Vector3D) {
+	regions := m.findOverlappingRegions(regionGlobal)
+	for _, origin := range regions {
+		region := m.regions[origin]
+		region.AddNPC(ne)
+	}
+}
+
+// RemoveNPC removes an NPC from the world map from the region specified by regionGlobal.
+func (m *MapManager) RemoveNPC(ne *npcEntity, regionGlobal model.Vector3D) {
+	regions := m.findOverlappingRegions(regionGlobal)
+	for _, origin := range regions {
+		region := m.regions[origin]
+		region.RemoveNPC(ne)
 	}
 }
 

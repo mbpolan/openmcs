@@ -47,8 +47,7 @@ type InventorySlot struct {
 // Player is a human player connected to the game server. This struct stores a player's persistent data, including
 // various preferences, game world properties and other such attributes.
 type Player struct {
-	// ID is the player's globally unique identifier.
-	ID int
+	*Entity
 	// Username is the player's display name.
 	Username string
 	// PasswordHash is the player's hashed password.
@@ -57,8 +56,6 @@ type Player struct {
 	Type PlayerType
 	// Flagged is true when the player is suspected of cheating, false if not.
 	Flagged bool
-	// GlobalPos is the player's position on the world map, in global coordinates.
-	GlobalPos Vector3D
 	// Appearance is the player's model appearance.
 	Appearance EntityAppearance
 	// AutoRetaliate controls if the player automatically responds to combat.
@@ -143,6 +140,7 @@ func NewPlayer(username string) *Player {
 	}
 
 	return &Player{
+		Entity:             &Entity{},
 		Username:           username,
 		Appearance:         appearance,
 		AttackStyles:       InitAttackStyleMap(),

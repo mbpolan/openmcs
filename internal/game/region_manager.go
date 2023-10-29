@@ -42,8 +42,10 @@ type RegionManager struct {
 	chunkStates map[model.Vector3D]*chunkState
 	// pendingEvents is a slice of deltas that have occurred to this region's state that need to be reconciled.
 	pendingEvents []*changeDelta
-	// players is a map of players IDs to player entities that are in this region.
+	// players is a map of player IDs to players that are in this region.
 	players map[int]*playerEntity
+	// npcs is a map of NPC IDs to NPCs that are in this region.
+	npcs map[int]*npcEntity
 	// mu is a mutex for volatile struct fields.
 	mu sync.Mutex
 }
@@ -71,6 +73,7 @@ func NewRegionManager(origin model.Vector3D, m *model.Map) *RegionManager {
 		chunkRelative:    map[model.Vector3D]model.Vector2D{},
 		chunkStates:      map[model.Vector3D]*chunkState{},
 		players:          map[int]*playerEntity{},
+		npcs:             map[int]*npcEntity{},
 		origin:           origin,
 		clientBaseArea:   clientBaseArea,
 		clientBaseRegion: clientBaseRegion,
@@ -111,21 +114,31 @@ func (r *RegionManager) RemovePlayer(pe *playerEntity) {
 	delete(r.players, pe.player.ID)
 }
 
+// AddNPC adds an NPC to the region.
+func (r *RegionManager) AddNPC(ne *npcEntity) {
+	r.npcs[ne.npc.ID] = ne
+}
+
+// RemoveNPC removes an NPC from the region.
+func (r *RegionManager) RemoveNPC(ne *npcEntity) {
+	delete(r.npcs, ne.npc.ID)
+}
+
 // FindSpectators returns a slice of players that are within visual distance of a given player.
 func (r *RegionManager) FindSpectators(pe *playerEntity) []*playerEntity {
 	var others []*playerEntity
-	for _, tpe := range r.players {
+	for _, other := range r.players {
 		// ignore our own player and others players on different z coordinates
-		if tpe.player.ID == pe.player.ID || tpe.player.GlobalPos.Z != pe.player.GlobalPos.Z {
+		if other.player.ID == pe.player.ID || other.player.GlobalPos.Z != pe.player.GlobalPos.Z {
 			continue
 		}
 
 		// compute their distance to the player and add them as a spectator if they are within range
 		// TODO: make this configurable?
-		dx := util.Abs(tpe.player.GlobalPos.X - pe.player.GlobalPos.X)
-		dy := util.Abs(tpe.player.GlobalPos.Y - pe.player.GlobalPos.Y)
+		dx := util.Abs(other.player.GlobalPos.X - pe.player.GlobalPos.X)
+		dy := util.Abs(other.player.GlobalPos.Y - pe.player.GlobalPos.Y)
 		if dx <= 14 && dy <= 14 {
-			others = append(others, tpe)
+			others = append(others, other)
 		}
 	}
 
