@@ -1791,7 +1791,7 @@ func (g *Game) handleGameUpdate() error {
 		}
 
 		// find players within visual distance of this player
-		others := g.mapManager.FindSpectators(pe, regionGlobal)
+		others := g.mapManager.FindSpectators(pe)
 		updatedTracking := map[int]*playerEntity{}
 
 		for _, other := range others {
