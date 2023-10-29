@@ -510,6 +510,10 @@ func (g *Game) AddPlayer(p *model.Player, lowMemory bool, writer *network.Protoc
 	regionOrigin, regionRelative := g.playerRegionPosition(pe)
 	pe.regionOrigin = regionOrigin
 
+	// add the player to the map
+	regionGlobal := util.RegionOriginToGlobal(g.findEffectiveRegion(pe))
+	g.mapManager.AddPlayer(pe, regionGlobal)
+
 	// plan an initial map region load
 	region := response.NewLoadRegionResponse(regionOrigin)
 	pe.Send(region)
@@ -737,28 +741,6 @@ func (g *Game) broadcastPlayerStatus(pe *playerEntity, targets ...string) {
 			}
 		}
 	}
-}
-
-// findSpectators returns a slice of players that are within visual distance of a given player.
-// Concurrency requirements: (a) game state should be locked and (b) all players should be locked.
-func (g *Game) findSpectators(pe *playerEntity) []*playerEntity {
-	var others []*playerEntity
-	for _, tpe := range g.players {
-		// ignore our own player and others players on different z coordinates
-		if tpe.player.ID == pe.player.ID || tpe.player.GlobalPos.Z != pe.player.GlobalPos.Z {
-			continue
-		}
-
-		// compute their distance to the player and add them as a spectator if they are within range
-		// TODO: make this configurable?
-		dx := util.Abs(tpe.player.GlobalPos.X - pe.player.GlobalPos.X)
-		dy := util.Abs(tpe.player.GlobalPos.Y - pe.player.GlobalPos.Y)
-		if dx <= 14 && dy <= 14 {
-			others = append(others, tpe)
-		}
-	}
-
-	return others
 }
 
 // findPlayerAndLockGame returns the playerEntity for the corresponding player, locking only the game mutex. You must
@@ -1550,6 +1532,10 @@ func (g *Game) handleGameUpdate() error {
 			g.playersOnline.Delete(pe.player.Username)
 			g.broadcastPlayerStatus(pe)
 
+			// remove the player from the map
+			regionGlobal := util.RegionOriginToGlobal(g.findEffectiveRegion(pe))
+			g.mapManager.RemovePlayer(pe, regionGlobal)
+
 			// flag the player's event loop to stop and disconnect them
 			pe.mu.Unlock()
 			pe.Drop()
@@ -1765,6 +1751,10 @@ func (g *Game) handleGameUpdate() error {
 					pe.Send(state...)
 				}
 
+				// move the player between regions on the map
+				g.mapManager.RemovePlayer(pe, util.RegionOriginToGlobal(pe.regionOrigin))
+				g.mapManager.AddPlayer(pe, util.RegionOriginToGlobal(origin))
+
 				// mark this as the current region the player's client has loaded
 				pe.regionOrigin = origin
 				changedRegions[pe.player.ID] = true
@@ -1801,14 +1791,26 @@ func (g *Game) handleGameUpdate() error {
 		}
 
 		// find players within visual distance of this player
-		others := g.findSpectators(pe)
+		others := g.mapManager.FindSpectators(pe, regionGlobal)
+		updatedTracking := map[int]*playerEntity{}
+
+		if pe.player.ID == 2 {
+			var k []int
+			for _, k1 := range others {
+				k = append(k, k1.player.ID)
+			}
+			logger.Infof("Player 2 others: %+v", k)
+		}
+
 		for _, other := range others {
-			_, known := pe.tracking[other.player.ID]
+			// add this player to the new tracking list
+			updatedTracking[other.player.ID] = other
 
 			// determine what to do with this player. there are several possibilities:
 			// (a) this is the first time we've seen them: send an update including their appearance and location
 			// (b) we've seen them before, but we don't yet have their update captured
 			// (c) we've seen them before and know their last update: no action needed
+			_, known := pe.tracking[other.player.ID]
 			if !known {
 				posOffset := other.player.GlobalPos.Sub(pe.player.GlobalPos).To2D()
 				update.AddToPlayerList(other.index, posOffset, true, true)
@@ -1853,6 +1855,7 @@ func (g *Game) handleGameUpdate() error {
 			}
 		}
 
+		pe.tracking = updatedTracking
 		pe.chatHighWater = time.Now()
 	}
 

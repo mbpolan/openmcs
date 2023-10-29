@@ -42,6 +42,8 @@ type RegionManager struct {
 	chunkStates map[model.Vector3D]*chunkState
 	// pendingEvents is a slice of deltas that have occurred to this region's state that need to be reconciled.
 	pendingEvents []*changeDelta
+	// players is a map of players IDs to player entities that are in this region.
+	players map[int]*playerEntity
 	// mu is a mutex for volatile struct fields.
 	mu sync.Mutex
 }
@@ -68,6 +70,7 @@ func NewRegionManager(origin model.Vector3D, m *model.Map) *RegionManager {
 	mgr := &RegionManager{
 		chunkRelative:    map[model.Vector3D]model.Vector2D{},
 		chunkStates:      map[model.Vector3D]*chunkState{},
+		players:          map[int]*playerEntity{},
 		origin:           origin,
 		clientBaseArea:   clientBaseArea,
 		clientBaseRegion: clientBaseRegion,
@@ -96,6 +99,37 @@ func (r *RegionManager) State(trim model.Boundary) []response.Response {
 	}
 
 	return state
+}
+
+// AddPlayer adds a player to the region.
+func (r *RegionManager) AddPlayer(pe *playerEntity) {
+	r.players[pe.player.ID] = pe
+}
+
+// RemovePlayer removes a player from the region.
+func (r *RegionManager) RemovePlayer(pe *playerEntity) {
+	delete(r.players, pe.player.ID)
+}
+
+// FindSpectators returns a slice of players that are within visual distance of a given player.
+func (r *RegionManager) FindSpectators(pe *playerEntity) []*playerEntity {
+	var others []*playerEntity
+	for _, tpe := range r.players {
+		// ignore our own player and others players on different z coordinates
+		if tpe.player.ID == pe.player.ID || tpe.player.GlobalPos.Z != pe.player.GlobalPos.Z {
+			continue
+		}
+
+		// compute their distance to the player and add them as a spectator if they are within range
+		// TODO: make this configurable?
+		dx := util.Abs(tpe.player.GlobalPos.X - pe.player.GlobalPos.X)
+		dy := util.Abs(tpe.player.GlobalPos.Y - pe.player.GlobalPos.Y)
+		if dx <= 14 && dy <= 14 {
+			others = append(others, tpe)
+		}
+	}
+
+	return others
 }
 
 // MarkGroundItemAdded informs the region manager that a ground Item with a stack amount was placed on a tile.

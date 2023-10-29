@@ -98,6 +98,29 @@ func (m *MapManager) State(origin model.Vector3D, trim model.Boundary) []respons
 	return region.State(trim)
 }
 
+// AddPlayer adds a player to the world map at the region whose coordinates correspond to regionGlobal.
+func (m *MapManager) AddPlayer(pe *playerEntity, regionGlobal model.Vector3D) {
+	regions := m.findOverlappingRegions(regionGlobal)
+	for _, origin := range regions {
+		region := m.regions[origin]
+		region.AddPlayer(pe)
+	}
+}
+
+// RemovePlayer removes a player to the world map from the region specified by regionGlobal.
+func (m *MapManager) RemovePlayer(pe *playerEntity, regionGlobal model.Vector3D) {
+	regions := m.findOverlappingRegions(regionGlobal)
+	for _, origin := range regions {
+		region := m.regions[origin]
+		region.RemovePlayer(pe)
+	}
+}
+
+// FindSpectators returns a slice of playerEntity instances that are within viewable distance of the given player.
+func (m *MapManager) FindSpectators(pe *playerEntity, regionGlobal model.Vector3D) []*playerEntity {
+	return m.regions[regionGlobal].FindSpectators(pe)
+}
+
 // AddGroundItem adds a ground Item to the top of a tile with an optional timeout (in seconds) when that Item should
 // automatically be removed. Stackable items will be added to an existing stackable with the same Item ID, if one
 // exists, or they will be placed as new items on the tile.
