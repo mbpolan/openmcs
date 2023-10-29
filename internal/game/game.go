@@ -1794,14 +1794,6 @@ func (g *Game) handleGameUpdate() error {
 		others := g.mapManager.FindSpectators(pe, regionGlobal)
 		updatedTracking := map[int]*playerEntity{}
 
-		if pe.player.ID == 2 {
-			var k []int
-			for _, k1 := range others {
-				k = append(k, k1.player.ID)
-			}
-			logger.Infof("Player 2 others: %+v", k)
-		}
-
 		for _, other := range others {
 			// add this player to the new tracking list
 			updatedTracking[other.player.ID] = other
