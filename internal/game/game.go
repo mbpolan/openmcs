@@ -126,6 +126,14 @@ func NewGame(opts Options) (*Game, error) {
 
 	logger.Infof("finished map warm-up in: %s", time.Now().Sub(start))
 
+	// add a dummy npc
+	npc := model.NewNPC()
+	npc.ID = 4200
+	npc.DefinitionID = 1
+	npc.GlobalPos = model.Vector3D{X: 3241, Y: 3428, Z: 0}
+	ne := newNPCEntity(npc)
+	g.mapManager.AddNPC(ne, util.GlobalToRegionGlobal(npc.GlobalPos))
+
 	return g, nil
 }
 
@@ -1790,8 +1798,8 @@ func (g *Game) handleGameUpdate() error {
 			pe.Send(updates...)
 		}
 
-		// find players within visual distance of this player
-		others := g.mapManager.FindSpectators(pe)
+		// find players and npcs within visual distance of this player
+		others, _ := g.mapManager.FindSpectators(pe)
 		updatedTracking := map[int]*playerEntity{}
 
 		for _, other := range others {

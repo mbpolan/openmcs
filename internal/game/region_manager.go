@@ -124,8 +124,8 @@ func (r *RegionManager) RemoveNPC(ne *npcEntity) {
 	delete(r.npcs, ne.npc.ID)
 }
 
-// FindSpectators returns a slice of players that are within visual distance of a given player.
-func (r *RegionManager) FindSpectators(pe *playerEntity) []*playerEntity {
+// FindNearbyPlayers returns a slice of players that are within visual distance of a given player.
+func (r *RegionManager) FindNearbyPlayers(pe *playerEntity) []*playerEntity {
 	var others []*playerEntity
 	for _, other := range r.players {
 		// ignore our own player and others players on different z coordinates
@@ -137,6 +137,22 @@ func (r *RegionManager) FindSpectators(pe *playerEntity) []*playerEntity {
 		// TODO: make this configurable?
 		dx := util.Abs(other.player.GlobalPos.X - pe.player.GlobalPos.X)
 		dy := util.Abs(other.player.GlobalPos.Y - pe.player.GlobalPos.Y)
+		if dx <= 14 && dy <= 14 {
+			others = append(others, other)
+		}
+	}
+
+	return others
+}
+
+// FindNearbyNPCs returns a slice of NPCs that are within visual distance of a given player.
+func (r *RegionManager) FindNearbyNPCs(pe *playerEntity) []*npcEntity {
+	var others []*npcEntity
+	for _, other := range r.npcs {
+		// compute their distance to the player and add them as a spectator if they are within range
+		// TODO: this should be configurable by npc logic
+		dx := util.Abs(other.npc.GlobalPos.X - pe.player.GlobalPos.X)
+		dy := util.Abs(other.npc.GlobalPos.Y - pe.player.GlobalPos.Y)
 		if dx <= 14 && dy <= 14 {
 			others = append(others, other)
 		}

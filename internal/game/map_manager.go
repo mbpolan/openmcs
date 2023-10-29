@@ -134,21 +134,26 @@ func (m *MapManager) RemoveNPC(ne *npcEntity, regionGlobal model.Vector3D) {
 	}
 }
 
-// FindSpectators returns a map of player IDs to playerEntity instances that are within viewable distance of the given
-// player.
-func (m *MapManager) FindSpectators(pe *playerEntity) map[int]*playerEntity {
-	spectators := map[int]*playerEntity{}
+// FindSpectators returns a tuple of players and NPCs that are within visual distance to a player. The keys of the map
+// are the player's IDs and NPC IDs, respectively.
+func (m *MapManager) FindSpectators(pe *playerEntity) (map[int]*playerEntity, map[int]*npcEntity) {
+	players := map[int]*playerEntity{}
+	npcs := map[int]*npcEntity{}
 
 	regions := m.findOverlappingRegions(pe.player.GlobalPos)
 	for _, origin := range regions {
 		region := m.regions[origin]
 
-		for _, pe := range region.FindSpectators(pe) {
-			spectators[pe.player.ID] = pe
+		for _, pe := range region.FindNearbyPlayers(pe) {
+			players[pe.player.ID] = pe
+		}
+
+		for _, ne := range region.FindNearbyNPCs(pe) {
+			npcs[ne.npc.ID] = ne
 		}
 	}
 
-	return spectators
+	return players, npcs
 }
 
 // AddGroundItem adds a ground Item to the top of a tile with an optional timeout (in seconds) when that Item should
