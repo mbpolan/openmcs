@@ -18,6 +18,7 @@ type playerEntity struct {
 	lastInteraction     time.Time
 	player              *model.Player
 	tracking            map[int]*playerEntity
+	npcTracking         map[int]*npcEntity
 	changeChan          chan bool
 	doneChan            chan bool
 	outChan             chan response.Response
@@ -56,6 +57,7 @@ func newPlayerEntity(p *model.Player, w *network.ProtocolWriter) *playerEntity {
 		lastInteraction:  time.Now(),
 		player:           p,
 		tracking:         map[int]*playerEntity{},
+		npcTracking:      map[int]*npcEntity{},
 		changeChan:       changeChan,
 		doneChan:         make(chan bool, 1),
 		outChan:          make(chan response.Response, maxQueueSize),

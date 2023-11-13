@@ -130,7 +130,7 @@ func NewGame(opts Options) (*Game, error) {
 	npc := model.NewNPC()
 	npc.ID = 4200
 	npc.DefinitionID = 1
-	npc.GlobalPos = model.Vector3D{X: 3241, Y: 3428, Z: 0}
+	npc.GlobalPos = model.Vector3D{X: 3239, Y: 3429, Z: 0}
 	ne := newNPCEntity(npc)
 	g.mapManager.AddNPC(ne, util.GlobalToRegionGlobal(npc.GlobalPos))
 
@@ -1799,8 +1799,38 @@ func (g *Game) handleGameUpdate() error {
 		}
 
 		// find players and npcs within visual distance of this player
-		others, _ := g.mapManager.FindSpectators(pe)
+		others, npcs := g.mapManager.FindSpectators(pe)
 		updatedTracking := map[int]*playerEntity{}
+		updatedNPCTracking := map[int]*npcEntity{}
+
+		// if there are npcs to we need to inform the player about, start tracking their updates
+		var npcUpdates *response.NPCUpdateResponse
+		if len(npcs) > 0 {
+			npcUpdates = response.NewNPCUpdateResponse()
+		}
+
+		// write each npc update
+		for _, other := range npcs {
+			// add this npc to the new tracking list
+			updatedNPCTracking[other.npc.ID] = other
+
+			// if the player already has seen this npc, then we only need to track them in the update
+			// otherwise, we need to add the npc to the player's npc list and send a complete update
+			_, known := pe.npcTracking[other.npc.ID]
+			if !known {
+				posOffset := other.npc.GlobalPos.Sub(pe.player.GlobalPos).To2D()
+				npcUpdates.AddNPCToList(other.npc.ID, other.npc.DefinitionID, posOffset, true, true)
+			} else {
+				npcUpdates.AddNPCNoMovement(other.npc.ID)
+			}
+
+			pe.npcTracking = updatedNPCTracking
+		}
+
+		// send all npc updates to the player
+		if npcUpdates != nil {
+			pe.Send(npcUpdates)
+		}
 
 		for _, other := range others {
 			// add this player to the new tracking list
