@@ -537,6 +537,19 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 
 		c.game.DoSetPlayerDesign(c.player, req.Gender, req.Base, req.BodyColors)
 
+	case request.InteractWithNPCAction1RequestHeader,
+		request.InteractWithNPCAction2RequestHeader,
+		request.InteractWithNPCAction3RequestHeader,
+		request.InteractWithNPCAction4RequestHeader:
+		// the player interacted with an npc
+		var req request.InteractWithNPCRequest
+		err = req.Read(c.reader)
+		if err != nil {
+			break
+		}
+
+		c.game.DoInteractWithNPC(c.player, req.ActionIndex, req.TargetID)
+
 	default:
 		// unknown packet
 		err = fmt.Errorf("unexpected packet header: %2x", header)
