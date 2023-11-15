@@ -537,6 +537,16 @@ func (c *ClientHandler) handleLoop() (clientState, error) {
 
 		c.game.DoSetPlayerDesign(c.player, req.Gender, req.Base, req.BodyColors)
 
+	case request.AttackNPCRequestHeader:
+		// the player attacked an npc
+		var req request.AttackNPCRequest
+		err = req.Read(c.reader)
+		if err != nil {
+			break
+		}
+
+		c.game.DoAttackNPC(c.player, req.TargetID)
+
 	case request.InteractWithNPCAction1RequestHeader,
 		request.InteractWithNPCAction2RequestHeader,
 		request.InteractWithNPCAction3RequestHeader,

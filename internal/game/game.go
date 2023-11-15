@@ -690,7 +690,12 @@ func (g *Game) DoUnequipItem(p *model.Player, itemID, interfaceID int, slotType 
 	pe.DeferUnequipItem(targetItem, interfaceID, slotType)
 }
 
-// DoInteractWithNPC handles a player requesting to interact with an NPC
+// DoAttackNPC handles a player requesting to attack an NPC.
+func (g *Game) DoAttackNPC(p *model.Player, targetID int) {
+	// TODO
+}
+
+// DoInteractWithNPC handles a player requesting to interact with an NPC.
 func (g *Game) DoInteractWithNPC(p *model.Player, actionIndex, targetID int) {
 	// TODO
 }
