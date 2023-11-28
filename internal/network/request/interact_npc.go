@@ -24,22 +24,38 @@ func (p *InteractWithNPCRequest) Read(r *network.ProtocolReader) error {
 		return err
 	}
 
-	// read 2 bytes for the target npc id
-	targetID, err := r.Uint16Alt()
-	if err != nil {
-		return err
-	}
-
-	// translate the header into an action index
+	// translate the header into an action index and read 2 bytes for the target npc id. the format of the id
+	// varies depending on the packet
+	var targetID uint16
 	switch header {
 	case InteractWithNPCAction1RequestHeader:
 		p.ActionIndex = 0
+
+		targetID, err = r.Uint16LE()
+		if err != nil {
+			return err
+		}
 	case InteractWithNPCAction2RequestHeader:
 		p.ActionIndex = 1
+
+		targetID, err = r.Uint16LEAlt()
+		if err != nil {
+			return err
+		}
 	case InteractWithNPCAction3RequestHeader:
 		p.ActionIndex = 2
+
+		targetID, err = r.Uint16()
+		if err != nil {
+			return err
+		}
 	case InteractWithNPCAction4RequestHeader:
 		p.ActionIndex = 3
+
+		targetID, err = r.Uint16LE()
+		if err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("unexpected interact with NPC header: %2x", header)
 	}
