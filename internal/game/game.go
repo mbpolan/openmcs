@@ -127,9 +127,8 @@ func NewGame(opts Options) (*Game, error) {
 	logger.Infof("finished map warm-up in: %s", time.Now().Sub(start))
 
 	// add a dummy npc
-	npc := model.NewNPC()
+	npc := model.NewNPC(70, "turael")
 	npc.ID = 4200
-	npc.DefinitionID = 1
 	npc.GlobalPos = model.Vector3D{X: 3239, Y: 3429, Z: 0}
 	ne := newNPCEntity(npc)
 	g.mapManager.AddNPC(ne, util.GlobalToRegionGlobal(npc.GlobalPos))
@@ -1792,6 +1791,14 @@ func (g *Game) handleGameUpdate() error {
 		if pe.nextStatusBroadcast != nil {
 			g.broadcastPlayerStatus(pe, pe.nextStatusBroadcast.targets...)
 			pe.nextStatusBroadcast = nil
+		}
+	}
+
+	// process each npc on this game tick
+	for _, ne := range g.mapManager.RegionsWithNPCs() {
+		err := g.scripts.DoNPCOnTick(ne)
+		if err != nil {
+			logger.Errorf("failed to execute script for NPC ID %d: %v", ne.npc.ID, err)
 		}
 	}
 

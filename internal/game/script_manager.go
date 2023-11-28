@@ -15,6 +15,7 @@ import (
 )
 
 const luaTypePlayerEntity = "playerEntity"
+const luaTypeNPCEntity = "npcEntity"
 const luaTypeInterface = "interface"
 const luaTypeItem = "item"
 
@@ -117,11 +118,24 @@ func (s *ScriptManager) DoCastSpellOnItem(pe *playerEntity, item *model.Item, sl
 		s.interfaceType(spell, s.state))
 }
 
+// DoNPCOnTick executes an NPC's per-tick logic script.
+func (s *ScriptManager) DoNPCOnTick(ne *npcEntity) error {
+	return s.doFunctionVoid(fmt.Sprintf("npc_%s_on_tick", ne.npc.ScriptSlug), s.npcEntityType(ne, s.state))
+}
+
 // playerEntity creates a Lua user-defined data type for a playerEntity.
 func (s *ScriptManager) playerEntityType(pe *playerEntity, l *lua.LState) *lua.LUserData {
 	ud := l.NewUserData()
 	ud.Value = pe
 	ud.Metatable = l.GetTypeMetatable(luaTypePlayerEntity)
+	return ud
+}
+
+// npcEntity creates a Lua user-defined data type for an npcEntity.
+func (s *ScriptManager) npcEntityType(ne *npcEntity, l *lua.LState) *lua.LUserData {
+	ud := l.NewUserData()
+	ud.Value = ne
+	ud.Metatable = l.GetTypeMetatable(luaTypeNPCEntity)
 	return ud
 }
 
@@ -147,6 +161,7 @@ func (s *ScriptManager) createState() (*lua.LState, error) {
 	s.registerInterfaceModel(l)
 	s.registerItemModel(l)
 	s.registerPlayerModel(l)
+	s.registerNPCModel(l)
 
 	err := s.registerFunctionProtos(l)
 	if err != nil {
@@ -681,6 +696,12 @@ func (s *ScriptManager) registerPlayerModel(l *lua.LState) {
 			return 0
 		},
 	}))
+}
+
+// registerNPCModel registers metadata for an npcEntity type.
+func (s *ScriptManager) registerNPCModel(l *lua.LState) {
+	mt := l.NewTypeMetatable(luaTypeNPCEntity)
+	l.SetGlobal(luaTypeNPCEntity, mt)
 }
 
 // registerFunctionProtos executes compiled functions into a Lua state.

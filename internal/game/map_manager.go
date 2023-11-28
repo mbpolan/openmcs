@@ -134,6 +134,20 @@ func (m *MapManager) RemoveNPC(ne *npcEntity, regionGlobal model.Vector3D) {
 	}
 }
 
+// RegionsWithNPCs returns a map of NPC IDs to their entities that are found on the map.
+func (m *MapManager) RegionsWithNPCs() map[int]*npcEntity {
+	npcs := map[int]*npcEntity{}
+
+	// TODO: can npc entities be separated by region?
+	for _, region := range m.regions {
+		for id, entity := range region.npcs {
+			npcs[id] = entity
+		}
+	}
+
+	return npcs
+}
+
 // FindSpectators returns a tuple of players and NPCs that are within visual distance to a player. The keys of the map
 // are the player's IDs and NPC IDs, respectively.
 func (m *MapManager) FindSpectators(pe *playerEntity) (map[int]*playerEntity, map[int]*npcEntity) {
