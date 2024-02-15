@@ -4,7 +4,7 @@ An open source server emulator for your favorite online medieval clicking simula
 
 ## Building
 
-You'll need at least Go 1.21 to work with this project.
+You'll need at least Go 1.22 to work with this project.
 
 You can build an executable for the server simply by running `make` in the top-level directory. This will run unit tests
 and build the code into a binary which you can then run.
